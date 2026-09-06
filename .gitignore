@@ -1,0 +1,9 @@
+build/ 
+dist/ 
+target/ 
+*.class 
+*.war 
+.nb-gradle/ 
+nbproject/private/ 
+*.log 
+.env 
