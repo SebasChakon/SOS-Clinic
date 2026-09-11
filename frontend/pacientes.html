@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SOS · Pacientes</title>
+<link rel="stylesheet" href="assets/estilos.css">
+<style>
+  .grid-pacientes {
+    display: grid;
+    grid-template-columns: 340px 1fr;
+    gap: 24px;
+    align-items: start;
+  }
+
+  .barra-lista {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 16px;
+  }
+
+  .barra-lista .campo-busqueda {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+
+  .barra-lista .campo-busqueda input {
+    width: 220px;
+  }
+
+  .barra-lista .campo-busqueda button {
+    padding: 10px 14px;
+    font-size: 13.5px;
+  }
+
+  @media (max-width: 900px) {
+    .grid-pacientes { grid-template-columns: 1fr; }
+    .barra-lista { flex-direction: column; align-items: flex-start; gap: 12px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="marca"><strong>SOS</strong> · Sistema de Triage Inteligente</div>
+  <nav>
+    <a href="triage.html">Triage</a>
+    <a href="pacientes.html" class="activo">Pacientes</a>
+  </nav>
+  <div style="display:flex; align-items:center; gap:14px;">
+    <span id="infoUsuario" style="font-size:13px; color:#b9c8d0;"></span>
+    <button class="salir" onclick="cerrarSesion()">Salir</button>
+  </div>
+</div>
+
+<div class="contenido">
+  <h1>Pacientes</h1>
+  <p class="sub">Registra un paciente nuevo o búscalo por cédula antes de enviarlo a triage.</p>
+
+  <div class="grid-pacientes">
+
+    <!-- Formulario de registro -->
+    <div class="tarjeta">
+      <h2>Registrar paciente</h2>
+      <p class="sub">Todos los campos son obligatorios.</p>
+
+      <form id="formPaciente">
+        <div class="campo">
+          <label for="nombre">Nombre</label>
+          <input type="text" id="nombre" placeholder="Carlos" required>
+        </div>
+
+        <div class="campo">
+          <label for="apellido">Apellido</label>
+          <input type="text" id="apellido" placeholder="Ramírez" required>
+        </div>
+
+        <div class="campo">
+          <label for="cedula">Cédula</label>
+          <input type="text" id="cedula" placeholder="1122334455" required>
+        </div>
+
+        <div class="campo">
+          <label for="fechaNacimiento">Fecha de nacimiento</label>
+          <input type="date" id="fechaNacimiento" required>
+        </div>
+
+        <button type="submit" id="btnRegistrar" class="boton-primario boton-full">Registrar paciente</button>
+
+        <div class="mensaje" id="mensajePaciente"></div>
+      </form>
+    </div>
+
+    <!-- Listado de pacientes -->
+    <div class="tarjeta">
+      <div class="barra-lista">
+        <h2 style="margin:0;">Pacientes registrados</h2>
+        <div class="campo-busqueda">
+          <input type="text" id="buscarCedula" placeholder="Buscar por cédula...">
+          <button class="boton-secundario" onclick="buscarPorCedula()">Buscar</button>
+        </div>
+      </div>
+
+      <table>
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Nombre</th>
+            <th>Cédula</th>
+            <th>Fecha nacimiento</th>
+          </tr>
+        </thead>
+        <tbody id="cuerpoTablaPacientes">
+          <tr><td colspan="4" class="tabla-vacia">Cargando...</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+  </div>
+</div>
+
+<script src="assets/api.js"></script>
+<script>
+  exigirSesion();
+
+  const sesion = obtenerSesion();
+  document.getElementById('infoUsuario').textContent = `${sesion.usuario} · ${sesion.perfil}`;
+
+  function pintarPacientes(pacientes) {
+    const cuerpo = document.getElementById('cuerpoTablaPacientes');
+
+    if (pacientes.length === 0) {
+      cuerpo.innerHTML = '<tr><td colspan="4" class="tabla-vacia">No hay pacientes registrados</td></tr>';
+      return;
+    }
+
+    cuerpo.innerHTML = pacientes.map((p) => `
+      <tr>
+        <td>${p.idPaciente}</td>
+        <td>${p.nombre} ${p.apellido}</td>
+        <td>${p.cedula}</td>
+        <td>${p.fechaNacimiento}</td>
+      </tr>
+    `).join('');
+  }
+
+  async function cargarPacientes() {
+    const cuerpo = document.getElementById('cuerpoTablaPacientes');
+    try {
+      const pacientes = await listarPacientes();
+      pintarPacientes(pacientes);
+    } catch (error) {
+      cuerpo.innerHTML = `<tr><td colspan="4" class="tabla-vacia">${error.message}</td></tr>`;
+    }
+  }
+
+  async function buscarPorCedula() {
+    const cedula = document.getElementById('buscarCedula').value.trim();
+    const cuerpo = document.getElementById('cuerpoTablaPacientes');
+
+    if (!cedula) {
+      cargarPacientes();
+      return;
+    }
+
+    try {
+      const paciente = await obtenerPacientePorCedula(cedula);
+      pintarPacientes([paciente]);
+    } catch (error) {
+      cuerpo.innerHTML = '<tr><td colspan="4" class="tabla-vacia">No se encontró ningún paciente con esa cédula</td></tr>';
+    }
+  }
+
+  document.getElementById('buscarCedula').addEventListener('keydown', (evento) => {
+    if (evento.key === 'Enter') {
+      evento.preventDefault();
+      buscarPorCedula();
+    }
+  });
+
+  // --- Formulario de registro ---
+
+  const formPaciente = document.getElementById('formPaciente');
+
+  formPaciente.addEventListener('submit', async (evento) => {
+    evento.preventDefault();
+    limpiarMensaje('mensajePaciente');
+
+    const boton = document.getElementById('btnRegistrar');
+    boton.disabled = true;
+    boton.textContent = 'Registrando...';
+
+    try {
+      await crearPaciente({
+        nombre: document.getElementById('nombre').value.trim(),
+        apellido: document.getElementById('apellido').value.trim(),
+        cedula: document.getElementById('cedula').value.trim(),
+        fechaNacimiento: document.getElementById('fechaNacimiento').value
+      });
+
+      mostrarMensaje('mensajePaciente', 'Paciente registrado correctamente', 'exito');
+      formPaciente.reset();
+      cargarPacientes();
+    } catch (error) {
+      mostrarMensaje('mensajePaciente', error.message, 'error');
+    } finally {
+      boton.disabled = false;
+      boton.textContent = 'Registrar paciente';
+    }
+  });
+
+  // --- Carga inicial ---
+
+  cargarPacientes();
+</script>
+
+</body>
+</html>

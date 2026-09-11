@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SOS · Seguimiento del paciente</title>
+<link rel="stylesheet" href="assets/estilos.css">
+<style>
+  .encabezado-paciente {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 24px;
+    flex-wrap: wrap;
+    gap: 16px;
+  }
+
+  .encabezado-paciente h1 { margin: 0 0 4px; }
+
+  .encabezado-paciente .meta {
+    font-size: 13.5px;
+    color: var(--texto-suave);
+  }
+
+  .grid-seguimiento {
+    display: grid;
+    grid-template-columns: 340px 1fr;
+    gap: 24px;
+    align-items: start;
+  }
+
+  .linea-tiempo {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+
+  .toma-vital {
+    border: 1px solid var(--gris-linea);
+    border-radius: 8px;
+    padding: 16px 18px;
+  }
+
+  .toma-vital .fecha {
+    font-size: 12.5px;
+    color: var(--texto-suave);
+    margin-bottom: 10px;
+  }
+
+  .toma-vital .cifras {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px 16px;
+    margin-bottom: 10px;
+  }
+
+  .toma-vital .cifra .valor { font-size: 17px; font-weight: 600; }
+  .toma-vital .cifra .etiqueta { font-size: 11.5px; color: var(--texto-suave); text-transform: uppercase; letter-spacing: 0.02em; }
+
+  .toma-vital .motivo {
+    font-size: 13.5px;
+    color: var(--texto);
+    background: var(--gris-fondo);
+    padding: 10px 12px;
+    border-radius: 6px;
+  }
+
+  .estado-cerrado {
+    background: var(--verde-fondo);
+    color: var(--teal-hover);
+    border: 1px solid var(--verde-borde);
+    padding: 12px 14px;
+    border-radius: 6px;
+    font-size: 13.5px;
+    margin-bottom: 16px;
+  }
+
+  @media (max-width: 900px) {
+    .grid-seguimiento { grid-template-columns: 1fr; }
+    .toma-vital .cifras { grid-template-columns: repeat(2, 1fr); }
+  }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="marca"><strong>SOS</strong> · Sistema de Triage Inteligente</div>
+  <nav>
+    <a href="triage.html">Triage</a>
+    <a href="pacientes.html">Pacientes</a>
+  </nav>
+  <div style="display:flex; align-items:center; gap:14px;">
+    <span id="infoUsuario" style="font-size:13px; color:#b9c8d0;"></span>
+    <button class="salir" onclick="cerrarSesion()">Salir</button>
+  </div>
+</div>
+
+<div class="contenido">
+
+  <div class="encabezado-paciente">
+    <div>
+      <h1 id="nombrePaciente">Cargando...</h1>
+      <div class="meta" id="metaRegistro"></div>
+    </div>
+    <div id="accionesEstado" style="display:flex; gap:10px;"></div>
+  </div>
+
+  <div id="avisoCerrado"></div>
+
+  <div class="grid-seguimiento">
+
+    <!-- Formulario de nueva toma -->
+    <div class="tarjeta">
+      <h2>Registrar signos vitales</h2>
+      <p class="sub">Se guarda una nueva toma, sin borrar las anteriores.</p>
+
+      <form id="formSignos">
+        <div class="fila-campos">
+          <div class="campo">
+            <label for="frecuenciaCardiaca">Frec. cardíaca (lpm)</label>
+            <input type="number" id="frecuenciaCardiaca" required>
+          </div>
+          <div class="campo">
+            <label for="frecuenciaRespiratoria">Frec. respiratoria</label>
+            <input type="number" id="frecuenciaRespiratoria" required>
+          </div>
+        </div>
+
+        <div class="fila-campos">
+          <div class="campo">
+            <label for="presionSistolica">Presión sistólica</label>
+            <input type="number" id="presionSistolica" required>
+          </div>
+          <div class="campo">
+            <label for="presionDiastolica">Presión diastólica</label>
+            <input type="number" id="presionDiastolica" required>
+          </div>
+        </div>
+
+        <div class="fila-campos">
+          <div class="campo">
+            <label for="temperatura">Temperatura (°C)</label>
+            <input type="number" step="0.1" id="temperatura" required>
+          </div>
+          <div class="campo">
+            <label for="saturacion">Saturación (%)</label>
+            <input type="number" id="saturacion" required>
+          </div>
+        </div>
+
+        <div class="campo">
+          <label for="glucemia">Glucemia (opcional)</label>
+          <input type="number" step="0.1" id="glucemia">
+        </div>
+
+        <div class="campo">
+          <label for="descripcionSintoma">Motivo / síntomas</label>
+          <textarea id="descripcionSintoma" rows="3" placeholder="Dolor toracico, dificultad para respirar..."></textarea>
+        </div>
+
+        <button type="submit" id="btnGuardarSignos" class="boton-primario boton-full">Guardar toma</button>
+
+        <div class="mensaje" id="mensajeSignos"></div>
+      </form>
+    </div>
+
+    <!-- Historial -->
+    <div class="tarjeta">
+      <h2 style="margin-top:0;">Historial de signos vitales</h2>
+      <div class="linea-tiempo" id="lineaTiempo">
+        <p class="tabla-vacia">Cargando...</p>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script src="assets/api.js"></script>
+<script>
+  exigirSesion();
+
+  const sesion = obtenerSesion();
+  document.getElementById('infoUsuario').textContent = `${sesion.usuario} · ${sesion.perfil}`;
+
+  const parametros = new URLSearchParams(window.location.search);
+  const idRegistro = parametros.get('idRegistro');
+
+  if (!idRegistro) {
+    window.location.href = 'triage.html';
+  }
+
+  let registroActual = null;
+
+  function formatearFecha(isoString) {
+    const fecha = new Date(isoString);
+    return fecha.toLocaleString('es-CO', { dateStyle: 'medium', timeStyle: 'short' });
+  }
+
+  async function cargarEncabezado() {
+    try {
+      registroActual = await obtenerRegistroTriage(idRegistro);
+      const paciente = await obtenerPacientePorId(registroActual.idPaciente);
+
+      document.getElementById('nombrePaciente').textContent = `${paciente.nombre} ${paciente.apellido}`;
+      document.getElementById('metaRegistro').textContent =
+        `Cédula ${paciente.cedula} · ${registroActual.categoriaTriage.nombreCategoria} · ${registroActual.ubicacion || 'sin ubicación'} · Llegó ${formatearFecha(registroActual.fechaHoraLlegada)}`;
+
+      pintarAcciones();
+    } catch (error) {
+      document.getElementById('nombrePaciente').textContent = 'No se pudo cargar el registro';
+      document.getElementById('metaRegistro').textContent = error.message;
+    }
+  }
+
+  function pintarAcciones() {
+    const contenedor = document.getElementById('accionesEstado');
+    const aviso = document.getElementById('avisoCerrado');
+    const estado = registroActual.estadoTriage.nombreEstado;
+
+    contenedor.innerHTML = '';
+    aviso.innerHTML = '';
+
+    if (estado === 'En espera') {
+      contenedor.innerHTML = `<button class="boton-primario" onclick="cambiarEstado('atencion')">Marcar en atención</button>`;
+    } else if (estado === 'En atencion') {
+      contenedor.innerHTML = `<button class="boton-primario" onclick="cambiarEstado('atendido')">Dar de alta</button>`;
+    } else {
+      aviso.innerHTML = `<div class="estado-cerrado">Este episodio ya fue cerrado (paciente atendido). El historial queda disponible para consulta, pero no se pueden registrar nuevas tomas.</div>`;
+      document.getElementById('btnGuardarSignos').disabled = true;
+    }
+  }
+
+  async function cambiarEstado(accion) {
+    try {
+      if (accion === 'atencion') await marcarEnAtencion(idRegistro);
+      if (accion === 'atendido') await marcarAtendido(idRegistro);
+      await cargarEncabezado();
+    } catch (error) {
+      alert(error.message);
+    }
+  }
+
+  function pintarHistorial(lista) {
+    const contenedor = document.getElementById('lineaTiempo');
+
+    if (lista.length === 0) {
+      contenedor.innerHTML = '<p class="tabla-vacia">Aún no se han registrado signos vitales</p>';
+      return;
+    }
+
+    // Mas reciente primero
+    const ordenada = [...lista].sort((a, b) => new Date(b.fechaHoraToma) - new Date(a.fechaHoraToma));
+
+    contenedor.innerHTML = ordenada.map((toma) => `
+      <div class="toma-vital">
+        <div class="fecha">${formatearFecha(toma.fechaHoraToma)}</div>
+        <div class="cifras">
+          <div class="cifra"><div class="valor">${toma.frecuenciaCardiaca}</div><div class="etiqueta">FC lpm</div></div>
+          <div class="cifra"><div class="valor">${toma.presionSistolica}/${toma.presionDiastolica}</div><div class="etiqueta">Presión</div></div>
+          <div class="cifra"><div class="valor">${toma.temperatura}°C</div><div class="etiqueta">Temp.</div></div>
+          <div class="cifra"><div class="valor">${toma.saturacion}%</div><div class="etiqueta">SatO2</div></div>
+          <div class="cifra"><div class="valor">${toma.frecuenciaRespiratoria}</div><div class="etiqueta">FR</div></div>
+          ${toma.glucemia ? `<div class="cifra"><div class="valor">${toma.glucemia}</div><div class="etiqueta">Glucemia</div></div>` : ''}
+        </div>
+        ${toma.descripcionSintoma ? `<div class="motivo">${toma.descripcionSintoma}</div>` : ''}
+      </div>
+    `).join('');
+  }
+
+  async function cargarHistorial() {
+    try {
+      const lista = await listarSignosVitalesPorRegistro(idRegistro);
+      pintarHistorial(lista);
+    } catch (error) {
+      document.getElementById('lineaTiempo').innerHTML = `<p class="tabla-vacia">${error.message}</p>`;
+    }
+  }
+
+  // --- Formulario de nueva toma ---
+
+  document.getElementById('formSignos').addEventListener('submit', async (evento) => {
+    evento.preventDefault();
+    limpiarMensaje('mensajeSignos');
+
+    const boton = document.getElementById('btnGuardarSignos');
+    boton.disabled = true;
+    boton.textContent = 'Guardando...';
+
+    try {
+      const glucemiaValor = document.getElementById('glucemia').value;
+
+      await registrarSignosVitales({
+        idRegistro: Number(idRegistro),
+        idPersonal: Number(sesion.idPersonal),
+        frecuenciaCardiaca: Number(document.getElementById('frecuenciaCardiaca').value),
+        presionSistolica: Number(document.getElementById('presionSistolica').value),
+        presionDiastolica: Number(document.getElementById('presionDiastolica').value),
+        temperatura: Number(document.getElementById('temperatura').value),
+        saturacion: Number(document.getElementById('saturacion').value),
+        frecuenciaRespiratoria: Number(document.getElementById('frecuenciaRespiratoria').value),
+        glucemia: glucemiaValor ? Number(glucemiaValor) : null,
+        descripcionSintoma: document.getElementById('descripcionSintoma').value.trim()
+      });
+
+      mostrarMensaje('mensajeSignos', 'Toma registrada correctamente', 'exito');
+      document.getElementById('formSignos').reset();
+      cargarHistorial();
+    } catch (error) {
+      mostrarMensaje('mensajeSignos', error.message, 'error');
+    } finally {
+      boton.disabled = false;
+      boton.textContent = 'Guardar toma';
+    }
+  });
+
+  // --- Carga inicial ---
+
+  cargarEncabezado();
+  cargarHistorial();
+</script>
+
+</body>
+</html>

@@ -1,0 +1,377 @@
+/* =====================================================================
+   SOS · Estilos compartidos
+   Usado por todas las vistas (index.html, pacientes.html, triage.html...)
+   ===================================================================== */
+
+:root {
+  --azul-noche: #0f2438;
+  --azul-medio: #17395a;
+  --teal: #1f8a70;
+  --teal-hover: #196f5b;
+  --hueso: #f4f6f5;
+  --gris-linea: #d7dee0;
+  --gris-fondo: #eef1f2;
+  --rojo-alerta: #b3352a;
+  --rojo-fondo: #fbeae8;
+  --rojo-borde: #f0c7c2;
+  --verde-fondo: #e8f5f0;
+  --verde-borde: #bfe3d5;
+  --texto: #142430;
+  --texto-suave: #5b6b70;
+
+  /* Colores de prioridad de triage (coinciden con categoria_triage) */
+  --prioridad-1: #b3352a; /* Resucitacion */
+  --prioridad-2: #d9762a; /* Emergencia */
+  --prioridad-3: #c9a227; /* Urgencia */
+  --prioridad-4: #3a7ca5; /* Urgencia menor */
+  --prioridad-5: #5b6b70; /* Sin urgencia */
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  font-family: -apple-system, "Segoe UI", Roboto, sans-serif;
+  background: var(--gris-fondo);
+  color: var(--texto);
+}
+
+/* ---------------------------------------------------------------------
+   Layout de app (paginas autenticadas: topbar + contenido)
+   --------------------------------------------------------------------- */
+
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 32px;
+  background: var(--azul-noche);
+  color: var(--hueso);
+}
+
+.topbar .marca {
+  font-size: 15px;
+  letter-spacing: 0.04em;
+  color: #9fb4c2;
+}
+
+.topbar .marca strong { color: var(--hueso); }
+
+.topbar nav {
+  display: flex;
+  gap: 24px;
+}
+
+.topbar nav a {
+  color: #b9c8d0;
+  text-decoration: none;
+  font-size: 14px;
+  padding: 6px 2px;
+  border-bottom: 2px solid transparent;
+  transition: color 0.15s ease, border-color 0.15s ease;
+}
+
+.topbar nav a:hover,
+.topbar nav a.activo {
+  color: var(--hueso);
+  border-bottom-color: var(--teal);
+}
+
+.topbar .salir {
+  background: transparent;
+  border: 1px solid #33495c;
+  color: #b9c8d0;
+  padding: 7px 14px;
+  border-radius: 6px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.topbar .salir:hover {
+  border-color: var(--teal);
+  color: var(--hueso);
+}
+
+.contenido {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 32px;
+}
+
+.contenido h1 {
+  font-size: 24px;
+  margin: 0 0 6px;
+}
+
+.contenido .sub {
+  color: var(--texto-suave);
+  font-size: 14px;
+  margin: 0 0 28px;
+}
+
+/* ---------------------------------------------------------------------
+   Tarjetas
+   --------------------------------------------------------------------- */
+
+.tarjeta {
+  background: #fff;
+  border: 1px solid var(--gris-linea);
+  border-radius: 10px;
+  padding: 28px;
+}
+
+.tarjeta h2 {
+  font-size: 18px;
+  margin: 0 0 6px;
+}
+
+.tarjeta .sub {
+  color: var(--texto-suave);
+  font-size: 13.5px;
+  margin: 0 0 24px;
+}
+
+/* ---------------------------------------------------------------------
+   Formularios
+   --------------------------------------------------------------------- */
+
+label {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 6px;
+  color: #33454d;
+}
+
+.campo { margin-bottom: 18px; }
+
+.fila-campos {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+input, select, textarea {
+  width: 100%;
+  padding: 11px 13px;
+  border: 1px solid var(--gris-linea);
+  border-radius: 6px;
+  font-size: 14.5px;
+  background: #fff;
+  font-family: inherit;
+  color: var(--texto);
+}
+
+input:focus, select:focus, textarea:focus {
+  outline: none;
+  border-color: var(--teal);
+  box-shadow: 0 0 0 3px rgba(31, 138, 112, 0.15);
+}
+
+/* ---------------------------------------------------------------------
+   Botones
+   --------------------------------------------------------------------- */
+
+button, .boton {
+  padding: 11px 20px;
+  border: none;
+  border-radius: 6px;
+  font-size: 14.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s ease, opacity 0.15s ease;
+  font-family: inherit;
+}
+
+.boton-primario {
+  background: var(--teal);
+  color: #fff;
+}
+.boton-primario:hover { background: var(--teal-hover); }
+.boton-primario:disabled { background: #9fb0ac; cursor: not-allowed; }
+
+.boton-secundario {
+  background: #fff;
+  color: var(--texto);
+  border: 1px solid var(--gris-linea);
+}
+.boton-secundario:hover { border-color: var(--teal); color: var(--teal-hover); }
+
+.boton-full { width: 100%; }
+
+/* ---------------------------------------------------------------------
+   Mensajes de estado (exito / error)
+   --------------------------------------------------------------------- */
+
+.mensaje {
+  margin-top: 16px;
+  padding: 12px 14px;
+  border-radius: 6px;
+  font-size: 13.5px;
+  line-height: 1.5;
+  word-break: break-word;
+  display: none;
+}
+
+.mensaje.error {
+  display: block;
+  background: var(--rojo-fondo);
+  color: var(--rojo-alerta);
+  border: 1px solid var(--rojo-borde);
+}
+
+.mensaje.exito {
+  display: block;
+  background: var(--verde-fondo);
+  color: var(--teal-hover);
+  border: 1px solid var(--verde-borde);
+}
+
+.mensaje code {
+  display: block;
+  margin-top: 8px;
+  font-size: 11.5px;
+  word-break: break-all;
+  background: rgba(0,0,0,0.04);
+  padding: 8px;
+  border-radius: 4px;
+}
+
+/* ---------------------------------------------------------------------
+   Tablas
+   --------------------------------------------------------------------- */
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+thead th {
+  text-align: left;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--texto-suave);
+  padding: 10px 12px;
+  border-bottom: 2px solid var(--gris-linea);
+}
+
+tbody td {
+  padding: 12px;
+  border-bottom: 1px solid var(--gris-linea);
+}
+
+tbody tr:hover { background: #fafbfb; }
+
+.tabla-vacia {
+  text-align: center;
+  color: var(--texto-suave);
+  padding: 32px;
+  font-size: 14px;
+}
+
+/* ---------------------------------------------------------------------
+   Insignias de prioridad (para la lista de triage)
+   --------------------------------------------------------------------- */
+
+.insignia {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #fff;
+}
+
+.insignia-p1 { background: var(--prioridad-1); }
+.insignia-p2 { background: var(--prioridad-2); }
+.insignia-p3 { background: var(--prioridad-3); }
+.insignia-p4 { background: var(--prioridad-4); }
+.insignia-p5 { background: var(--prioridad-5); }
+
+/* ---------------------------------------------------------------------
+   Layout especifico de login (pantalla dividida)
+   --------------------------------------------------------------------- */
+
+.layout-login {
+  display: flex;
+  min-height: 100vh;
+}
+
+.layout-login .panel-info {
+  flex: 1.1;
+  padding: 64px 56px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  background:
+    radial-gradient(circle at 20% 20%, rgba(31,138,112,0.25), transparent 45%),
+    var(--azul-noche);
+  color: var(--hueso);
+}
+
+.layout-login .titular { max-width: 420px; }
+
+.layout-login .titular h1 {
+  font-size: 40px;
+  line-height: 1.15;
+  margin: 0 0 16px;
+  font-weight: 600;
+}
+
+.layout-login .titular p {
+  color: #b9c8d0;
+  font-size: 16px;
+  line-height: 1.6;
+  margin: 0;
+}
+
+.layout-login .pie-estado {
+  display: flex;
+  gap: 24px;
+  font-size: 13px;
+  color: #7f95a1;
+}
+
+.layout-login .pie-estado span.punto {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--teal);
+  margin-right: 6px;
+}
+
+.layout-login .panel-form {
+  flex: 1;
+  background: var(--hueso);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px;
+}
+
+.layout-login .tarjeta { border: none; max-width: 380px; width: 100%; }
+
+.campo-endpoint {
+  margin-top: 24px;
+  padding-top: 18px;
+  border-top: 1px solid var(--gris-linea);
+}
+
+.campo-endpoint label { color: var(--texto-suave); font-weight: 500; }
+
+.campo-endpoint input {
+  font-size: 12.5px;
+  color: var(--texto-suave);
+  background: #fafbfb;
+}
+
+@media (max-width: 860px) {
+  .layout-login { flex-direction: column; }
+  .layout-login .panel-info { padding: 40px 32px; }
+  .layout-login .titular h1 { font-size: 30px; }
+  .fila-campos { grid-template-columns: 1fr; }
+}

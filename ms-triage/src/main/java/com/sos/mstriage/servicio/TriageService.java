@@ -73,4 +73,8 @@ public class TriageService {
         registro.setEstadoTriage(nuevoEstado);
         return registroTriageRepository.save(registro);
     }
+    
+    public java.util.Optional<RegistroTriage> obtenerPorId(Integer idRegistro) {
+        return registroTriageRepository.findById(idRegistro);
+    }
 }

@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SOS · Triage</title>
+<link rel="stylesheet" href="assets/estilos.css">
+<style>
+  .grid-triage {
+    display: grid;
+    grid-template-columns: 340px 1fr;
+    gap: 24px;
+    align-items: start;
+  }
+
+  .barra-lista {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 16px;
+  }
+
+  .barra-lista .indicador-refresco {
+    font-size: 12px;
+    color: var(--texto-suave);
+  }
+
+  .acciones-fila {
+    display: flex;
+    gap: 8px;
+  }
+
+  .acciones-fila button {
+    padding: 6px 10px;
+    font-size: 12.5px;
+  }
+
+  .paciente-desconocido {
+    color: var(--texto-suave);
+    font-style: italic;
+  }
+
+  @media (max-width: 900px) {
+    .grid-triage { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="marca"><strong>SOS</strong> · Sistema de Triage Inteligente</div>
+  <nav>
+    <a href="triage.html" class="activo">Triage</a>
+    <a href="pacientes.html">Pacientes</a>
+  </nav>
+  <div style="display:flex; align-items:center; gap:14px;">
+    <span id="infoUsuario" style="font-size:13px; color:#b9c8d0;"></span>
+    <button class="salir" onclick="cerrarSesion()">Salir</button>
+  </div>
+</div>
+
+<div class="contenido">
+  <h1>Lista de priorización</h1>
+  <p class="sub">Registra la llegada de un paciente y consulta el orden de atención en tiempo real.</p>
+
+  <div class="grid-triage">
+
+    <!-- Formulario de registro -->
+    <div class="tarjeta">
+      <h2>Registrar llegada</h2>
+      <p class="sub">Busca al paciente por cédula antes de asignar la categoría.</p>
+
+      <form id="formTriage">
+        <div class="campo">
+          <label for="cedula">Cédula del paciente</label>
+          <input type="text" id="cedula" placeholder="1122334455" required>
+        </div>
+
+        <div class="campo" id="campoPacienteEncontrado" style="display:none;">
+          <label>Paciente</label>
+          <div id="nombrePacienteEncontrado" style="font-size:14.5px; padding:8px 0;"></div>
+        </div>
+
+        <div class="campo">
+          <label for="categoria">Categoría de triage</label>
+          <select id="categoria" required>
+            <option value="">Selecciona una categoría</option>
+            <option value="1">1 · Resucitación</option>
+            <option value="2">2 · Emergencia</option>
+            <option value="3">3 · Urgencia</option>
+            <option value="4">4 · Urgencia menor</option>
+            <option value="5">5 · Sin urgencia</option>
+          </select>
+        </div>
+
+        <div class="campo">
+          <label for="ubicacion">Ubicación</label>
+          <input type="text" id="ubicacion" placeholder="Sala 2">
+        </div>
+
+        <button type="submit" id="btnRegistrar" class="boton-primario boton-full">Registrar llegada</button>
+
+        <div class="mensaje" id="mensajeTriage"></div>
+      </form>
+    </div>
+
+    <!-- Lista de priorizacion -->
+    <div class="tarjeta">
+      <div class="barra-lista">
+        <h2 style="margin:0;">En espera de atención</h2>
+        <span class="indicador-refresco" id="indicadorRefresco">Actualizando...</span>
+      </div>
+
+      <table>
+        <thead>
+          <tr>
+            <th>Prioridad</th>
+            <th>Paciente</th>
+            <th>Ubicación</th>
+            <th>Espera</th>
+            <th>Estado</th>
+            <th>Acciones</th>
+          </tr>
+        </thead>
+        <tbody id="cuerpoTablaPriorizacion">
+          <tr><td colspan="6" class="tabla-vacia">Cargando...</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+  </div>
+</div>
+
+<script src="assets/api.js"></script>
+<script>
+  exigirSesion();
+
+  const sesion = obtenerSesion();
+  document.getElementById('infoUsuario').textContent = `${sesion.usuario} · ${sesion.perfil}`;
+
+  // Cache simple en memoria para no volver a pedir el mismo paciente varias veces
+  const cachePacientes = {};
+
+  async function nombrePaciente(idPaciente) {
+    if (cachePacientes[idPaciente]) return cachePacientes[idPaciente];
+    try {
+      const paciente = await obtenerPacientePorId(idPaciente);
+      const nombre = `${paciente.nombre} ${paciente.apellido}`;
+      cachePacientes[idPaciente] = nombre;
+      return nombre;
+    } catch (error) {
+      return null;
+    }
+  }
+
+  function formatearEspera(minutos) {
+    if (minutos < 60) return `${minutos} min`;
+    const horas = Math.floor(minutos / 60);
+    const resto = minutos % 60;
+    return `${horas}h ${resto}min`;
+  }
+
+  async function cargarListaPriorizacion() {
+    const indicador = document.getElementById('indicadorRefresco');
+    const cuerpo = document.getElementById('cuerpoTablaPriorizacion');
+
+    try {
+      const lista = await listaPriorizacion();
+
+      if (lista.length === 0) {
+        cuerpo.innerHTML = '<tr><td colspan="6" class="tabla-vacia">No hay pacientes en espera</td></tr>';
+      } else {
+        const filas = await Promise.all(lista.map(async (registro) => {
+          const nombre = await nombrePaciente(registro.idPaciente);
+          const nombreMostrado = nombre
+            ? nombre
+            : `<span class="paciente-desconocido">Paciente #${registro.idPaciente}</span>`;
+
+          const enEspera = registro.estadoTriage.nombreEstado === 'En espera';
+          const enAtencion = registro.estadoTriage.nombreEstado === 'En atencion';
+
+          const botones = `
+            <a href="seguimiento.html?idRegistro=${registro.idRegistro}" class="boton-secundario" style="text-decoration:none; display:inline-block;">Ver</a>
+            ${enEspera ? `<button class="boton-secundario" onclick="accionCambiarEstado(${registro.idRegistro}, 'atencion')">Atender</button>` : ''}
+            ${enAtencion ? `<button class="boton-secundario" onclick="accionCambiarEstado(${registro.idRegistro}, 'atendido')">Cerrar</button>` : ''}
+          `;
+
+
+          return `
+            <tr>
+              <td><span class="insignia insignia-p${registro.categoriaTriage.prioridad}">${registro.categoriaTriage.nombreCategoria}</span></td>
+              <td>${nombreMostrado}</td>
+              <td>${registro.ubicacion || '—'}</td>
+              <td>${formatearEspera(registro.tiempoEsperaMinutos)}</td>
+              <td>${registro.estadoTriage.nombreEstado}</td>
+              <td><div class="acciones-fila">${botones}</div></td>
+            </tr>
+          `;
+        }));
+
+        cuerpo.innerHTML = filas.join('');
+      }
+
+      indicador.textContent = `Actualizado ${new Date().toLocaleTimeString()}`;
+    } catch (error) {
+      indicador.textContent = 'Error al actualizar';
+      cuerpo.innerHTML = `<tr><td colspan="6" class="tabla-vacia">${error.message}</td></tr>`;
+    }
+  }
+
+  async function accionCambiarEstado(idRegistro, accion) {
+    try {
+      if (accion === 'atencion') await marcarEnAtencion(idRegistro);
+      if (accion === 'atendido') await marcarAtendido(idRegistro);
+      cargarListaPriorizacion();
+    } catch (error) {
+      alert(error.message);
+    }
+  }
+
+  // --- Formulario de registro ---
+
+  const formTriage = document.getElementById('formTriage');
+  const campoCedula = document.getElementById('cedula');
+  const campoPacienteEncontrado = document.getElementById('campoPacienteEncontrado');
+  const nombrePacienteEncontrado = document.getElementById('nombrePacienteEncontrado');
+  let idPacienteEncontrado = null;
+
+  campoCedula.addEventListener('blur', async () => {
+    const cedula = campoCedula.value.trim();
+    idPacienteEncontrado = null;
+    campoPacienteEncontrado.style.display = 'none';
+
+    if (!cedula) return;
+
+    try {
+      const paciente = await obtenerPacientePorCedula(cedula);
+      idPacienteEncontrado = paciente.idPaciente;
+      nombrePacienteEncontrado.textContent = `${paciente.nombre} ${paciente.apellido}`;
+      nombrePacienteEncontrado.style.color = 'var(--teal-hover)';
+      campoPacienteEncontrado.style.display = 'block';
+    } catch (error) {
+      nombrePacienteEncontrado.innerHTML = 'No encontrado — <a href="pacientes.html">regístralo primero</a>';
+      nombrePacienteEncontrado.style.color = 'var(--rojo-alerta)';
+      campoPacienteEncontrado.style.display = 'block';
+    }
+  });
+
+  formTriage.addEventListener('submit', async (evento) => {
+    evento.preventDefault();
+    limpiarMensaje('mensajeTriage');
+
+    if (!idPacienteEncontrado) {
+      mostrarMensaje('mensajeTriage', 'Busca un paciente valido por cedula antes de registrar la llegada', 'error');
+      return;
+    }
+
+    const boton = document.getElementById('btnRegistrar');
+    boton.disabled = true;
+    boton.textContent = 'Registrando...';
+
+    try {
+      await registrarTriage({
+        idPaciente: idPacienteEncontrado,
+        idCategoriaTriage: Number(document.getElementById('categoria').value),
+        ubicacion: document.getElementById('ubicacion').value.trim()
+      });
+
+      mostrarMensaje('mensajeTriage', 'Llegada registrada correctamente', 'exito');
+      formTriage.reset();
+      campoPacienteEncontrado.style.display = 'none';
+      idPacienteEncontrado = null;
+      cargarListaPriorizacion();
+    } catch (error) {
+      mostrarMensaje('mensajeTriage', error.message, 'error');
+    } finally {
+      boton.disabled = false;
+      boton.textContent = 'Registrar llegada';
+    }
+  });
+
+  // --- Carga inicial + auto-refresco cada 15 segundos ---
+
+  cargarListaPriorizacion();
+  setInterval(cargarListaPriorizacion, 15000);
+</script>
+
+</body>
+</html>
