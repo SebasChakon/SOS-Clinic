@@ -57,7 +57,8 @@
 
   // Si ya hay una sesion activa, no tiene sentido mostrar el login de nuevo
   if (haySesion()) {
-    window.location.href = 'triage.html';
+    const sesion = obtenerSesion();
+    window.location.href = primerDestinoValido(sesion.actividades) || 'index.html';
   }
 
   form.addEventListener('submit', async (evento) => {
@@ -73,7 +74,17 @@
     try {
       const datos = await login(usuario, clave);
       mostrarMensaje('mensaje', `Sesion iniciada como ${datos.usuario} (perfil: ${datos.perfil}). Redirigiendo...`, 'exito');
-      setTimeout(() => { window.location.href = 'triage.html'; }, 700);
+
+    const destino = primerDestinoValido(datos.actividades);
+
+    if (!destino) {
+      mostrarMensaje('mensaje', 'Tu usuario no tiene ninguna pantalla asignada. Contacta al coordinador de turnos.', 'error');
+      boton.disabled = false;
+      boton.textContent = 'Entrar';
+      return;
+    }
+
+    setTimeout(() => { window.location.href = destino; }, 700);
     } catch (error) {
       mostrarMensaje('mensaje', error.message, 'error');
     } finally {

@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SOS · Nuevo triage</title>
+<link rel="stylesheet" href="assets/estilos.css">
+</head>
+<body>
+
+<div class="topbar">
+  <div class="marca"><strong>SOS</strong> · Sistema de Triage Inteligente</div>
+  <nav id="navPrincipal"></nav>
+  <div style="display:flex; align-items:center; gap:14px;">
+    <span id="infoUsuario" style="font-size:13px; color:#b9c8d0;"></span>
+    <button class="salir" onclick="cerrarSesion()">Salir</button>
+  </div>
+</div>
+
+<div class="contenido" style="max-width:520px;">
+  <h1>Registrar llegada a triage</h1>
+  <p class="sub">Busca al paciente por cédula antes de asignar la categoría.</p>
+
+  <div class="tarjeta">
+    <form id="formTriage">
+      <div class="campo">
+        <label for="cedula">Cédula del paciente</label>
+        <input type="text" id="cedula" placeholder="1122334455" required>
+      </div>
+
+      <div class="campo" id="campoPacienteEncontrado" style="display:none;">
+        <label>Paciente</label>
+        <div id="nombrePacienteEncontrado" style="font-size:14.5px; padding:8px 0;"></div>
+      </div>
+
+      <div class="campo">
+        <label for="categoria">Categoría de triage</label>
+        <select id="categoria" required>
+          <option value="">Selecciona una categoría</option>
+          <option value="1">1 · Resucitación</option>
+          <option value="2">2 · Emergencia</option>
+          <option value="3">3 · Urgencia</option>
+          <option value="4">4 · Urgencia menor</option>
+          <option value="5">5 · Sin urgencia</option>
+        </select>
+      </div>
+
+      <div class="campo">
+        <label for="ubicacion">Ubicación</label>
+        <input type="text" id="ubicacion" placeholder="Sala 2">
+      </div>
+
+      <button type="submit" id="btnRegistrar" class="boton-primario boton-full">Registrar llegada</button>
+
+      <div class="mensaje" id="mensajeTriage"></div>
+    </form>
+  </div>
+</div>
+
+<script src="assets/api.js"></script>
+<script>
+  exigirSesion();
+  pintarNav('navPrincipal', 'triage-nuevo.html');
+
+  const sesion = obtenerSesion();
+  document.getElementById('infoUsuario').textContent = `${sesion.usuario} · ${sesion.perfil}`;
+
+  const formTriage = document.getElementById('formTriage');
+  const campoCedula = document.getElementById('cedula');
+  const campoPacienteEncontrado = document.getElementById('campoPacienteEncontrado');
+  const nombrePacienteEncontrado = document.getElementById('nombrePacienteEncontrado');
+  let idPacienteEncontrado = null;
+
+  campoCedula.addEventListener('blur', async () => {
+    const cedula = campoCedula.value.trim();
+    idPacienteEncontrado = null;
+    campoPacienteEncontrado.style.display = 'none';
+    if (!cedula) return;
+
+    try {
+      const paciente = await obtenerPacientePorCedula(cedula);
+      idPacienteEncontrado = paciente.idPaciente;
+      nombrePacienteEncontrado.textContent = `${paciente.nombre} ${paciente.apellido}`;
+      nombrePacienteEncontrado.style.color = 'var(--teal-hover)';
+      campoPacienteEncontrado.style.display = 'block';
+    } catch (error) {
+      nombrePacienteEncontrado.innerHTML = 'No encontrado — regístralo primero en la pantalla de Pacientes';
+      nombrePacienteEncontrado.style.color = 'var(--rojo-alerta)';
+      campoPacienteEncontrado.style.display = 'block';
+    }
+  });
+
+  formTriage.addEventListener('submit', async (evento) => {
+    evento.preventDefault();
+    limpiarMensaje('mensajeTriage');
+
+    if (!idPacienteEncontrado) {
+      mostrarMensaje('mensajeTriage', 'Busca un paciente valido por cedula antes de registrar la llegada', 'error');
+      return;
+    }
+
+    const boton = document.getElementById('btnRegistrar');
+    boton.disabled = true;
+    boton.textContent = 'Registrando...';
+
+    try {
+      await registrarTriage({
+        idPaciente: idPacienteEncontrado,
+        idCategoriaTriage: Number(document.getElementById('categoria').value),
+        ubicacion: document.getElementById('ubicacion').value.trim()
+      });
+
+      mostrarMensaje('mensajeTriage', 'Llegada registrada correctamente', 'exito');
+      formTriage.reset();
+      campoPacienteEncontrado.style.display = 'none';
+      idPacienteEncontrado = null;
+    } catch (error) {
+      mostrarMensaje('mensajeTriage', error.message, 'error');
+    } finally {
+      boton.disabled = false;
+      boton.textContent = 'Registrar llegada';
+    }
+  });
+</script>
+
+</body>
+</html>

@@ -45,10 +45,7 @@
 
 <div class="topbar">
   <div class="marca"><strong>SOS</strong> · Sistema de Triage Inteligente</div>
-  <nav>
-    <a href="triage.html">Triage</a>
-    <a href="pacientes.html" class="activo">Pacientes</a>
-  </nav>
+  <nav id="navPrincipal"></nav>
   <div style="display:flex; align-items:center; gap:14px;">
     <span id="infoUsuario" style="font-size:13px; color:#b9c8d0;"></span>
     <button class="salir" onclick="cerrarSesion()">Salir</button>
@@ -124,6 +121,7 @@
 <script src="assets/api.js"></script>
 <script>
   exigirSesion();
+  pintarNav('navPrincipal', 'pacientes.html');
 
   const sesion = obtenerSesion();
   document.getElementById('infoUsuario').textContent = `${sesion.usuario} · ${sesion.perfil}`;

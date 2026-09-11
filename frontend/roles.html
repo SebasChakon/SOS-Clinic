@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SOS · Gestión de roles</title>
+<link rel="stylesheet" href="assets/estilos.css">
+</head>
+<body>
+
+<div class="topbar">
+  <div class="marca"><strong>SOS</strong> · Sistema de Triage Inteligente</div>
+  <nav id="navPrincipal"></nav>
+  <div style="display:flex; align-items:center; gap:14px;">
+    <span id="infoUsuario" style="font-size:13px; color:#b9c8d0;"></span>
+    <button class="salir" onclick="cerrarSesion()">Salir</button>
+  </div>
+</div>
+
+<div class="contenido">
+  <h1>Gestión de roles y turnos</h1>
+  <p class="sub">Asignar o quitar actividades por perfil, y administrar turnos del personal.</p>
+
+  <div class="tarjeta">
+    <p style="color:var(--texto-suave); font-size:14px;">
+      El control de acceso por rol ya está funcionando: solo el perfil <strong>coordinador_turnos</strong> (y el administrador) pueden ver esta pantalla.
+      El CRUD real sobre <code>perfil_actividad</code> y <code>turno</code> todavía está pendiente de construir.
+    </p>
+  </div>
+</div>
+
+<script src="assets/api.js"></script>
+<script>
+  exigirSesion();
+  pintarNav('navPrincipal', 'roles.html');
+
+  const sesion = obtenerSesion();
+  document.getElementById('infoUsuario').textContent = `${sesion.usuario} · ${sesion.perfil}`;
+</script>
+
+</body>
+</html>

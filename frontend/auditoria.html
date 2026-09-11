@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SOS · Auditoría</title>
+<link rel="stylesheet" href="assets/estilos.css">
+</head>
+<body>
+
+<div class="topbar">
+  <div class="marca"><strong>SOS</strong> · Sistema de Triage Inteligente</div>
+  <nav id="navPrincipal"></nav>
+  <div style="display:flex; align-items:center; gap:14px;">
+    <span id="infoUsuario" style="font-size:13px; color:#b9c8d0;"></span>
+    <button class="salir" onclick="cerrarSesion()">Salir</button>
+  </div>
+</div>
+
+<div class="contenido">
+  <h1>Auditoría</h1>
+  <p class="sub">Registro de acciones del personal sobre el sistema.</p>
+
+  <div class="tarjeta">
+    <p style="color:var(--texto-suave); font-size:14px;">
+      El control de acceso por rol ya está funcionando: solo el perfil <strong>auditor</strong> (y el administrador) pueden ver esta pantalla.
+      El módulo que consulta <code>registro_auditoria</code> (microservicio <code>ms-auditoria</code>) todavía está pendiente de construir.
+    </p>
+  </div>
+</div>
+
+<script src="assets/api.js"></script>
+<script>
+  exigirSesion();
+  pintarNav('navPrincipal', 'auditoria.html');
+
+  const sesion = obtenerSesion();
+  document.getElementById('infoUsuario').textContent = `${sesion.usuario} · ${sesion.perfil}`;
+</script>
+
+</body>
+</html>

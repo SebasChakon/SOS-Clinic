@@ -15,6 +15,7 @@ function guardarSesion(datosLogin) {
   sessionStorage.setItem('sos_usuario', datosLogin.usuario);
   sessionStorage.setItem('sos_perfil', datosLogin.perfil);
   sessionStorage.setItem('sos_id_personal', datosLogin.idPersonal);
+  sessionStorage.setItem('sos_actividades', JSON.stringify(datosLogin.actividades || []));
 }
 
 function obtenerToken() {
@@ -28,7 +29,8 @@ function obtenerSesion() {
     token,
     usuario: sessionStorage.getItem('sos_usuario'),
     perfil: sessionStorage.getItem('sos_perfil'),
-    idPersonal: sessionStorage.getItem('sos_id_personal')
+    idPersonal: sessionStorage.getItem('sos_id_personal'),
+    actividades: JSON.parse(sessionStorage.getItem('sos_actividades') || '[]')
   };
 }
 
@@ -37,20 +39,47 @@ function haySesion() {
 }
 
 function cerrarSesion() {
-  sessionStorage.removeItem('sos_token');
-  sessionStorage.removeItem('sos_usuario');
-  sessionStorage.removeItem('sos_perfil');
-  sessionStorage.removeItem('sos_id_personal');
+  sessionStorage.clear();
   window.location.href = 'index.html';
 }
 
 /**
+ * Elige la primera pantalla "navegable" de una lista de actividades,
+ * saltandose 'seguimiento_paciente' porque esa nunca es un destino valido
+ * por si sola (necesita un idRegistro en la URL para funcionar).
+ */
+function primerDestinoValido(actividades) {
+  const candidato = actividades.find((a) => a.nombreActividad !== 'seguimiento_paciente');
+  return candidato ? candidato.enlace : (actividades[0] ? actividades[0].enlace : null);
+}
+
+/**
  * Llama esto al cargar cualquier vista que NO sea el login.
- * Si no hay sesion activa, redirige automaticamente a index.html.
+ * Redirige a index.html si no hay sesion, o a la pantalla correcta
+ * si el usuario no tiene permiso para ver esta pagina.
  */
 function exigirSesion() {
-  if (!haySesion()) {
+  const sesion = obtenerSesion();
+
+  if (!sesion) {
     window.location.href = 'index.html';
+    return;
+  }
+
+  if (sesion.perfil === 'administrador') return;
+
+  const paginaActual = window.location.pathname.split('/').pop();
+  const tienePermiso = sesion.actividades.some((a) => a.enlace === paginaActual);
+
+  if (!tienePermiso) {
+    if (paginaActual === 'index.html' || paginaActual === '') return; // evita loop con el login
+    const destino = primerDestinoValido(sesion.actividades);
+    if (destino) {
+      window.location.href = destino;
+    } else {
+      alert('Tu usuario no tiene ninguna pantalla asignada. Contacta al coordinador de turnos.');
+      cerrarSesion();
+    }
   }
 }
 
@@ -75,8 +104,13 @@ async function llamarApi(ruta, opciones = {}) {
   }
 
   if (respuesta.status === 401) {
-    cerrarSesion();
-    throw new Error('Sesion expirada, vuelve a iniciar sesion');
+    if (token) {
+      // Ya teniamos una sesion activa y el token dejo de ser valido: si expira de verdad
+      cerrarSesion();
+      throw new Error('Sesion expirada, vuelve a iniciar sesion');
+    }
+    // No habia token (ej. intento de login fallido): dejamos que el flujo normal de abajo
+    // lea el mensaje real del backend ("Fuera de tu horario...", "Usuario o clave incorrectos", etc.)
   }
 
   const datos = await respuesta.json().catch(() => null);
@@ -164,6 +198,7 @@ async function marcarAtendido(idRegistro) {
 async function obtenerRegistroTriage(idRegistro) {
   return llamarApi(`/ms-triage/triage/${idRegistro}`);
 }
+
 /* ---------------------------------------------------------------------
    Utilidad comun para mostrar mensajes de exito/error en cualquier vista
    Requiere un elemento <div class="mensaje" id="mensaje"></div> en el HTML
@@ -179,4 +214,38 @@ function limpiarMensaje(idElemento) {
   const el = document.getElementById(idElemento);
   el.className = 'mensaje';
   el.textContent = '';
+}
+
+/* ---------------------------------------------------------------------
+   Menu dinamico segun las actividades permitidas del usuario
+   --------------------------------------------------------------------- */
+
+const ETIQUETAS_ACTIVIDAD = {
+  registrar_paciente: 'Pacientes',
+  crear_triage: 'Nuevo triage',
+  seguimiento_paciente: 'Seguimiento',
+  lista_espera: 'Lista de espera',
+  auditoria: 'Auditoría',
+  gestion_roles: 'Roles'
+};
+
+function pintarNav(idContenedor, enlaceActual) {
+  const sesion = obtenerSesion();
+  const contenedor = document.getElementById(idContenedor);
+  if (!sesion || !contenedor) return;
+
+  // 'Seguimiento' solo se muestra en el menu si es la pagina actual,
+  // porque no es un destino valido por si sola (necesita idRegistro en la URL)
+  const visibles = sesion.actividades.filter((a) => {
+    if (a.nombreActividad === 'seguimiento_paciente') {
+      return a.enlace === enlaceActual;
+    }
+    return true;
+  });
+
+  contenedor.innerHTML = visibles.map((a) => {
+    const etiqueta = ETIQUETAS_ACTIVIDAD[a.nombreActividad] || a.nombreActividad;
+    const clase = a.enlace === enlaceActual ? 'activo' : '';
+    return `<a href="${a.enlace}" class="${clase}">${etiqueta}</a>`;
+  }).join('');
 }

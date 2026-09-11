@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SOS · Lista de espera</title>
+<link rel="stylesheet" href="assets/estilos.css">
+<style>
+  .barra-lista { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+  .barra-lista .indicador-refresco { font-size: 12px; color: var(--texto-suave); }
+  .acciones-fila { display: flex; gap: 8px; }
+  .acciones-fila button, .acciones-fila a { padding: 6px 10px; font-size: 12.5px; }
+  .paciente-desconocido { color: var(--texto-suave); font-style: italic; }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="marca"><strong>SOS</strong> · Sistema de Triage Inteligente</div>
+  <nav id="navPrincipal"></nav>
+  <div style="display:flex; align-items:center; gap:14px;">
+    <span id="infoUsuario" style="font-size:13px; color:#b9c8d0;"></span>
+    <button class="salir" onclick="cerrarSesion()">Salir</button>
+  </div>
+</div>
+
+<div class="contenido">
+  <div class="barra-lista">
+    <div>
+      <h1 style="margin-bottom:4px;">Lista de priorización</h1>
+      <p class="sub" style="margin:0;">Pacientes en espera, ordenados por urgencia.</p>
+    </div>
+    <span class="indicador-refresco" id="indicadorRefresco">Actualizando...</span>
+  </div>
+
+  <div class="tarjeta">
+    <table>
+      <thead>
+        <tr>
+          <th>Prioridad</th>
+          <th>Paciente</th>
+          <th>Ubicación</th>
+          <th>Espera</th>
+          <th>Estado</th>
+          <th>Acciones</th>
+        </tr>
+      </thead>
+      <tbody id="cuerpoTablaPriorizacion">
+        <tr><td colspan="6" class="tabla-vacia">Cargando...</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<script src="assets/api.js"></script>
+<script>
+  exigirSesion();
+  pintarNav('navPrincipal', 'lista-espera.html');
+
+  const sesion = obtenerSesion();
+  document.getElementById('infoUsuario').textContent = `${sesion.usuario} · ${sesion.perfil}`;
+
+  const cachePacientes = {};
+
+  async function nombrePaciente(idPaciente) {
+    if (cachePacientes[idPaciente]) return cachePacientes[idPaciente];
+    try {
+      const paciente = await obtenerPacientePorId(idPaciente);
+      const nombre = `${paciente.nombre} ${paciente.apellido}`;
+      cachePacientes[idPaciente] = nombre;
+      return nombre;
+    } catch (error) {
+      return null;
+    }
+  }
+
+  function formatearEspera(minutos) {
+    if (minutos < 60) return `${minutos} min`;
+    const horas = Math.floor(minutos / 60);
+    const resto = minutos % 60;
+    return `${horas}h ${resto}min`;
+  }
+
+  async function cargarListaPriorizacion() {
+    const indicador = document.getElementById('indicadorRefresco');
+    const cuerpo = document.getElementById('cuerpoTablaPriorizacion');
+
+    try {
+      const lista = await listaPriorizacion();
+
+      if (lista.length === 0) {
+        cuerpo.innerHTML = '<tr><td colspan="6" class="tabla-vacia">No hay pacientes en espera</td></tr>';
+      } else {
+        const filas = await Promise.all(lista.map(async (registro) => {
+          const nombre = await nombrePaciente(registro.idPaciente);
+          const nombreMostrado = nombre
+            ? nombre
+            : `<span class="paciente-desconocido">Paciente #${registro.idPaciente}</span>`;
+
+          return `
+            <tr>
+              <td><span class="insignia insignia-p${registro.categoriaTriage.prioridad}">${registro.categoriaTriage.nombreCategoria}</span></td>
+              <td>${nombreMostrado}</td>
+              <td>${registro.ubicacion || '—'}</td>
+              <td>${formatearEspera(registro.tiempoEsperaMinutos)}</td>
+              <td>${registro.estadoTriage.nombreEstado}</td>
+              <td><div class="acciones-fila"><a href="seguimiento.html?idRegistro=${registro.idRegistro}" class="boton-secundario" style="text-decoration:none; display:inline-block;">Ver</a></div></td>
+            </tr>
+          `;
+        }));
+        cuerpo.innerHTML = filas.join('');
+      }
+
+      indicador.textContent = `Actualizado ${new Date().toLocaleTimeString()}`;
+    } catch (error) {
+      indicador.textContent = 'Error al actualizar';
+      cuerpo.innerHTML = `<tr><td colspan="6" class="tabla-vacia">${error.message}</td></tr>`;
+    }
+  }
+
+  cargarListaPriorizacion();
+  setInterval(cargarListaPriorizacion, 15000);
+</script>
+
+</body>
+</html>
