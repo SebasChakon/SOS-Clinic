@@ -45,4 +45,10 @@ public class RegistroTriage {
 
     @Column(name = "id_estado", nullable = false)
     private Integer idEstado = 1;
+    
+    @Column(name = "diagnostico_final", length = 1000)
+    private String diagnosticoFinal;
+
+    @Column(name = "tratamiento", length = 1000)
+    private String tratamiento;
 }

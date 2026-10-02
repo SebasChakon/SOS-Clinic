@@ -37,4 +37,7 @@ public class Paciente {
 
     @Column(name = "id_estado", nullable = false)
     private Integer idEstado = 1;
+    
+    @Column(name = "email", length = 80)
+    private String email;
 }

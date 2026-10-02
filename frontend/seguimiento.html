@@ -6,79 +6,24 @@
 <title>SOS · Seguimiento del paciente</title>
 <link rel="stylesheet" href="assets/estilos.css">
 <style>
-  .encabezado-paciente {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    margin-bottom: 24px;
-    flex-wrap: wrap;
-    gap: 16px;
-  }
-
+  .encabezado-paciente { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 24px; flex-wrap: wrap; gap: 16px; }
   .encabezado-paciente h1 { margin: 0 0 4px; }
-
-  .encabezado-paciente .meta {
-    font-size: 13.5px;
-    color: var(--texto-suave);
-  }
-
-  .grid-seguimiento {
-    display: grid;
-    grid-template-columns: 340px 1fr;
-    gap: 24px;
-    align-items: start;
-  }
-
-  .linea-tiempo {
-    display: flex;
-    flex-direction: column;
-    gap: 14px;
-  }
-
-  .toma-vital {
-    border: 1px solid var(--gris-linea);
-    border-radius: 8px;
-    padding: 16px 18px;
-  }
-
-  .toma-vital .fecha {
-    font-size: 12.5px;
-    color: var(--texto-suave);
-    margin-bottom: 10px;
-  }
-
-  .toma-vital .cifras {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 10px 16px;
-    margin-bottom: 10px;
-  }
-
+  .encabezado-paciente .meta { font-size: 13.5px; color: var(--texto-suave); }
+  .grid-seguimiento { display: grid; grid-template-columns: 340px 1fr; gap: 24px; align-items: start; }
+  .linea-tiempo { display: flex; flex-direction: column; gap: 14px; }
+  .toma-vital { border: 1px solid var(--gris-linea); border-radius: 8px; padding: 16px 18px; }
+  .toma-vital .fecha { font-size: 12.5px; color: var(--texto-suave); margin-bottom: 10px; }
+  .toma-vital .cifras { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px 16px; margin-bottom: 10px; }
   .toma-vital .cifra .valor { font-size: 17px; font-weight: 600; }
   .toma-vital .cifra .etiqueta { font-size: 11.5px; color: var(--texto-suave); text-transform: uppercase; letter-spacing: 0.02em; }
-
-  .toma-vital .motivo {
-    font-size: 13.5px;
-    color: var(--texto);
-    background: var(--gris-fondo);
-    padding: 10px 12px;
-    border-radius: 6px;
-  }
-
-  .estado-cerrado {
-    background: var(--verde-fondo);
-    color: var(--teal-hover);
-    border: 1px solid var(--verde-borde);
-    padding: 12px 14px;
-    border-radius: 6px;
-    font-size: 13.5px;
-    margin-bottom: 16px;
-  }
-
-  @media (max-width: 900px) {
-    .grid-seguimiento { grid-template-columns: 1fr; }
-    .toma-vital .cifras { grid-template-columns: repeat(2, 1fr); }
-  }
+  .toma-vital .motivo { font-size: 13.5px; color: var(--texto); background: var(--gris-fondo); padding: 10px 12px; border-radius: 6px; }
+  .estado-cerrado { background: var(--verde-fondo); color: var(--teal-hover); border: 1px solid var(--verde-borde); padding: 12px 14px; border-radius: 6px; font-size: 13.5px; margin-bottom: 16px; }
+  .ubicacion-editable { display: flex; gap: 8px; align-items: center; margin-top: 6px; }
+  .ubicacion-editable select { width: 200px; }
+  .ubicacion-editable button { padding: 6px 10px; font-size: 12.5px; }
+  .seccion-alta { border-top: 1px solid var(--gris-linea); margin-top: 20px; padding-top: 20px; }
+  .resumen-alta { background: var(--gris-fondo); padding: 12px 14px; border-radius: 6px; font-size: 13.5px; margin-bottom: 12px; }
+  .resumen-alta strong { display: block; margin-bottom: 4px; }
 </style>
 </head>
 <body>
@@ -98,6 +43,10 @@
     <div>
       <h1 id="nombrePaciente">Cargando...</h1>
       <div class="meta" id="metaRegistro"></div>
+      <div class="ubicacion-editable" id="bloqueUbicacion" style="display:none;">
+        <select id="inputUbicacion" aria-label="Seleccionar ubicación"></select>
+        <button class="boton-secundario" onclick="guardarUbicacion()">Guardar ubicación</button>
+      </div>
     </div>
     <div id="accionesEstado" style="display:flex; gap:10px;"></div>
   </div>
@@ -106,66 +55,53 @@
 
   <div class="grid-seguimiento">
 
-    <!-- Formulario de nueva toma -->
     <div class="tarjeta">
       <h2>Registrar signos vitales</h2>
       <p class="sub">Se guarda una nueva toma, sin borrar las anteriores.</p>
 
       <form id="formSignos">
         <div class="fila-campos">
-          <div class="campo">
-            <label for="frecuenciaCardiaca">Frec. cardíaca (lpm)</label>
-            <input type="number" id="frecuenciaCardiaca" required>
-          </div>
-          <div class="campo">
-            <label for="frecuenciaRespiratoria">Frec. respiratoria</label>
-            <input type="number" id="frecuenciaRespiratoria" required>
-          </div>
+          <div class="campo"><label for="frecuenciaCardiaca">Frec. cardíaca (lpm)</label><input type="number" id="frecuenciaCardiaca" required></div>
+          <div class="campo"><label for="frecuenciaRespiratoria">Frec. respiratoria</label><input type="number" id="frecuenciaRespiratoria" required></div>
         </div>
-
         <div class="fila-campos">
-          <div class="campo">
-            <label for="presionSistolica">Presión sistólica</label>
-            <input type="number" id="presionSistolica" required>
-          </div>
-          <div class="campo">
-            <label for="presionDiastolica">Presión diastólica</label>
-            <input type="number" id="presionDiastolica" required>
-          </div>
+          <div class="campo"><label for="presionSistolica">Presión sistólica</label><input type="number" id="presionSistolica" required></div>
+          <div class="campo"><label for="presionDiastolica">Presión diastólica</label><input type="number" id="presionDiastolica" required></div>
         </div>
-
         <div class="fila-campos">
-          <div class="campo">
-            <label for="temperatura">Temperatura (°C)</label>
-            <input type="number" step="0.1" id="temperatura" required>
-          </div>
-          <div class="campo">
-            <label for="saturacion">Saturación (%)</label>
-            <input type="number" id="saturacion" required>
-          </div>
+          <div class="campo"><label for="temperatura">Temperatura (°C)</label><input type="number" step="0.1" id="temperatura" required></div>
+          <div class="campo"><label for="saturacion">Saturación (%)</label><input type="number" id="saturacion" required></div>
         </div>
-
-        <div class="campo">
-          <label for="glucemia">Glucemia (opcional)</label>
-          <input type="number" step="0.1" id="glucemia">
-        </div>
-
-        <div class="campo">
-          <label for="descripcionSintoma">Motivo / síntomas</label>
-          <textarea id="descripcionSintoma" rows="3" placeholder="Dolor toracico, dificultad para respirar..."></textarea>
-        </div>
-
+        <div class="campo"><label for="glucemia">Glucemia (opcional)</label><input type="number" step="0.1" id="glucemia"></div>
+        <div class="campo"><label for="descripcionSintoma">Motivo / síntomas</label><textarea id="descripcionSintoma" rows="3" placeholder="Dolor toracico, dificultad para respirar..."></textarea></div>
         <button type="submit" id="btnGuardarSignos" class="boton-primario boton-full">Guardar toma</button>
-
         <div class="mensaje" id="mensajeSignos"></div>
       </form>
     </div>
 
-    <!-- Historial -->
-    <div class="tarjeta">
-      <h2 style="margin-top:0;">Historial de signos vitales</h2>
-      <div class="linea-tiempo" id="lineaTiempo">
-        <p class="tabla-vacia">Cargando...</p>
+    <div>
+      <div class="tarjeta" id="seccionAlta" style="display:none; margin-bottom:24px;">
+        <h2 style="margin-top:0;">Diagnóstico y alta</h2>
+        <p class="sub">Obligatorio antes de dar de alta al paciente.</p>
+        <form id="formAlta">
+          <div class="campo">
+            <label for="diagnosticoFinal">Diagnóstico final</label>
+            <textarea id="diagnosticoFinal" rows="3" required></textarea>
+          </div>
+          <div class="campo">
+            <label for="tratamiento">Tratamiento / instrucciones en casa / cuándo volver</label>
+            <textarea id="tratamiento" rows="3" required></textarea>
+          </div>
+          <button type="submit" id="btnDarAlta" class="boton-primario boton-full">Dar de alta y enviar historia clínica</button>
+          <div class="mensaje" id="mensajeAlta"></div>
+        </form>
+      </div>
+
+      <div class="tarjeta">
+        <h2 style="margin-top:0;">Historial de signos vitales</h2>
+        <div class="linea-tiempo" id="lineaTiempo">
+          <p class="tabla-vacia">Cargando...</p>
+        </div>
       </div>
     </div>
 
@@ -183,26 +119,29 @@
   const parametros = new URLSearchParams(window.location.search);
   const idRegistro = parametros.get('idRegistro');
 
-    if (!idRegistro) {
-    const sesion = obtenerSesion();
+  if (!idRegistro) {
     window.location.href = primerDestinoValido(sesion.actividades) || 'index.html';
-    }
+  }
+
+  document.getElementById('inputUbicacion').innerHTML =
+    '<option value="" disabled>Selecciona una ubicación</option>' +
+    [...new Set(UBICACIONES_DISPONIBLES)].map(u => `<option value="${u}">${u}</option>`).join('');
 
   let registroActual = null;
+  let pacienteActual = null;
 
   function formatearFecha(isoString) {
-    const fecha = new Date(isoString);
-    return fecha.toLocaleString('es-CO', { dateStyle: 'medium', timeStyle: 'short' });
+    return new Date(isoString).toLocaleString('es-CO', { dateStyle: 'medium', timeStyle: 'short' });
   }
 
   async function cargarEncabezado() {
     try {
       registroActual = await obtenerRegistroTriage(idRegistro);
-      const paciente = await obtenerPacientePorId(registroActual.idPaciente);
+      pacienteActual = await obtenerPacientePorId(registroActual.idPaciente);
 
-      document.getElementById('nombrePaciente').textContent = `${paciente.nombre} ${paciente.apellido}`;
+      document.getElementById('nombrePaciente').textContent = `${pacienteActual.nombre} ${pacienteActual.apellido}`;
       document.getElementById('metaRegistro').textContent =
-        `Cédula ${paciente.cedula} · ${registroActual.categoriaTriage.nombreCategoria} · ${registroActual.ubicacion || 'sin ubicación'} · Llegó ${formatearFecha(registroActual.fechaHoraLlegada)}`;
+        `Cédula ${pacienteActual.cedula} · ${registroActual.categoriaTriage.nombreCategoria} · Ubicación: ${registroActual.ubicacion || 'sin asignar'} · Llegó ${formatearFecha(registroActual.fechaHoraLlegada)}`;
 
       pintarAcciones();
     } catch (error) {
@@ -214,42 +153,137 @@
   function pintarAcciones() {
     const contenedor = document.getElementById('accionesEstado');
     const aviso = document.getElementById('avisoCerrado');
+    const bloqueUbicacion = document.getElementById('bloqueUbicacion');
+    const seccionAlta = document.getElementById('seccionAlta');
     const estado = registroActual.estadoTriage.nombreEstado;
 
     contenedor.innerHTML = '';
     aviso.innerHTML = '';
 
     if (estado === 'En espera') {
-      contenedor.innerHTML = `<button class="boton-primario" onclick="cambiarEstado('atencion')">Marcar en atención</button>`;
+      contenedor.innerHTML = `<button class="boton-primario" onclick="cambiarAEnAtencion()">Marcar en atención</button>`;
+      bloqueUbicacion.style.display = 'flex';
+      document.getElementById('inputUbicacion').value = registroActual.ubicacion || '';
+      seccionAlta.style.display = 'none';
     } else if (estado === 'En atencion') {
-      contenedor.innerHTML = `<button class="boton-primario" onclick="cambiarEstado('atendido')">Dar de alta</button>`;
+      bloqueUbicacion.style.display = 'flex';
+      document.getElementById('inputUbicacion').value = registroActual.ubicacion || '';
+      seccionAlta.style.display = 'block';
     } else {
-      aviso.innerHTML = `<div class="estado-cerrado">Este episodio ya fue cerrado (paciente atendido). El historial queda disponible para consulta, pero no se pueden registrar nuevas tomas.</div>`;
+      bloqueUbicacion.style.display = 'none';
+      seccionAlta.style.display = 'none';
+      aviso.innerHTML = `
+        <div class="estado-cerrado">
+          Este episodio ya fue cerrado (paciente atendido). El historial queda disponible para consulta.
+        </div>`;
       document.getElementById('btnGuardarSignos').disabled = true;
     }
   }
 
-  async function cambiarEstado(accion) {
+  async function cambiarAEnAtencion() {
     try {
-      if (accion === 'atencion') await marcarEnAtencion(idRegistro);
-      if (accion === 'atendido') await marcarAtendido(idRegistro);
+      await marcarEnAtencion(idRegistro);
       await cargarEncabezado();
     } catch (error) {
       alert(error.message);
     }
   }
 
+  async function guardarUbicacion() {
+    const nuevaUbicacion = document.getElementById('inputUbicacion').value.trim();
+    if (!nuevaUbicacion) return;
+    try {
+      await actualizarUbicacionTriage(idRegistro, nuevaUbicacion);
+      await cargarEncabezado();
+    } catch (error) {
+      alert(error.message);
+    }
+  }
+
+  document.getElementById('formAlta').addEventListener('submit', async (evento) => {
+    evento.preventDefault();
+    limpiarMensaje('mensajeAlta');
+
+    const diagnostico = document.getElementById('diagnosticoFinal').value.trim();
+    const tratamiento = document.getElementById('tratamiento').value.trim();
+
+    const boton = document.getElementById('btnDarAlta');
+    boton.disabled = true;
+    boton.textContent = 'Procesando...';
+
+    try {
+      await marcarAtendido(idRegistro, diagnostico, tratamiento);
+      await cargarEncabezado();
+      let mensajeCita = 'Se enviaron al paciente y al profesional los datos de la teleconsulta.';
+      let tipoMensaje = 'exito';
+
+      try {
+        const nombreCompleto = `${pacienteActual.nombre} ${pacienteActual.apellido}`;
+        const cita = await programarTeleconsulta(nombreCompleto);
+        await enviarCitaTeleconsulta(pacienteActual.idPaciente, cita);
+      } catch (errorCorreo) {
+        mensajeCita = `El alta se completó, pero no se pudieron enviar los correos de teleconsulta: ${errorCorreo.message}`;
+        tipoMensaje = 'error';
+      }
+
+      await generarYEnviarHistoriaClinica(diagnostico, tratamiento);
+      mostrarMensaje('mensajeAlta', `Paciente dado de alta. ${mensajeCita} Historia clínica descargada y enviada por correo (si tenía email registrado).`, tipoMensaje);
+    } catch (error) {
+      mostrarMensaje('mensajeAlta', error.message, 'error');
+    } finally {
+      boton.disabled = false;
+      boton.textContent = 'Dar de alta y enviar historia clínica';
+    }
+  });
+
+  async function generarYEnviarHistoriaClinica(diagnostico, tratamiento) {
+    const signos = await listarSignosVitalesPorRegistro(idRegistro);
+    const contenido = construirTextoHistoria(pacienteActual, registroActual, signos, diagnostico, tratamiento);
+
+    const blob = new Blob([contenido], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const enlace = document.createElement('a');
+    enlace.href = url;
+    enlace.download = `historia_clinica_${pacienteActual.cedula}.txt`;
+    enlace.click();
+    URL.revokeObjectURL(url);
+
+    if (pacienteActual.email) {
+      try {
+        await enviarHistoriaClinica(pacienteActual.idPaciente, contenido);
+      } catch (error) {
+        console.error('No se pudo enviar el correo:', error.message);
+      }
+    }
+  }
+
+  function construirTextoHistoria(paciente, registro, signos, diagnostico, tratamiento) {
+    let texto = `HISTORIA CLINICA - SOS SISTEMA DE TRIAGE\n==========================================\n\n`;
+    texto += `Paciente: ${paciente.nombre} ${paciente.apellido}\nCedula: ${paciente.cedula}\nFecha de nacimiento: ${paciente.fechaNacimiento}\n\n`;
+    texto += `Categoria de triage: ${registro.categoriaTriage.nombreCategoria}\nUbicacion final: ${registro.ubicacion || '-'}\n`;
+    texto += `Llegada: ${formatearFecha(registro.fechaHoraLlegada)}\nFecha de alta: ${new Date().toLocaleString('es-CO')}\n\n`;
+    texto += `DIAGNOSTICO FINAL\n------------------\n${diagnostico}\n\n`;
+    texto += `TRATAMIENTO E INSTRUCCIONES\n----------------------------\n${tratamiento}\n\n`;
+    texto += `HISTORIAL DE SIGNOS VITALES (${signos.length} tomas)\n------------------------------------------\n`;
+
+    const ordenado = [...signos].sort((a, b) => new Date(a.fechaHoraToma) - new Date(b.fechaHoraToma));
+    ordenado.forEach((toma, i) => {
+      texto += `\nToma ${i + 1} - ${formatearFecha(toma.fechaHoraToma)}\n`;
+      texto += `  FC: ${toma.frecuenciaCardiaca} lpm | Presion: ${toma.presionSistolica}/${toma.presionDiastolica} | Temp: ${toma.temperatura}°C | SatO2: ${toma.saturacion}% | FR: ${toma.frecuenciaRespiratoria}\n`;
+      if (toma.glucemia) texto += `  Glucemia: ${toma.glucemia}\n`;
+      if (toma.descripcionSintoma) texto += `  Motivo/sintomas: ${toma.descripcionSintoma}\n`;
+    });
+
+    return texto;
+  }
+
   function pintarHistorial(lista) {
     const contenedor = document.getElementById('lineaTiempo');
-
     if (lista.length === 0) {
       contenedor.innerHTML = '<p class="tabla-vacia">Aún no se han registrado signos vitales</p>';
       return;
     }
-
-    // Mas reciente primero
     const ordenada = [...lista].sort((a, b) => new Date(b.fechaHoraToma) - new Date(a.fechaHoraToma));
-
     contenedor.innerHTML = ordenada.map((toma) => `
       <div class="toma-vital">
         <div class="fecha">${formatearFecha(toma.fechaHoraToma)}</div>
@@ -262,8 +296,7 @@
           ${toma.glucemia ? `<div class="cifra"><div class="valor">${toma.glucemia}</div><div class="etiqueta">Glucemia</div></div>` : ''}
         </div>
         ${toma.descripcionSintoma ? `<div class="motivo">${toma.descripcionSintoma}</div>` : ''}
-      </div>
-    `).join('');
+      </div>`).join('');
   }
 
   async function cargarHistorial() {
@@ -275,8 +308,6 @@
     }
   }
 
-  // --- Formulario de nueva toma ---
-
   document.getElementById('formSignos').addEventListener('submit', async (evento) => {
     evento.preventDefault();
     limpiarMensaje('mensajeSignos');
@@ -287,7 +318,6 @@
 
     try {
       const glucemiaValor = document.getElementById('glucemia').value;
-
       await registrarSignosVitales({
         idRegistro: Number(idRegistro),
         idPersonal: Number(sesion.idPersonal),
@@ -311,8 +341,6 @@
       boton.textContent = 'Guardar toma';
     }
   });
-
-  // --- Carga inicial ---
 
   cargarEncabezado();
   cargarHistorial();

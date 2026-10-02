@@ -6,10 +6,14 @@ package com.sos.msseguridad.seguridad;
 
 import com.sos.msseguridad.dto.LoginRequest;
 import com.sos.msseguridad.dto.LoginResponse;
+import com.sos.msseguridad.dto.ProgramarTeleconsultaRequest;
+import com.sos.msseguridad.dto.VerificarCodigoRequest;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.web.bind.annotation.*;
+
+import java.security.Principal;
 
 @RestController
 @RequestMapping("/auth")
@@ -29,5 +33,21 @@ public class AuthController {
         } catch (BadCredentialsException e) {
             return ResponseEntity.status(401).body(e.getMessage());
         }
+    }
+    
+    @PostMapping("/verificar-2fa")
+    public ResponseEntity<?> verificarCodigo(@Valid @RequestBody VerificarCodigoRequest request) {
+        try {
+            return ResponseEntity.ok(authService.verificarCodigo(request));
+        } catch (BadCredentialsException e) {
+            return ResponseEntity.status(401).body(e.getMessage());
+        }
+    }
+
+    @PostMapping("/programar-teleconsulta")
+    public ResponseEntity<?> programarTeleconsulta(@Valid @RequestBody ProgramarTeleconsultaRequest request,
+                                                    Principal principal) {
+        return ResponseEntity.ok(authService.enviarConfirmacionTeleconsulta(
+                principal.getName(), request.getNombrePaciente()));
     }
 }

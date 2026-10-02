@@ -3,8 +3,24 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>SOS · Gestión de roles</title>
+<title>SOS · Administración</title>
 <link rel="stylesheet" href="assets/estilos.css">
+<style>
+  .tabs { display: flex; gap: 4px; margin-bottom: 20px; border-bottom: 1px solid var(--gris-linea); flex-wrap: wrap; }
+  .tabs button {
+    background: none; border: none; padding: 10px 16px; font-size: 14px;
+    color: var(--texto-suave); cursor: pointer; border-bottom: 2px solid transparent;
+  }
+  .tabs button.activo { color: var(--teal-hover); border-bottom-color: var(--teal); font-weight: 600; }
+  .panel { display: none; }
+  .panel.activo { display: block; }
+  .grid-admin { display: grid; grid-template-columns: 320px 1fr; gap: 24px; align-items: start; }
+  .fila-acciones button { padding: 5px 9px; font-size: 12px; margin-right: 4px; }
+  .estado-badge { padding: 2px 8px; border-radius: 999px; font-size: 11.5px; font-weight: 600; }
+  .estado-activo { background: var(--verde-fondo); color: var(--teal-hover); }
+  .estado-inactivo { background: var(--rojo-fondo); color: var(--rojo-alerta); }
+  @media (max-width: 900px) { .grid-admin { grid-template-columns: 1fr; } }
+</style>
 </head>
 <body>
 
@@ -18,14 +34,142 @@
 </div>
 
 <div class="contenido">
-  <h1>Gestión de roles y turnos</h1>
-  <p class="sub">Asignar o quitar actividades por perfil, y administrar turnos del personal.</p>
+  <h1>Administración</h1>
+  <p class="sub">Gestiona perfiles, actividades, asignaciones, usuarios y turnos del sistema.</p>
 
-  <div class="tarjeta">
-    <p style="color:var(--texto-suave); font-size:14px;">
-      El control de acceso por rol ya está funcionando: solo el perfil <strong>coordinador_turnos</strong> (y el administrador) pueden ver esta pantalla.
-      El CRUD real sobre <code>perfil_actividad</code> y <code>turno</code> todavía está pendiente de construir.
-    </p>
+  <div class="tabs">
+    <button class="activo" data-tab="perfiles" onclick="cambiarTab('perfiles')">Perfiles</button>
+    <button data-tab="actividades" onclick="cambiarTab('actividades')">Actividades</button>
+    <button data-tab="asignacion" onclick="cambiarTab('asignacion')">Asignación por perfil</button>
+    <button data-tab="usuarios" onclick="cambiarTab('usuarios')">Usuarios</button>
+  </div>
+
+  <!-- TAB: PERFILES -->
+  <div class="panel activo" id="panel-perfiles">
+    <div class="grid-admin">
+      <div class="tarjeta">
+        <h2 id="tituloFormPerfil">Nuevo perfil</h2>
+        <form id="formPerfil">
+          <input type="hidden" id="perfilId">
+          <div class="campo">
+            <label for="perfilNombre">Nombre del perfil</label>
+            <input type="text" id="perfilNombre" placeholder="ej. doctor_triage" required>
+          </div>
+          <button type="submit" class="boton-primario boton-full">Guardar</button>
+          <button type="button" class="boton-secundario boton-full" style="margin-top:8px; display:none;" id="btnCancelarPerfil" onclick="resetFormPerfil()">Cancelar edición</button>
+          <div class="mensaje" id="mensajePerfil"></div>
+        </form>
+      </div>
+      <div class="tarjeta">
+        <table>
+          <thead><tr><th>ID</th><th>Perfil</th><th>Acciones</th></tr></thead>
+          <tbody id="tablaPerfiles"><tr><td colspan="3" class="tabla-vacia">Cargando...</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB: ACTIVIDADES -->
+  <div class="panel" id="panel-actividades">
+    <div class="grid-admin">
+      <div class="tarjeta">
+        <h2 id="tituloFormActividad">Nueva actividad</h2>
+        <form id="formActividad">
+          <input type="hidden" id="actividadId">
+          <div class="campo">
+            <label for="actividadNombre">Nombre interno</label>
+            <input type="text" id="actividadNombre" placeholder="ej. crear_triage" required>
+          </div>
+          <div class="campo">
+            <label for="actividadEnlace">Archivo HTML</label>
+            <input type="text" id="actividadEnlace" placeholder="ej. triage-nuevo.html">
+          </div>
+          <button type="submit" class="boton-primario boton-full">Guardar</button>
+          <button type="button" class="boton-secundario boton-full" style="margin-top:8px; display:none;" id="btnCancelarActividad" onclick="resetFormActividad()">Cancelar edición</button>
+          <div class="mensaje" id="mensajeActividad"></div>
+        </form>
+      </div>
+      <div class="tarjeta">
+        <table>
+          <thead><tr><th>ID</th><th>Nombre</th><th>Enlace</th><th>Acciones</th></tr></thead>
+          <tbody id="tablaActividades"><tr><td colspan="4" class="tabla-vacia">Cargando...</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB: ASIGNACION -->
+  <div class="panel" id="panel-asignacion">
+    <div class="grid-admin">
+      <div class="tarjeta">
+        <h2>Asignar actividad a perfil</h2>
+        <form id="formAsignacion">
+          <div class="campo">
+            <label for="asignarPerfil">Perfil</label>
+            <select id="asignarPerfil" required></select>
+          </div>
+          <div class="campo">
+            <label for="asignarActividad">Actividad</label>
+            <select id="asignarActividad" required></select>
+          </div>
+          <button type="submit" class="boton-primario boton-full">Asignar</button>
+          <div class="mensaje" id="mensajeAsignacion"></div>
+        </form>
+      </div>
+      <div class="tarjeta">
+        <table>
+          <thead><tr><th>Perfil</th><th>Actividad</th><th>Acciones</th></tr></thead>
+          <tbody id="tablaAsignacion"><tr><td colspan="3" class="tabla-vacia">Cargando...</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB: USUARIOS -->
+  <div class="panel" id="panel-usuarios">
+    <div class="grid-admin">
+      <div class="tarjeta">
+        <h2 id="tituloFormUsuario">Nuevo usuario</h2>
+        <form id="formUsuario">
+          <input type="hidden" id="usuarioId">
+          <div class="fila-campos">
+            <div class="campo"><label for="usuarioNombre">Nombre</label><input type="text" id="usuarioNombre" required></div>
+            <div class="campo"><label for="usuarioApellido">Apellido</label><input type="text" id="usuarioApellido" required></div>
+          </div>
+          <div class="campo"><label for="usuarioEmail">Email</label><input type="email" id="usuarioEmail" required></div>
+          <div class="fila-campos">
+            <div class="campo"><label for="usuarioCedula">Cédula</label><input type="text" id="usuarioCedula" required></div>
+            <div class="campo"><label for="usuarioTelefono">Teléfono</label><input type="text" id="usuarioTelefono"></div>
+          </div>
+          <div class="campo"><label for="usuarioLogin">Usuario (login)</label><input type="text" id="usuarioLogin" required></div>
+          <div class="campo">
+            <label for="usuarioClave">Clave <span id="etiquetaClaveOpcional" style="display:none; font-weight:400;">(dejar en blanco para no cambiarla)</span></label>
+            <input type="password" id="usuarioClave">
+          </div>
+          <div class="campo">
+            <label for="usuarioPerfil">Perfil</label>
+            <select id="usuarioPerfil" required></select>
+          </div>
+          <div class="fila-campos">
+            <div class="campo"><label for="usuarioHoraInicio">Turno - inicio</label><input type="time" id="usuarioHoraInicio"></div>
+            <div class="campo"><label for="usuarioHoraFin">Turno - fin</label><input type="time" id="usuarioHoraFin"></div>
+          </div>
+          <p class="sub" id="notaTurno" style="margin-top:-8px;">El turno es obligatorio al crear un usuario. Al editar, se actualiza el turno activo del usuario (o se crea uno si no tenía).</p>
+          <div class="campo">
+            <label><input type="checkbox" id="usuarioRequiere2fa" style="width:auto; margin-right:6px;"> Requiere verificación en dos pasos</label>
+          </div>
+          <button type="submit" class="boton-primario boton-full">Guardar</button>
+          <button type="button" class="boton-secundario boton-full" style="margin-top:8px; display:none;" id="btnCancelarUsuario" onclick="resetFormUsuario()">Cancelar edición</button>
+          <div class="mensaje" id="mensajeUsuario"></div>
+        </form>
+      </div>
+      <div class="tarjeta">
+        <table>
+          <thead><tr><th>Usuario</th><th>Nombre</th><th>Perfil</th><th>Estado</th><th>Acciones</th></tr></thead>
+          <tbody id="tablaUsuarios"><tr><td colspan="5" class="tabla-vacia">Cargando...</td></tr></tbody>
+        </table>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -33,9 +177,295 @@
 <script>
   exigirSesion();
   pintarNav('navPrincipal', 'roles.html');
-
   const sesion = obtenerSesion();
   document.getElementById('infoUsuario').textContent = `${sesion.usuario} · ${sesion.perfil}`;
+
+  function cambiarTab(nombre) {
+    document.querySelectorAll('.tabs button').forEach(b => b.classList.toggle('activo', b.dataset.tab === nombre));
+    document.querySelectorAll('.panel').forEach(p => p.classList.toggle('activo', p.id === `panel-${nombre}`));
+  }
+
+  let cachePerfiles = [];
+  let cacheActividades = [];
+
+  /* ---------- PERFILES ---------- */
+
+  async function cargarPerfiles() {
+    try {
+      cachePerfiles = await listarPerfiles();
+      document.getElementById('tablaPerfiles').innerHTML = cachePerfiles.map(p => `
+        <tr>
+          <td>${p.idPerfil}</td><td>${p.perfil}</td>
+          <td class="fila-acciones">
+            <button class="boton-secundario" onclick="editarPerfil(${p.idPerfil})">Editar</button>
+            <button class="boton-secundario" onclick="borrarPerfil(${p.idPerfil})">Eliminar</button>
+          </td>
+        </tr>`).join('') || '<tr><td colspan="3" class="tabla-vacia">Sin perfiles</td></tr>';
+
+      llenarSelect('asignarPerfil', cachePerfiles, 'idPerfil', 'perfil');
+      llenarSelect('usuarioPerfil', cachePerfiles, 'idPerfil', 'perfil');
+    } catch (error) {
+      document.getElementById('tablaPerfiles').innerHTML = `<tr><td colspan="3" class="tabla-vacia">${error.message}</td></tr>`;
+    }
+  }
+
+  function editarPerfil(id) {
+    const p = cachePerfiles.find(x => x.idPerfil === id);
+    document.getElementById('perfilId').value = p.idPerfil;
+    document.getElementById('perfilNombre').value = p.perfil;
+    document.getElementById('tituloFormPerfil').textContent = 'Editar perfil';
+    document.getElementById('btnCancelarPerfil').style.display = 'block';
+  }
+
+  function resetFormPerfil() {
+    document.getElementById('formPerfil').reset();
+    document.getElementById('perfilId').value = '';
+    document.getElementById('tituloFormPerfil').textContent = 'Nuevo perfil';
+    document.getElementById('btnCancelarPerfil').style.display = 'none';
+    limpiarMensaje('mensajePerfil');
+  }
+
+  async function borrarPerfil(id) {
+    if (!confirm('¿Eliminar este perfil?')) return;
+    try {
+      await eliminarPerfil(id);
+      cargarPerfiles();
+    } catch (error) { alert(error.message); }
+  }
+
+  document.getElementById('formPerfil').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    limpiarMensaje('mensajePerfil');
+    const id = document.getElementById('perfilId').value;
+    const datos = { perfil: document.getElementById('perfilNombre').value.trim() };
+    try {
+      if (id) await actualizarPerfil(id, datos); else await crearPerfil(datos);
+      mostrarMensaje('mensajePerfil', 'Guardado correctamente', 'exito');
+      resetFormPerfil();
+      cargarPerfiles();
+    } catch (error) { mostrarMensaje('mensajePerfil', error.message, 'error'); }
+  });
+
+  /* ---------- ACTIVIDADES ---------- */
+
+  async function cargarActividades() {
+    try {
+      cacheActividades = await listarActividades();
+      document.getElementById('tablaActividades').innerHTML = cacheActividades.map(a => `
+        <tr>
+          <td>${a.idActividad}</td><td>${a.nombreActividad}</td><td>${a.enlace || '—'}</td>
+          <td class="fila-acciones">
+            <button class="boton-secundario" onclick="editarActividad(${a.idActividad})">Editar</button>
+            <button class="boton-secundario" onclick="borrarActividad(${a.idActividad})">Eliminar</button>
+          </td>
+        </tr>`).join('') || '<tr><td colspan="4" class="tabla-vacia">Sin actividades</td></tr>';
+
+      llenarSelect('asignarActividad', cacheActividades, 'idActividad', 'nombreActividad');
+    } catch (error) {
+      document.getElementById('tablaActividades').innerHTML = `<tr><td colspan="4" class="tabla-vacia">${error.message}</td></tr>`;
+    }
+  }
+
+  function editarActividad(id) {
+    const a = cacheActividades.find(x => x.idActividad === id);
+    document.getElementById('actividadId').value = a.idActividad;
+    document.getElementById('actividadNombre').value = a.nombreActividad;
+    document.getElementById('actividadEnlace').value = a.enlace || '';
+    document.getElementById('tituloFormActividad').textContent = 'Editar actividad';
+    document.getElementById('btnCancelarActividad').style.display = 'block';
+  }
+
+  function resetFormActividad() {
+    document.getElementById('formActividad').reset();
+    document.getElementById('actividadId').value = '';
+    document.getElementById('tituloFormActividad').textContent = 'Nueva actividad';
+    document.getElementById('btnCancelarActividad').style.display = 'none';
+    limpiarMensaje('mensajeActividad');
+  }
+
+  async function borrarActividad(id) {
+    if (!confirm('¿Eliminar esta actividad?')) return;
+    try { await eliminarActividad(id); cargarActividades(); } catch (error) { alert(error.message); }
+  }
+
+  document.getElementById('formActividad').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    limpiarMensaje('mensajeActividad');
+    const id = document.getElementById('actividadId').value;
+    const datos = {
+      nombreActividad: document.getElementById('actividadNombre').value.trim(),
+      enlace: document.getElementById('actividadEnlace').value.trim()
+    };
+    try {
+      if (id) await actualizarActividad(id, datos); else await crearActividad(datos);
+      mostrarMensaje('mensajeActividad', 'Guardado correctamente', 'exito');
+      resetFormActividad();
+      cargarActividades();
+    } catch (error) { mostrarMensaje('mensajeActividad', error.message, 'error'); }
+  });
+
+  /* ---------- ASIGNACION ---------- */
+
+  async function cargarAsignaciones() {
+    try {
+      const lista = await listarPerfilActividad();
+      document.getElementById('tablaAsignacion').innerHTML = lista.map(pa => `
+        <tr>
+          <td>${pa.perfil.perfil}</td><td>${pa.actividad.nombreActividad}</td>
+          <td class="fila-acciones"><button class="boton-secundario" onclick="quitarAsignacion(${pa.idPerfilActividad})">Quitar</button></td>
+        </tr>`).join('') || '<tr><td colspan="3" class="tabla-vacia">Sin asignaciones</td></tr>';
+    } catch (error) {
+      document.getElementById('tablaAsignacion').innerHTML = `<tr><td colspan="3" class="tabla-vacia">${error.message}</td></tr>`;
+    }
+  }
+
+  async function quitarAsignacion(id) {
+    if (!confirm('¿Quitar esta actividad del perfil?')) return;
+    try { await quitarActividad(id); cargarAsignaciones(); } catch (error) { alert(error.message); }
+  }
+
+  document.getElementById('formAsignacion').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    limpiarMensaje('mensajeAsignacion');
+    try {
+      await asignarActividad(Number(document.getElementById('asignarPerfil').value), Number(document.getElementById('asignarActividad').value));
+      mostrarMensaje('mensajeAsignacion', 'Asignado correctamente', 'exito');
+      cargarAsignaciones();
+    } catch (error) { mostrarMensaje('mensajeAsignacion', error.message, 'error'); }
+  });
+
+  /* ---------- USUARIOS ---------- */
+
+  let cacheUsuarios = [];
+
+  async function cargarUsuarios() {
+    try {
+      cacheUsuarios = await listarPersonal();
+      document.getElementById('tablaUsuarios').innerHTML = cacheUsuarios.map(u => `
+        <tr>
+          <td>${u.usuario}</td><td>${u.nombre} ${u.apellido}</td><td>${u.perfil}</td>
+          <td><span class="estado-badge ${u.idEstado === 1 ? 'estado-activo' : 'estado-inactivo'}">${u.idEstado === 1 ? 'Activo' : 'Inactivo'}</span></td>
+          <td class="fila-acciones">
+            <button class="boton-secundario" onclick="editarUsuario(${u.idPersonal})">Editar</button>
+            <button class="boton-secundario" onclick="toggleEstadoUsuario(${u.idPersonal}, ${u.idEstado})">${u.idEstado === 1 ? 'Desactivar' : 'Activar'}</button>
+          </td>
+        </tr>`).join('') || '<tr><td colspan="5" class="tabla-vacia">Sin usuarios</td></tr>';
+    } catch (error) {
+      document.getElementById('tablaUsuarios').innerHTML = `<tr><td colspan="5" class="tabla-vacia">${error.message}</td></tr>`;
+    }
+  }
+
+  function editarUsuario(id) {
+    const u = cacheUsuarios.find(x => x.idPersonal === id);
+    document.getElementById('usuarioId').value = u.idPersonal;
+    document.getElementById('usuarioNombre').value = u.nombre;
+    document.getElementById('usuarioApellido').value = u.apellido;
+    document.getElementById('usuarioEmail').value = u.email;
+    document.getElementById('usuarioCedula').value = u.cedula;
+    document.getElementById('usuarioTelefono').value = u.telefono || '';
+    document.getElementById('usuarioLogin').value = u.usuario;
+    document.getElementById('usuarioClave').value = '';
+    document.getElementById('usuarioPerfil').value = u.idPerfil;
+    document.getElementById('usuarioRequiere2fa').checked = u.requiere2fa;
+
+    const turnoActual = cacheTurnos.find(t => t.idPersonal === u.idPersonal && t.idEstado === 1);
+    document.getElementById('usuarioHoraInicio').value = turnoActual ? turnoActual.horaInicio : '';
+    document.getElementById('usuarioHoraFin').value = turnoActual ? turnoActual.horaFin : '';
+
+    document.getElementById('tituloFormUsuario').textContent = 'Editar usuario';
+    document.getElementById('etiquetaClaveOpcional').style.display = 'inline';
+    document.getElementById('btnCancelarUsuario').style.display = 'block';
+  }
+
+  function resetFormUsuario() {
+    document.getElementById('formUsuario').reset();
+    document.getElementById('usuarioId').value = '';
+    document.getElementById('tituloFormUsuario').textContent = 'Nuevo usuario';
+    document.getElementById('etiquetaClaveOpcional').style.display = 'none';
+    document.getElementById('notaTurno').textContent = 'El turno es obligatorio al crear un usuario nuevo. Para editar el turno de un usuario existente, usa la pestaña "Turnos".';
+    document.getElementById('btnCancelarUsuario').style.display = 'none';
+    limpiarMensaje('mensajeUsuario');
+  }
+
+  async function toggleEstadoUsuario(id, idEstadoActual) {
+    const nuevoEstado = idEstadoActual === 1 ? 0 : 1;
+    try { await cambiarEstadoPersonal(id, nuevoEstado); cargarUsuarios(); } catch (error) { alert(error.message); }
+  }
+
+  document.getElementById('formUsuario').addEventListener('submit', async (e) => {
+
+    e.preventDefault();
+
+    limpiarMensaje('mensajeUsuario');
+
+    const id = document.getElementById('usuarioId').value;
+
+    if (!id && (!document.getElementById('usuarioHoraInicio').value || !document.getElementById('usuarioHoraFin').value)) {
+        mostrarMensaje('mensajeUsuario', 'El turno es obligatorio al crear un usuario nuevo', 'error');
+        return;
+    }
+
+    const datos = {
+        nombre: document.getElementById('usuarioNombre').value.trim(),
+        apellido: document.getElementById('usuarioApellido').value.trim(),
+        email: document.getElementById('usuarioEmail').value.trim(),
+        cedula: document.getElementById('usuarioCedula').value.trim(),
+        telefono: document.getElementById('usuarioTelefono').value.trim(),
+        usuario: document.getElementById('usuarioLogin').value.trim(),
+        clave: document.getElementById('usuarioClave').value,
+        idPerfil: Number(document.getElementById('usuarioPerfil').value),
+        requiere2fa: document.getElementById('usuarioRequiere2fa').checked,
+        horaInicio: document.getElementById('usuarioHoraInicio').value || null,
+        horaFin: document.getElementById('usuarioHoraFin').value || null
+    };
+
+    try {
+
+        if (id) {
+            await actualizarPersonal(id, datos);
+        } else {
+            await crearPersonal(datos);
+        }
+
+        mostrarMensaje('mensajeUsuario', 'Guardado correctamente', 'exito');
+
+        resetFormUsuario();
+        cargarUsuarios();
+        cargarTurnos();
+
+    } catch (error) {
+        mostrarMensaje('mensajeUsuario', error.message, 'error');
+    }
+
+});
+
+  /* ---------- TURNOS (solo cache, sin UI propia -- se gestiona desde Usuarios) ---------- */
+
+  let cacheTurnos = [];
+
+  async function cargarTurnos() {
+    try {
+      cacheTurnos = await listarTurnos();
+    } catch (error) {
+      console.error('No se pudieron cargar los turnos:', error.message);
+    }
+  }
+
+  /* ---------- utilidad ---------- */
+
+  function llenarSelect(idSelect, lista, campoId, campoTexto) {
+    const select = document.getElementById(idSelect);
+    const valorActual = select.value;
+    select.innerHTML = lista.map(item => `<option value="${item[campoId]}">${item[campoTexto]}</option>`).join('');
+    if (valorActual) select.value = valorActual;
+  }
+
+  /* ---------- carga inicial ---------- */
+
+  cargarPerfiles();
+  cargarActividades();
+  cargarAsignaciones();
+  cargarUsuarios().then(() => cargarTurnos());
 </script>
 
 </body>

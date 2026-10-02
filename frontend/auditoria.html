@@ -5,6 +5,13 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>SOS · Auditoría</title>
 <link rel="stylesheet" href="assets/estilos.css">
+<style>
+  .accion-badge { padding: 2px 8px; border-radius: 999px; font-size: 11.5px; font-weight: 600; }
+  .accion-crear { background: var(--verde-fondo); color: var(--teal-hover); }
+  .accion-actualizar { background: #fff4e0; color: #a9670a; }
+  .accion-eliminar, .accion-desactivar { background: var(--rojo-fondo); color: var(--rojo-alerta); }
+  .accion-activar { background: var(--verde-fondo); color: var(--teal-hover); }
+</style>
 </head>
 <body>
 
@@ -18,14 +25,19 @@
 </div>
 
 <div class="contenido">
-  <h1>Auditoría</h1>
-  <p class="sub">Registro de acciones del personal sobre el sistema.</p>
+  <div style="display:flex; justify-content:space-between; align-items:center;">
+    <div>
+      <h1>Auditoría</h1>
+      <p class="sub" style="margin:0;">Registro de acciones administrativas del sistema.</p>
+    </div>
+    <button class="boton-secundario" onclick="cargarAuditoria()">Actualizar</button>
+  </div>
 
-  <div class="tarjeta">
-    <p style="color:var(--texto-suave); font-size:14px;">
-      El control de acceso por rol ya está funcionando: solo el perfil <strong>auditor</strong> (y el administrador) pueden ver esta pantalla.
-      El módulo que consulta <code>registro_auditoria</code> (microservicio <code>ms-auditoria</code>) todavía está pendiente de construir.
-    </p>
+  <div class="tarjeta" style="margin-top:20px;">
+    <table>
+      <thead><tr><th>Fecha</th><th>Usuario</th><th>Acción</th><th>Detalle</th></tr></thead>
+      <tbody id="tablaAuditoria"><tr><td colspan="4" class="tabla-vacia">Cargando...</td></tr></tbody>
+    </table>
   </div>
 </div>
 
@@ -33,9 +45,30 @@
 <script>
   exigirSesion();
   pintarNav('navPrincipal', 'auditoria.html');
-
   const sesion = obtenerSesion();
   document.getElementById('infoUsuario').textContent = `${sesion.usuario} · ${sesion.perfil}`;
+
+  function formatearFecha(iso) {
+    return new Date(iso).toLocaleString('es-CO', { dateStyle: 'medium', timeStyle: 'short' });
+  }
+
+  async function cargarAuditoria() {
+    const cuerpo = document.getElementById('tablaAuditoria');
+    try {
+      const logs = await listarAuditoria();
+      cuerpo.innerHTML = logs.map(l => `
+        <tr>
+          <td>${formatearFecha(l.fechaHora)}</td>
+          <td>${l.usuario}</td>
+          <td><span class="accion-badge accion-${l.accion.toLowerCase()}">${l.accion}</span></td>
+          <td>${l.detalle || '—'}</td>
+        </tr>`).join('') || '<tr><td colspan="4" class="tabla-vacia">Sin registros todavía</td></tr>';
+    } catch (error) {
+      cuerpo.innerHTML = `<tr><td colspan="4" class="tabla-vacia">${error.message}</td></tr>`;
+    }
+  }
+
+  cargarAuditoria();
 </script>
 
 </body>

@@ -5,6 +5,7 @@
 package com.sos.mspacientes.repositorio;
 
 import com.sos.mspacientes.modelo.Paciente;
+import java.util.List;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.Optional;
@@ -12,4 +13,5 @@ import java.util.Optional;
 public interface PacienteRepository extends JpaRepository<Paciente, Integer> {
     Optional<Paciente> findByCedula(String cedula);
     boolean existsByCedula(String cedula);
+    List<Paciente> findTop10ByCedulaContainingOrderByCedula(String cedula);
 }

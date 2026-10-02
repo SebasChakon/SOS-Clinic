@@ -80,6 +80,11 @@
         </div>
 
         <div class="campo">
+          <label for="email">Email (para enviarle la historia clínica al alta)</label>
+          <input type="email" id="email" placeholder="paciente@correo.com">
+        </div>
+
+        <div class="campo">
           <label for="fechaNacimiento">Fecha de nacimiento</label>
           <input type="date" id="fechaNacimiento" required>
         </div>
@@ -87,6 +92,7 @@
         <button type="submit" id="btnRegistrar" class="boton-primario boton-full">Registrar paciente</button>
 
         <div class="mensaje" id="mensajePaciente"></div>
+
       </form>
     </div>
 
@@ -95,8 +101,7 @@
       <div class="barra-lista">
         <h2 style="margin:0;">Pacientes registrados</h2>
         <div class="campo-busqueda">
-          <input type="text" id="buscarCedula" placeholder="Buscar por cédula...">
-          <button class="boton-secundario" onclick="buscarPorCedula()">Buscar</button>
+          <input type="text" id="buscarCedula" class="input-autocompletar" placeholder="Escribe para buscar..." autocomplete="off">
         </div>
       </div>
 
@@ -153,29 +158,25 @@
       cuerpo.innerHTML = `<tr><td colspan="4" class="tabla-vacia">${error.message}</td></tr>`;
     }
   }
+  let temporizadorBusquedaPacientes = null;
 
-  async function buscarPorCedula() {
-    const cedula = document.getElementById('buscarCedula').value.trim();
-    const cuerpo = document.getElementById('cuerpoTablaPacientes');
+  document.getElementById('buscarCedula').addEventListener('input', () => {
+    const valor = document.getElementById('buscarCedula').value.trim();
+    clearTimeout(temporizadorBusquedaPacientes);
 
-    if (!cedula) {
+    if (!valor) {
       cargarPacientes();
       return;
     }
 
-    try {
-      const paciente = await obtenerPacientePorCedula(cedula);
-      pintarPacientes([paciente]);
-    } catch (error) {
-      cuerpo.innerHTML = '<tr><td colspan="4" class="tabla-vacia">No se encontró ningún paciente con esa cédula</td></tr>';
-    }
-  }
-
-  document.getElementById('buscarCedula').addEventListener('keydown', (evento) => {
-    if (evento.key === 'Enter') {
-      evento.preventDefault();
-      buscarPorCedula();
-    }
+    temporizadorBusquedaPacientes = setTimeout(async () => {
+      try {
+        const resultados = await buscarPacientesPorCedula(valor);
+        pintarPacientes(resultados);
+      } catch (error) {
+        document.getElementById('cuerpoTablaPacientes').innerHTML = `<tr><td colspan="4" class="tabla-vacia">${error.message}</td></tr>`;
+      }
+    }, 300);
   });
 
   // --- Formulario de registro ---
@@ -183,30 +184,49 @@
   const formPaciente = document.getElementById('formPaciente');
 
   formPaciente.addEventListener('submit', async (evento) => {
-    evento.preventDefault();
-    limpiarMensaje('mensajePaciente');
 
-    const boton = document.getElementById('btnRegistrar');
-    boton.disabled = true;
-    boton.textContent = 'Registrando...';
+      evento.preventDefault();
 
-    try {
-      await crearPaciente({
-        nombre: document.getElementById('nombre').value.trim(),
-        apellido: document.getElementById('apellido').value.trim(),
-        cedula: document.getElementById('cedula').value.trim(),
-        fechaNacimiento: document.getElementById('fechaNacimiento').value
-      });
+      limpiarMensaje('mensajePaciente');
 
-      mostrarMensaje('mensajePaciente', 'Paciente registrado correctamente', 'exito');
-      formPaciente.reset();
-      cargarPacientes();
-    } catch (error) {
-      mostrarMensaje('mensajePaciente', error.message, 'error');
-    } finally {
-      boton.disabled = false;
-      boton.textContent = 'Registrar paciente';
-    }
+      const boton = document.getElementById('btnRegistrar');
+
+      boton.disabled = true;
+      boton.textContent = 'Registrando...';
+
+      try {
+
+          await crearPaciente({
+              nombre: document.getElementById('nombre').value.trim(),
+              apellido: document.getElementById('apellido').value.trim(),
+              cedula: document.getElementById('cedula').value.trim(),
+              email: document.getElementById('email').value.trim(),
+              fechaNacimiento: document.getElementById('fechaNacimiento').value
+          });
+
+          mostrarMensaje(
+              'mensajePaciente',
+              'Paciente registrado correctamente',
+              'exito'
+          );
+
+          formPaciente.reset();
+          cargarPacientes();
+
+      } catch (error) {
+
+          mostrarMensaje(
+              'mensajePaciente',
+              error.message,
+              'error'
+          );
+
+      } finally {
+
+          boton.disabled = false;
+          boton.textContent = 'Registrar paciente';
+
+      }
   });
 
   // --- Carga inicial ---

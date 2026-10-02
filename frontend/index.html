@@ -27,8 +27,8 @@
 
   <div class="panel-form">
     <div class="tarjeta">
-      <h2>Iniciar sesión</h2>
-      <p class="sub">Ingresa con tus credenciales de personal registrado.</p>
+      <h2 id="tituloForm">Iniciar sesión</h2>
+      <p class="sub" id="subtituloForm">Ingresa con tus credenciales de personal registrado.</p>
 
       <form id="formLogin">
         <div class="campo">
@@ -42,9 +42,19 @@
         </div>
 
         <button type="submit" id="btnEntrar" class="boton-primario boton-full">Entrar</button>
-
-        <div class="mensaje" id="mensaje"></div>
       </form>
+
+      <form id="formCodigo" style="display:none;">
+        <input type="hidden" id="usuarioParaCodigo">
+        <div class="campo">
+          <label for="codigoIngresado">Código de verificación</label>
+          <input type="text" id="codigoIngresado" placeholder="123456" maxlength="6" inputmode="numeric" required>
+        </div>
+        <button type="submit" id="btnVerificar" class="boton-primario boton-full">Verificar</button>
+        <button type="button" class="boton-secundario boton-full" style="margin-top:8px;" onclick="volverALogin()">Volver</button>
+      </form>
+
+      <div class="mensaje" id="mensaje"></div>
     </div>
   </div>
 
@@ -52,8 +62,10 @@
 
 <script src="assets/api.js"></script>
 <script>
-  const form = document.getElementById('formLogin');
+  const formLogin = document.getElementById('formLogin');
+  const formCodigo = document.getElementById('formCodigo');
   const boton = document.getElementById('btnEntrar');
+  const botonVerificar = document.getElementById('btnVerificar');
 
   // Si ya hay una sesion activa, no tiene sentido mostrar el login de nuevo
   if (haySesion()) {
@@ -61,7 +73,7 @@
     window.location.href = primerDestinoValido(sesion.actividades) || 'index.html';
   }
 
-  form.addEventListener('submit', async (evento) => {
+  formLogin.addEventListener('submit', async (evento) => {
     evento.preventDefault();
 
     const usuario = document.getElementById('usuario').value.trim();
@@ -73,23 +85,74 @@
 
     try {
       const datos = await login(usuario, clave);
+
+      if (datos.requiere2fa) {
+        mostrarPasoCodigo(usuario);
+        return;
+      }
+
+      const destino = primerDestinoValido(datos.actividades);
+
+      if (!destino) {
+        mostrarMensaje('mensaje', 'Tu usuario no tiene ninguna pantalla asignada. Contacta al coordinador de turnos.', 'error');
+        return;
+      }
+
       mostrarMensaje('mensaje', `Sesion iniciada como ${datos.usuario} (perfil: ${datos.perfil}). Redirigiendo...`, 'exito');
-
-    const destino = primerDestinoValido(datos.actividades);
-
-    if (!destino) {
-      mostrarMensaje('mensaje', 'Tu usuario no tiene ninguna pantalla asignada. Contacta al coordinador de turnos.', 'error');
-      boton.disabled = false;
-      boton.textContent = 'Entrar';
-      return;
-    }
-
-    setTimeout(() => { window.location.href = destino; }, 700);
+      setTimeout(() => { window.location.href = destino; }, 700);
     } catch (error) {
       mostrarMensaje('mensaje', error.message, 'error');
     } finally {
       boton.disabled = false;
       boton.textContent = 'Entrar';
+    }
+  });
+
+  function mostrarPasoCodigo(usuario) {
+    formLogin.style.display = 'none';
+    formCodigo.style.display = 'block';
+    document.getElementById('usuarioParaCodigo').value = usuario;
+    document.getElementById('tituloForm').textContent = 'Verificación en dos pasos';
+    document.getElementById('subtituloForm').textContent = 'Revisa tu correo e ingresa el código de 6 dígitos.';
+    mostrarMensaje('mensaje', 'Te enviamos un código a tu correo registrado. Expira en 5 minutos.', 'exito');
+    document.getElementById('codigoIngresado').focus();
+  }
+
+  function volverALogin() {
+    formCodigo.style.display = 'none';
+    formLogin.style.display = 'block';
+    document.getElementById('tituloForm').textContent = 'Iniciar sesión';
+    document.getElementById('subtituloForm').textContent = 'Ingresa con tus credenciales de personal registrado.';
+    document.getElementById('codigoIngresado').value = '';
+    limpiarMensaje('mensaje');
+  }
+
+  formCodigo.addEventListener('submit', async (evento) => {
+    evento.preventDefault();
+
+    const usuario = document.getElementById('usuarioParaCodigo').value;
+    const codigo = document.getElementById('codigoIngresado').value.trim();
+
+    limpiarMensaje('mensaje');
+    botonVerificar.disabled = true;
+    botonVerificar.textContent = 'Verificando...';
+
+    try {
+      const datos = await verificarCodigo2fa(usuario, codigo);
+      const destino = primerDestinoValido(datos.actividades);
+
+      if (!destino) {
+        mostrarMensaje('mensaje', 'Tu usuario no tiene ninguna pantalla asignada. Contacta al coordinador de turnos.', 'error');
+        return;
+      }
+
+      mostrarMensaje('mensaje', 'Código verificado. Redirigiendo...', 'exito');
+      setTimeout(() => { window.location.href = destino; }, 700);
+    } catch (error) {
+      mostrarMensaje('mensaje', error.message, 'error');
+    } finally {
+      botonVerificar.disabled = false;
+      botonVerificar.textContent = 'Verificar';
     }
   });
 </script>

@@ -19,13 +19,14 @@
 
 <div class="contenido" style="max-width:520px;">
   <h1>Registrar llegada a triage</h1>
-  <p class="sub">Busca al paciente por cédula antes de asignar la categoría.</p>
+  <p class="sub">Escribe la cédula; aparecerán los pacientes registrados que coincidan.</p>
 
   <div class="tarjeta">
     <form id="formTriage">
       <div class="campo">
         <label for="cedula">Cédula del paciente</label>
-        <input type="text" id="cedula" placeholder="1122334455" required>
+        <input class="input-autocompletar" type="text" id="cedula" list="listaCedulas" placeholder="Escribe para buscar..." autocomplete="off" required>
+        <datalist id="listaCedulas"></datalist>
       </div>
 
       <div class="campo" id="campoPacienteEncontrado" style="display:none;">
@@ -47,7 +48,9 @@
 
       <div class="campo">
         <label for="ubicacion">Ubicación</label>
-        <input type="text" id="ubicacion" placeholder="Sala 2">
+        <select id="ubicacion">
+          <option value="">Sin ubicación</option>
+        </select>
       </div>
 
       <button type="submit" id="btnRegistrar" class="boton-primario boton-full">Registrar llegada</button>
@@ -65,25 +68,65 @@
   const sesion = obtenerSesion();
   document.getElementById('infoUsuario').textContent = `${sesion.usuario} · ${sesion.perfil}`;
 
+  document.getElementById('ubicacion').insertAdjacentHTML('beforeend',
+    [...new Set(UBICACIONES_DISPONIBLES)].map(u => `<option value="${u}">${u}</option>`).join(''));
+
   const formTriage = document.getElementById('formTriage');
   const campoCedula = document.getElementById('cedula');
   const campoPacienteEncontrado = document.getElementById('campoPacienteEncontrado');
   const nombrePacienteEncontrado = document.getElementById('nombrePacienteEncontrado');
-  let idPacienteEncontrado = null;
+  const listaCedulas = document.getElementById('listaCedulas');
 
-  campoCedula.addEventListener('blur', async () => {
-    const cedula = campoCedula.value.trim();
+  let idPacienteEncontrado = null;
+  let ultimaBusqueda = null;
+  let temporizadorBusqueda = null;
+  let resultadosActuales = [];
+
+  campoCedula.addEventListener('input', () => {
     idPacienteEncontrado = null;
     campoPacienteEncontrado.style.display = 'none';
-    if (!cedula) return;
 
-    try {
-      const paciente = await obtenerPacientePorCedula(cedula);
-      idPacienteEncontrado = paciente.idPaciente;
-      nombrePacienteEncontrado.textContent = `${paciente.nombre} ${paciente.apellido}`;
-      nombrePacienteEncontrado.style.color = 'var(--teal-hover)';
-      campoPacienteEncontrado.style.display = 'block';
-    } catch (error) {
+    const valor = campoCedula.value.trim();
+    clearTimeout(temporizadorBusqueda);
+
+    if (valor.length < 2) {
+      listaCedulas.innerHTML = '';
+      return;
+    }
+
+    temporizadorBusqueda = setTimeout(async () => {
+      ultimaBusqueda = valor;
+      try {
+        const resultados = await buscarPacientesPorCedula(valor);
+        if (ultimaBusqueda !== valor) return; // respuesta vieja, ignorar
+
+        resultadosActuales = resultados;
+        listaCedulas.innerHTML = resultados.map(p =>
+          `<option value="${p.cedula}">${p.nombre} ${p.apellido}</option>`
+        ).join('');
+
+        const exacto = resultados.find(p => p.cedula === valor);
+        if (exacto) seleccionarPaciente(exacto);
+      } catch (error) {
+        listaCedulas.innerHTML = '';
+      }
+    }, 300);
+  });
+
+  function seleccionarPaciente(paciente) {
+    idPacienteEncontrado = paciente.idPaciente;
+    nombrePacienteEncontrado.textContent = `${paciente.nombre} ${paciente.apellido}`;
+    nombrePacienteEncontrado.style.color = 'var(--teal-hover)';
+    campoPacienteEncontrado.style.display = 'block';
+  }
+
+  campoCedula.addEventListener('blur', () => {
+    if (idPacienteEncontrado) return;
+    const valor = campoCedula.value.trim();
+    const exacto = resultadosActuales.find(p => p.cedula === valor);
+    if (exacto) {
+      seleccionarPaciente(exacto);
+    } else if (valor) {
       nombrePacienteEncontrado.innerHTML = 'No encontrado — regístralo primero en la pantalla de Pacientes';
       nombrePacienteEncontrado.style.color = 'var(--rojo-alerta)';
       campoPacienteEncontrado.style.display = 'block';
@@ -114,6 +157,7 @@
       formTriage.reset();
       campoPacienteEncontrado.style.display = 'none';
       idPacienteEncontrado = null;
+      listaCedulas.innerHTML = '';
     } catch (error) {
       mostrarMensaje('mensajeTriage', error.message, 'error');
     } finally {

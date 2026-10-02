@@ -118,7 +118,7 @@ async function llamarApi(ruta, opciones = {}) {
   if (!respuesta.ok) {
     const mensaje = (datos && typeof datos === 'string')
       ? datos
-      : (datos && datos.message) || 'Error en la solicitud';
+      : (datos && (datos.message || datos.detail)) || 'Error en la solicitud';
     throw new Error(mensaje);
   }
 
@@ -129,24 +129,37 @@ async function llamarApi(ruta, opciones = {}) {
    ms-seguridad
    --------------------------------------------------------------------- */
 
-async function login(usuario, clave) {
-  const datos = await llamarApi('/ms-seguridad/auth/login', {
-    method: 'POST',
-    body: JSON.stringify({ usuario, clave })
-  });
-  guardarSesion(datos);
-  return datos;
-}
+  async function login(usuario, clave) {
+    const datos = await llamarApi('/ms-seguridad/auth/login', {
+      method: 'POST', body: JSON.stringify({ usuario, clave })
+    });
+    if (!datos.requiere2fa) {
+      guardarSesion(datos);
+      registrarAuditoria('LOGIN', 'Inicio de sesion');
+    }
+    return datos;
+  }
+
+  async function verificarCodigo2fa(usuario, codigo) {
+    const datos = await llamarApi('/ms-seguridad/auth/verificar-2fa', {
+      method: 'POST', body: JSON.stringify({ usuario, codigo })
+    });
+    guardarSesion(datos);
+    registrarAuditoria('LOGIN', 'Inicio de sesion (2FA)');
+    return datos;
+  }
 
 /* ---------------------------------------------------------------------
    ms-pacientes
    --------------------------------------------------------------------- */
 
 async function crearPaciente(paciente) {
-  return llamarApi('/ms-pacientes/pacientes', {
+  const resultado = await llamarApi('/ms-pacientes/pacientes', {
     method: 'POST',
     body: JSON.stringify(paciente)
   });
+  registrarAuditoria('CREAR', `Paciente: ${resultado.nombre} ${resultado.apellido} (CC ${resultado.cedula})`);
+  return resultado;
 }
 
 async function listarPacientes() {
@@ -162,14 +175,34 @@ async function obtenerPacientePorId(idPaciente) {
 }
 
 async function registrarSignosVitales(signos) {
-  return llamarApi('/ms-pacientes/pacientes/signos-vitales', {
+  const resultado = await llamarApi('/ms-pacientes/pacientes/signos-vitales', {
     method: 'POST',
     body: JSON.stringify(signos)
   });
+  registrarAuditoria('CREAR', `Signos vitales, registro #${signos.idRegistro}`);
+  return resultado;
 }
 
 async function listarSignosVitalesPorRegistro(idRegistro) {
   return llamarApi(`/ms-pacientes/pacientes/signos-vitales/registro/${idRegistro}`);
+}
+
+async function enviarHistoriaClinica(idPaciente, contenido) {
+  return llamarApi(`/ms-pacientes/pacientes/${idPaciente}/enviar-historia`, {
+    method: 'POST', body: JSON.stringify({ contenido })
+  });
+}
+
+async function programarTeleconsulta(nombrePaciente) {
+  return llamarApi('/ms-seguridad/auth/programar-teleconsulta', {
+    method: 'POST', body: JSON.stringify({ nombrePaciente })
+  });
+}
+
+async function enviarCitaTeleconsulta(idPaciente, cita) {
+  return llamarApi(`/ms-pacientes/pacientes/${idPaciente}/enviar-cita-teleconsulta`, {
+    method: 'POST', body: JSON.stringify(cita)
+  });
 }
 
 /* ---------------------------------------------------------------------
@@ -177,10 +210,12 @@ async function listarSignosVitalesPorRegistro(idRegistro) {
    --------------------------------------------------------------------- */
 
 async function registrarTriage(registro) {
-  return llamarApi('/ms-triage/triage', {
+  const resultado = await llamarApi('/ms-triage/triage', {
     method: 'POST',
     body: JSON.stringify(registro)
   });
+  registrarAuditoria('CREAR', `Triage, paciente #${registro.idPaciente}`);
+  return resultado;
 }
 
 async function listaPriorizacion() {
@@ -188,12 +223,35 @@ async function listaPriorizacion() {
 }
 
 async function marcarEnAtencion(idRegistro) {
-  return llamarApi(`/ms-triage/triage/${idRegistro}/en-atencion`, { method: 'PUT' });
+  const resultado = await llamarApi(`/ms-triage/triage/${idRegistro}/en-atencion`, { method: 'PUT' });
+  registrarAuditoria('ACTUALIZAR', `Triage #${idRegistro} -> En atencion`);
+  return resultado;
 }
 
-async function marcarAtendido(idRegistro) {
-  return llamarApi(`/ms-triage/triage/${idRegistro}/atendido`, { method: 'PUT' });
+async function marcarAtendido(idRegistro, diagnosticoFinal, tratamiento) {
+  const resultado = await llamarApi(`/ms-triage/triage/${idRegistro}/atendido`, {
+    method: 'PUT', body: JSON.stringify({ diagnosticoFinal, tratamiento })
+  });
+  registrarAuditoria('ACTUALIZAR', `Triage #${idRegistro} dado de alta. Diagnostico: ${diagnosticoFinal}`);
+  return resultado;
 }
+
+async function actualizarUbicacionTriage(idRegistro, ubicacion) {
+  const resultado = await llamarApi(`/ms-triage/triage/${idRegistro}/ubicacion`, {
+    method: 'PUT', body: JSON.stringify({ ubicacion })
+  });
+  registrarAuditoria('ACTUALIZAR', `Triage #${idRegistro}, ubicacion -> ${ubicacion}`);
+  return resultado;
+}
+
+async function buscarPacientesPorCedula(q) {
+  return llamarApi(`/ms-pacientes/pacientes/buscar?q=${encodeURIComponent(q)}`);
+}
+
+const UBICACIONES_DISPONIBLES = [
+  'Consultorio 1', 'Consultorio 2', 'Consultorio 3', 'Consultorio 4', 'Consultorio 5',
+  'Sala de espera', 'Rayos X', 'Laboratorio', 'Ginecología', 'Pediatría', 'Cirugía', 'UCI', 'Urgencias', 'Observación', 'Farmacia', 'Sala de espera', 'Otro'
+];
 
 async function obtenerRegistroTriage(idRegistro) {
   return llamarApi(`/ms-triage/triage/${idRegistro}`);
@@ -248,4 +306,48 @@ function pintarNav(idContenedor, enlaceActual) {
     const clase = a.enlace === enlaceActual ? 'activo' : '';
     return `<a href="${a.enlace}" class="${clase}">${etiqueta}</a>`;
   }).join('');
+}
+
+/* ---------------------------------------------------------------------
+   ms-seguridad — administracion (perfiles, actividades, usuarios)
+   --------------------------------------------------------------------- */
+
+async function listarPerfiles() { return llamarApi('/ms-seguridad/admin/perfiles'); }
+async function crearPerfil(datos) { return llamarApi('/ms-seguridad/admin/perfiles', { method: 'POST', body: JSON.stringify(datos) }); }
+async function actualizarPerfil(id, datos) { return llamarApi(`/ms-seguridad/admin/perfiles/${id}`, { method: 'PUT', body: JSON.stringify(datos) }); }
+async function eliminarPerfil(id) { return llamarApi(`/ms-seguridad/admin/perfiles/${id}`, { method: 'DELETE' }); }
+
+async function listarActividades() { return llamarApi('/ms-seguridad/admin/actividades'); }
+async function crearActividad(datos) { return llamarApi('/ms-seguridad/admin/actividades', { method: 'POST', body: JSON.stringify(datos) }); }
+async function actualizarActividad(id, datos) { return llamarApi(`/ms-seguridad/admin/actividades/${id}`, { method: 'PUT', body: JSON.stringify(datos) }); }
+async function eliminarActividad(id) { return llamarApi(`/ms-seguridad/admin/actividades/${id}`, { method: 'DELETE' }); }
+
+async function listarPerfilActividad() { return llamarApi('/ms-seguridad/admin/perfil-actividad'); }
+async function asignarActividad(idPerfil, idActividad) {
+  return llamarApi('/ms-seguridad/admin/perfil-actividad', { method: 'POST', body: JSON.stringify({ idPerfil, idActividad }) });
+}
+async function quitarActividad(id) { return llamarApi(`/ms-seguridad/admin/perfil-actividad/${id}`, { method: 'DELETE' }); }
+
+async function listarPersonal() { return llamarApi('/ms-seguridad/admin/personal'); }
+async function crearPersonal(datos) { return llamarApi('/ms-seguridad/admin/personal', { method: 'POST', body: JSON.stringify(datos) }); }
+async function actualizarPersonal(id, datos) { return llamarApi(`/ms-seguridad/admin/personal/${id}`, { method: 'PUT', body: JSON.stringify(datos) }); }
+async function cambiarEstadoPersonal(id, idEstado) {
+  return llamarApi(`/ms-seguridad/admin/personal/${id}/estado?idEstado=${idEstado}`, { method: 'PUT' });
+}
+async function listarTurnos() { return llamarApi('/ms-seguridad/admin/turnos'); }
+async function crearTurno(datos) { return llamarApi('/ms-seguridad/admin/turnos', { method: 'POST', body: JSON.stringify(datos) }); }
+async function actualizarTurno(id, datos) { return llamarApi(`/ms-seguridad/admin/turnos/${id}`, { method: 'PUT', body: JSON.stringify(datos) }); }
+async function cambiarEstadoTurno(id, idEstado) { return llamarApi(`/ms-seguridad/admin/turnos/${id}/estado?idEstado=${idEstado}`, { method: 'PUT' }); }
+
+async function listarAuditoria() { return llamarApi('/ms-seguridad/admin/auditoria'); }
+async function registrarAuditoria(accion, detalle) {
+  try {
+    await llamarApi('/ms-seguridad/auditoria/registrar', {
+      method: 'POST',
+      body: JSON.stringify({ accion, detalle })
+    });
+  } catch (error) {
+    console.error('No se pudo registrar en auditoria:', error.message);
+    // No relanzamos el error: que falle el log de auditoria no debe tumbar la accion principal del usuario
+  }
 }

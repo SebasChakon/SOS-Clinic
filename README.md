@@ -1,234 +1,361 @@
-# SOS · Sistema Inteligente de Triage Hospitalario
+# SOS Clinic
 
-Proyecto integrador — Aplicación Big Data, Ingeniería Web y Agente de IA (Corte II).
-Arquitectura de microservicios en Java + Spring Boot, pensada para desplegarse en Azure.
+Sistema web de apoyo al registro y seguimiento de pacientes en el proceso de triage. El repositorio combina un frontend estático, servicios Java independientes, descubrimiento con Eureka y una base PostgreSQL local.
 
-## Índice
+> **Estado:** prototipo académico en desarrollo. No debe tratarse como un sistema clínico de producción. El esquema SQL inicial no coincide con todos los modelos JPA, la autorización entre servicios está incompleta y hay secretos de desarrollo en configuración. Revisa [Estado y limitaciones conocidas](#estado-y-limitaciones-conocidas) antes de levantarlo desde cero o exponerlo en una red.
 
+## Contenido
+
+- [Alcance actual](#alcance-actual)
 - [Arquitectura](#arquitectura)
-- [Requisitos previos](#requisitos-previos)
-- [Levantar el proyecto desde cero](#levantar-el-proyecto-desde-cero)
-- [Microservicios existentes](#microservicios-existentes)
-- [Endpoints disponibles](#endpoints-disponibles)
-- [Pendiente por construir](#pendiente-por-construir)
-- [Cómo agregar un microservicio nuevo](#cómo-agregar-un-microservicio-nuevo)
-- [Problemas comunes](#problemas-comunes)
+- [Mapa del repositorio](#mapa-del-repositorio)
+- [Requisitos](#requisitos)
+- [Puesta en marcha](#puesta-en-marcha)
+- [Flujo de trabajo normal](#flujo-de-trabajo-normal)
+- [Perfiles, actividades y turnos](#perfiles-actividades-y-turnos)
+- [Datos y persistencia](#datos-y-persistencia)
+- [API disponible](#api-disponible)
+- [Pruebas y mantenimiento](#pruebas-y-mantenimiento)
+- [Estado y limitaciones conocidas](#estado-y-limitaciones-conocidas)
+- [Problemas frecuentes](#problemas-frecuentes)
 
----
+## Alcance actual
+
+Sujeto a que la base esté alineada con los modelos actuales, el sistema permite:
+
+- Iniciar sesión con usuario y contraseña, emitir un JWT y solicitar un segundo factor por correo para cuentas configuradas con 2FA.
+- Administrar perfiles, actividades, asignaciones a perfiles, usuarios y turnos desde la interfaz de administración.
+- Registrar y buscar pacientes.
+- Crear episodios de triage, asignar una categoría y ubicación, consultar la lista de espera y cambiar un episodio a atención o atendido.
+- Guardar y consultar tomas de signos vitales asociadas a un episodio.
+- Consultar eventos de auditoría y enviar algunos correos de historias clínicas/teleconsultas.
+
+No existen servicios implementados para analítica Big Data, gestión de riesgos o un agente de IA. La categoría de triage la selecciona el operador; no la calcula un modelo de IA. La lista de espera se consulta bajo demanda y no es un tablero con actualización automática en vivo.
 
 ## Arquitectura
 
-```
-                        ┌─────────────────┐
-                        │   ms-gateway     │  puerto 8080
-                        │ (Spring Cloud    │  entrada unica al sistema
-                        │  Gateway MVC)    │
-                        └────────┬─────────┘
-          ┌───────────┬─────────┼──────────┬────────────┬──────────────┐
-          │            │         │          │            │              │
-   ms-seguridad   ms-pacientes  ms-triage  ms-analitica  ms-riesgos   ms-ia-agente
-    puerto 8081    puerto 8082  puerto 8083  (pendiente)  (pendiente)  (pendiente)
-   (auth JWT,      (pacientes,  (registro y                 
-    roles)         signos       priorizacion)
-                   vitales)
-          │            │         │
-          └────────────┴─────────┴──────────────────────────────────────┘
-                                    │
-                          eureka-server (puerto 8761)
-                          service discovery de todos los microservicios
-                                    │
-                              PostgreSQL (Docker, puerto 5432)
+```text
+Navegador
+  └── frontend (HTML, CSS y JavaScript sin framework)
+        └── ms-gateway :8080
+              ├── ms-seguridad :8081
+              ├── ms-pacientes :8082
+              └── ms-triage :8083
+                    │
+                    └── Eureka :8761 (registro y descubrimiento)
+
+Los servicios de negocio se conectan a PostgreSQL :5432.
+pgAdmin, opcional, está publicado en :5050.
 ```
 
-Cada microservicio es un proyecto Maven independiente. Todos corren sobre **Java 17** y **Spring Boot 4.0.8**, y se registran en Eureka para que el Gateway pueda ubicarlos por nombre (`lb://ms-nombre`) en vez de por IP/puerto fijo.
+Los cinco proyectos ejecutables son proyectos Maven independientes basados en Java 17, Spring Boot 4.0.8 y Spring Cloud 2025.1.3. Eureka permite que el gateway encuentre instancias por nombre. Las rutas del gateway son explícitas y están en `ms-gateway/src/main/resources/application.properties`; al agregar un servicio se debe definir allí una ruta `lb://...`.
 
-El repo también tiene una carpeta `legacy/` con el primer prototipo (Java EE / Ant / TomEE) que se descartó en favor de microservicios — se dejó como referencia del proceso, no se usa en el proyecto actual.
+Aunque conceptualmente cada microservicio tiene tablas bajo su responsabilidad, hoy todos usan el mismo esquema y las mismas credenciales de PostgreSQL (`sosclinic`). No hay una base de datos aislada por servicio ni mensajería entre servicios. Las referencias entre dominios se hacen principalmente mediante identificadores numéricos.
 
----
+`legacy/` es un prototipo anterior Java EE/Ant/TomEE. No forma parte del arranque de los microservicios actuales.
 
-## Requisitos previos
+## Mapa del repositorio
 
-- **JDK 17**
-- **NetBeans 20+** (con el plugin "NetBeans Spring Boot" de Alex Falappa instalado vía Tools → Plugins, para crear proyectos Spring Initializr desde el IDE)
-- **Docker Desktop**
-- **Git** / Git Bash (recomendado sobre CMD en Windows para comandos con heredoc, `curl`, etc.)
-- **Postman** (o similar) para probar los endpoints
+### Raíz
 
----
+| Ruta | Responsabilidad |
+|---|---|
+| `README.md` | Guía de arquitectura, configuración, operación y limitaciones. |
+| `levantar-sistema.bat` | En Windows, levanta Docker Compose, abre consolas para los cuatro servicios de aplicación y abre el login. Usa el comando global `mvn`; requiere Maven en `PATH`. Sus pausas son fijas, no comprobaciones de disponibilidad. |
+| `infra/` | Infraestructura local PostgreSQL/pgAdmin y SQL inicial. |
+| `frontend/` | Interfaz estática que consume el gateway. |
+| `eureka-server/` | Registro y descubrimiento de servicios. |
+| `ms-gateway/` | Entrada HTTP y rutas hacia los servicios. |
+| `ms-seguridad/` | Autenticación, JWT, identidades, perfiles, actividades, turnos y auditoría. |
+| `ms-pacientes/` | Datos demográficos, signos vitales y correos relacionados con pacientes. |
+| `ms-triage/` | Episodios, categorías, estados, ubicación y priorización. |
+| `legacy/` | Prototipo Java EE/Ant/TomEE, conservado como referencia; no ejecutarlo como parte del arranque actual. |
+| `src/`, `web/`, `nbproject/` | Estructura NetBeans del proyecto antiguo en la raíz; no es uno de los microservicios Maven actuales. |
+| `build/`, `legacy/build/` | Salidas generadas de compilaciones/prototipos; no son fuente y no deben editarse. |
 
-## Levantar el proyecto desde cero
+Cada módulo Maven organiza normalmente su código en `src/main/java` así:
 
-### 1. Clonar el repo
+- `*Application.java`: punto de entrada Spring Boot; Eureka activa además la función de servidor Eureka.
+- `controlador/`: endpoints HTTP y conversión de solicitudes/respuestas.
+- `servicio/`: reglas de negocio y coordinación de repositorios.
+- `repositorio/`: acceso a datos mediante Spring Data JPA.
+- `modelo/`: entidades mapeadas a tablas PostgreSQL.
+- `dto/`: objetos de entrada/salida de API.
+- `seguridad/` en `ms-seguridad`: configuración, filtro JWT y flujo de autenticación.
+- `src/main/resources/application.properties`: puerto, nombre Eureka, JDBC y configuración local.
+- `pom.xml`: versión Java, dependencias y plugins Maven.
+- `src/test/java/`: pruebas de contexto; no equivalen a cobertura funcional completa.
+- `mvnw` / `mvnw.cmd`: Maven Wrapper del módulo.
+- `target/`: salida generada por Maven; no editar ni usar como fuente.
 
-```bash
-git clone <url-del-repo-en-gitlab>
-cd sos-clinic
-```
+### Infraestructura y frontend
 
-### 2. Levantar la base de datos (Docker)
+| Ruta | Contenido |
+|---|---|
+| `infra/docker-compose.yml` | Contenedores `postgres` (PostgreSQL 16) y `pgadmin`, puertos, volumen y montaje del script inicial. |
+| `infra/schema-postgres.sql` | Esquema, claves foráneas y datos base de perfiles, categorías y estados de triage. Solo se ejecuta automáticamente al crear un volumen vacío. |
+| `frontend/index.html` | Login y formulario de verificación 2FA. |
+| `frontend/pacientes.html` | Registro/listado de pacientes y entrada al flujo según actividades asignadas. |
+| `frontend/triage-nuevo.html` | Búsqueda por cédula y registro de llegada con categoría y ubicación. |
+| `frontend/lista-espera.html` | Consulta de priorización y acceso al seguimiento. |
+| `frontend/seguimiento.html` | Detalle del episodio, ubicación, transición a atención, signos vitales e interfaz de alta. Requiere `?idRegistro=...`. |
+| `frontend/auditoria.html` | Consulta de acciones registradas por backend y frontend. |
+| `frontend/roles.html` | Administración de perfiles, actividades, asignaciones, usuarios y turnos. |
+| `frontend/assets/api.js` | URL base, sesión en `sessionStorage`, envío JWT, manejo de errores y funciones compartidas de API. |
+| `frontend/assets/estilos.css` | Estilos compartidos; algunas páginas añaden estilos locales en su HTML. |
 
-```bash
+## Requisitos
+
+- JDK 17.
+- Docker Desktop con Docker Compose.
+- Maven 3.9 o superior si se usa `levantar-sistema.bat` o `mvn`. También se puede usar `mvnw.cmd` incluido en cada módulo.
+- Navegador moderno.
+- Opcional: NetBeans para abrir/ejecutar los proyectos y pgAdmin para inspeccionar PostgreSQL.
+
+El IDE no es requisito para compilar o ejecutar. El plugin de Spring para NetBeans mencionado en documentación antigua no es necesario para el flujo normal.
+
+## Puesta en marcha
+
+### 1. Iniciar PostgreSQL
+
+Desde PowerShell, CMD o una terminal abierta en el repositorio:
+
+```powershell
 cd infra
 docker compose up -d
+docker compose ps
 ```
 
-Esto levanta:
-- **PostgreSQL 16** en el puerto `5432` (usuario `sos_admin`, clave `sos_pass_dev`, base de datos `sosclinic`), con el schema (`schema-postgres.sql`) cargado automáticamente la primera vez
-- **pgAdmin** en `http://localhost:5050` (login: `admin@sosclinic.com` / `admin123`) — opcional, solo para inspeccionar visualmente las tablas
+Configuración local declarada en Compose:
 
-Verifica que las 10 tablas se crearon:
-```bash
+| Servicio | Dirección | Credenciales locales |
+|---|---|---|
+| PostgreSQL | `localhost:5432`, base `sosclinic` | Usuario `sos_admin`; contraseña de desarrollo en `docker-compose.yml`. |
+| pgAdmin | `http://localhost:5050` | Correo y contraseña de desarrollo en `docker-compose.yml`. |
+
+Para comprobar las tablas:
+
+```powershell
 docker exec -it sos-postgres psql -U sos_admin -d sosclinic -c "\dt"
 ```
 
-> **Nota:** si vuelves a levantar el proyecto en otra máquina y el volumen de Postgres ya existe pero está vacío/dañado, borra el volumen (`docker compose down -v`) y vuelve a correr `docker compose up -d` para que el schema se cargue de nuevo.
+Para consultar datos base:
 
-### 3. Correr los microservicios (en este orden)
-
-El orden importa: `eureka-server` tiene que estar arriba antes que cualquier otro, porque los demás se registran contra él al arrancar.
-
-1. **`eureka-server`** → abrir en NetBeans → Run. Verificar en `http://localhost:8761`
-2. **`ms-gateway`** → Run. Verificar que aparezca `MS-GATEWAY` en el dashboard de Eureka
-3. **`ms-seguridad`**, **`ms-pacientes`**, **`ms-triage`** → Run cada uno (no importa el orden entre ellos, solo que sea después del gateway)
-
-Cada proyecto necesita, la primera vez que lo abras en NetBeans:
-- **Properties → Run → Main Class**: escribir a mano la clase completa (ej. `com.sos.msseguridad.MsSeguridadApplication`) si el botón "Browse" no la lista
-- **Properties → Actions → Run project → Execute Goals**: `spring-boot:run` (si no se configura esto, NetBeans intenta correr con `exec-maven-plugin` y falla con `Could not find or load main class ${start-class}`)
-
-### 4. Insertar usuarios de prueba
-
-La tabla `personal` empieza vacía. Para poder hacer login, hay que insertar al menos un usuario con la clave ya hasheada en BCrypt (nunca en texto plano). Ejemplo ya usado en pruebas:
-
-```sql
--- usuario: ana.triage / clave en texto plano: Triage123*
-INSERT INTO personal (nombre, apellido, email, cedula, telefono, usuario, clave, id_perfil)
-VALUES ('Ana', 'Torres', 'ana.torres@sos.local', '1000111222', '3001234567',
-        'ana.triage', '$2b$10$kxKo2nh3zuvoKsQS4JboeuSjy7uNABzBAr4FPhAe5Msmvj2AlXt8O', 1);
+```powershell
+docker exec -it sos-postgres psql -U sos_admin -d sosclinic -c "SELECT * FROM perfil; SELECT * FROM categoria_triage ORDER BY prioridad;"
 ```
 
-Para generar un hash nuevo con otra clave, cualquier generador de BCrypt online sirve, o un script corto en Python con la librería `bcrypt`.
+**Persistencia:** los datos se conservan en el volumen `sos_pgdata` al detener contenedores. `docker compose down -v` elimina también el volumen y borra permanentemente los datos locales. Un cambio al SQL de inicialización no modifica un volumen existente.
 
-### 5. Probar que todo funciona
+> **Importante:** antes de iniciar las aplicaciones en una base nueva, revisa [Estado y limitaciones conocidas](#estado-y-limitaciones-conocidas). El SQL actual no cubre todas las entidades mapeadas por JPA y los servicios usan `ddl-auto=validate`.
 
-Abre `frontend/index.html` directamente en el navegador (doble clic) y entra con `ana.triage` / `Triage123*`. Si te muestra el token JWT, todo el flujo (navegador → gateway → ms-seguridad → Postgres) está funcionando.
+### 2. Iniciar servicios
 
----
+Orden recomendado: Eureka, gateway y luego servicios de negocio:
 
-## Microservicios existentes
+1. `eureka-server`
+2. `ms-gateway`
+3. `ms-seguridad`, `ms-pacientes` y `ms-triage`
 
-### `eureka-server` (puerto 8761)
-Service discovery. No expone lógica de negocio, solo el dashboard en `/`.
+Abre una terminal por servicio desde la raíz:
 
-### `ms-gateway` (puerto 8080)
-Punto único de entrada. Usa **Spring Cloud Gateway Server MVC** (no la variante reactiva/WebFlux — importante porque cambia cómo se configuran las rutas). No tiene descubrimiento automático de rutas: cada microservicio nuevo necesita una ruta agregada a mano en `application.properties`, siguiendo este patrón:
-
-```properties
-spring.cloud.gateway.server.webmvc.routes[N].id=ms-nombre
-spring.cloud.gateway.server.webmvc.routes[N].uri=lb://ms-nombre
-spring.cloud.gateway.server.webmvc.routes[N].predicates[0]=Path=/ms-nombre/**
-spring.cloud.gateway.server.webmvc.routes[N].filters[0]=StripPrefix=1
+```powershell
+cd eureka-server
+.\mvnw.cmd spring-boot:run
 ```
 
-También tiene configurado CORS abierto (`CorsConfig.java`) para que el frontend pueda llamarlo desde el navegador en desarrollo. **Esto hay que restringirlo a un dominio específico antes de pasar a producción/Azure.**
+Repite en terminales separadas desde las carpetas `ms-gateway`, `ms-seguridad`, `ms-pacientes` y `ms-triage`. También puedes ejecutar `mvn spring-boot:run` si Maven está instalado globalmente. Para usar el script de Windows desde la raíz:
 
-### `ms-seguridad` (puerto 8081)
-Autenticación y roles. Tablas: `personal`, `perfil`, `actividades`, `perfil_actividad`.
+```powershell
+.\levantar-sistema.bat
+```
 
-- Login con JWT (librería JJWT), contraseñas hasheadas con BCrypt
-- Filtro `JwtAuthFilter` que valida el token en cada request y lo convierte en un `ROLE_<perfil>` de Spring Security
-- Sesión completamente **stateless** (sin sesiones de servidor), como corresponde en microservicios
+El script abre las consolas en el orden básico, pero no valida que PostgreSQL o cada servicio estén listos; si hay demoras, revisa la salida de la consola correspondiente.
 
-### `ms-pacientes` (puerto 8082)
-Gestión de pacientes y signos vitales. Tablas: `paciente`, `estado_paciente`.
+Comprobaciones:
 
-Nota de diseño: `estado_paciente` guarda `id_registro` e `id_personal` como enteros simples (no como relaciones JPA `@ManyToOne`), porque esas tablas pertenecen a otros microservicios (`ms-triage` y `ms-seguridad` respectivamente). En microservicios, cada base de datos lógica es dueña de sus propias tablas — los demás solo referencian el ID.
+- Eureka: `http://localhost:8761`
+- Gateway: `http://localhost:8080`
+- En Eureka deben aparecer `MS-GATEWAY`, `MS-SEGURIDAD`, `MS-PACIENTES` y `MS-TRIAGE` una vez registrados.
 
-### `ms-triage` (puerto 8083)
-El corazón del sistema: registro de llegada a triage y cálculo de la lista de priorización en tiempo real. Tablas: `registro_triage`, `categoria_triage`, `estado_triage`.
+### 3. Preparar datos de aplicación
 
-El endpoint `GET /triage/prioridad` devuelve la lista ordenada por prioridad de categoría (1 = más urgente) y luego por orden de llegada, con el tiempo de espera calculado al vuelo en cada consulta (no se guarda estático). Este endpoint es el que va a alimentar el dashboard y, más adelante, el agente de IA.
+El SQL incluido crea cuatro perfiles base (`triage`, `medico`, `coordinacion`, `seguridad`), cinco categorías de triage y tres estados de episodio. **No crea administrador, usuarios, actividades ni asignaciones `perfil_actividad`.** El esquema tampoco contiene hoy varias columnas/tablas que necesitan los modelos actuales; primero alinea la base de datos.
 
----
+Una vez actualizado el esquema, crea la primera cuenta de forma controlada. La clave debe guardarse como BCrypt, nunca en texto plano. La opción normal es crear usuarios desde `roles.html`, ya que el backend codifica la clave y exige asignar un turno. Para el primer acceso administrativo se necesita un proceso de bootstrap controlado (por ejemplo, una inserción revisada con un hash BCrypt generado localmente). No compartas cuentas o hashes de demostración.
 
-## Endpoints disponibles
+Después del primer acceso, asigna actividades con enlaces válidos al perfil correspondiente. Sin actividades, el usuario puede autenticarse pero el frontend no tendrá una pantalla de destino.
 
-Todos se acceden a través del gateway: `http://localhost:8080/<prefijo-servicio>/...`
+### 4. Abrir el frontend
 
-| Método | Endpoint | Descripción |
+El script de Windows abre `frontend/index.html`; también puedes abrirlo directamente. La API apunta a `http://localhost:8080`, y el navegador guarda token y datos básicos de sesión en `sessionStorage`. Si el navegador bloquea las peticiones por CORS al abrir el archivo directamente, sirve `frontend/` desde un servidor estático local y permite ese origen en la configuración CORS del gateway.
+
+## Flujo de trabajo normal
+
+1. **Acceso del personal.** Se envían usuario y clave a `ms-seguridad`. El servicio comprueba que la cuenta esté activa, compara BCrypt y, excepto para el perfil llamado exactamente `administrador`, verifica que la hora esté dentro de un turno activo. Si se requiere 2FA, envía un código de seis dígitos al correo; vence en cinco minutos. Tras autenticar, devuelve JWT y actividades del perfil.
+2. **Registro del paciente.** Se guardan nombre, apellido, cédula, fecha de nacimiento y, opcionalmente, correo. La cédula debe ser única. Un paciente existente puede localizarse por cédula desde el formulario de nuevo triage.
+3. **Llegada a triage.** El operador selecciona paciente, categoría y, opcionalmente, ubicación. El backend crea el episodio en estado `En espera` y define la hora de llegada con el reloj del servidor. La categoría no se determina automáticamente.
+4. **Priorización.** `GET /ms-triage/triage/prioridad` devuelve la lista priorizada. La prioridad numérica 1 es la más urgente; el tiempo de espera en minutos se calcula al consultar y no se mantiene como contador en segundo plano.
+5. **Atención y seguimiento.** Desde la lista se abre `seguimiento.html?idRegistro=...`. Se puede actualizar ubicación, marcar `En atencion` y guardar tomas sucesivas de signos vitales. Las tomas anteriores se conservan.
+6. **Cierre.** La interfaz solicita diagnóstico y tratamiento antes del alta, pero el endpoint actual solo cambia el estado a `Atendido`; no recibe ni persiste esos datos. No asumas que el alta conserva esa información hasta corregir la ruta.
+7. **Trazabilidad.** Algunas operaciones administrativas se registran desde el backend; el frontend intenta registrar login, creación y cambios de triage. La auditoría es de mejor esfuerzo: un error al guardar el log no cancela la operación principal.
+
+Las funciones de historia clínica y teleconsulta dependen de correo SMTP. No asumas que el correo se entregó porque el cambio de estado haya concluido correctamente.
+
+## Perfiles, actividades y turnos
+
+El sistema separa estos conceptos:
+
+- **Perfil (`perfil`):** etiqueta asignada a un usuario, por ejemplo `triage`, `medico`, `coordinacion` o `seguridad`. El SQL inicial crea estos cuatro nombres. `administrador` tiene comportamiento especial en algunas comprobaciones, pero no se crea automáticamente.
+- **Actividad (`actividades`):** permiso de navegación del frontend, representado por nombre interno y archivo HTML, por ejemplo `crear_triage` → `triage-nuevo.html`.
+- **Asignación (`perfil_actividad`):** relación que determina qué actividades recibe cada perfil al iniciar sesión.
+
+`roles.html` permite crear/editar/eliminar perfiles y actividades, asignar o quitar actividades, y crear/editar usuarios. Al crear usuario se requiere clave y horario; la clave se codifica con BCrypt y se crea un turno activo. Al editar, dejar la clave vacía conserva la existente; también se puede cambiar perfil, 2FA y datos personales. Una cuenta inactiva no puede autenticarse.
+
+Los turnos son intervalos horarios diarios, no calendarios por fecha. La comprobación admite intervalos que cruzan medianoche. El backend de seguridad omite la comprobación horaria para el perfil cuyo nombre sea exactamente `administrador`.
+
+**Límite de autorización actual:** las actividades controlan principalmente el menú y navegación del navegador. `ms-seguridad` exige JWT para rutas protegidas, pero no restringe las operaciones administrativas a un perfil determinado. `ms-pacientes` y `ms-triage` no tienen filtros propios de autenticación y el gateway no valida globalmente el JWT. Por ello, las actividades asignadas no son autorización de API ni protección suficiente para datos clínicos.
+
+## Datos y persistencia
+
+El esquema de referencia está en `infra/schema-postgres.sql`. El SQL inicial crea diez tablas:
+
+| Tabla | Uso y relaciones |
+|---|---|
+| `perfil` | Perfiles de personal; nombre único y estado activo/inactivo. |
+| `personal` | Cuenta y datos del profesional; referencia a `perfil`. `clave` debe contener hash, nunca texto claro. |
+| `actividades` | Nombre interno y enlace de pantalla. |
+| `perfil_actividad` | Asignación única de actividad a perfil. |
+| `paciente` | Datos demográficos, cédula única y estado. |
+| `categoria_triage` | Catálogo de categorías con prioridad única; prioridad 1 es la mayor. |
+| `estado_triage` | Catálogo de estados de episodios. |
+| `registro_triage` | Episodio asociado a paciente, categoría, estado, ubicación y fecha/hora de llegada. |
+| `estado_paciente` | Cada toma de signos vitales, asociada a episodio y al ID del personal que la registró. |
+| `registro_auditoria` | Actor, paciente opcional, acción, detalle y fecha/hora. |
+
+Los servicios necesitan además `turno` y `codigo_verificacion`, más columnas ausentes del SQL inicial como `personal.requiere_2fa`, `paciente.email`, `registro_triage.diagnostico_final` y `registro_triage.tratamiento`. La discrepancia está explicada en [Estado y limitaciones conocidas](#estado-y-limitaciones-conocidas).
+
+### Reglas de datos
+
+- Las identidades las genera PostgreSQL. No asumas que los IDs serán consecutivos después de borrar registros.
+- Las claves foráneas relacionan paciente/episodio, episodio/catálogos de triage, personal/perfil y perfiles/actividades.
+- Algunas referencias de otros dominios son identificadores numéricos en vez de relaciones JPA. Por ejemplo, los signos guardan `id_registro` e `id_personal`; esto no significa que haya bases físicas separadas por servicio.
+- `id_estado` normalmente usa `1` activo y `0` inactivo. Los episodios usan el catálogo `estado_triage`.
+- `spring.jpa.hibernate.ddl-auto=validate`: Hibernate valida tablas/columnas, pero no crea ni migra el esquema. El SQL inicial no está versionado como migraciones incrementales.
+- `sos_pgdata` conserva la base entre reinicios. Los scripts de inicialización no se vuelven a ejecutar sobre un volumen existente.
+
+## API disponible
+
+Todas las rutas se exponen en `http://localhost:8080`. El gateway elimina el prefijo del servicio antes de reenviar; por ejemplo, `/ms-pacientes/pacientes` llega al controlador como `/pacientes`.
+
+### Autenticación y seguridad
+
+| Método | Ruta | Descripción |
 |---|---|---|
-| POST | `/ms-seguridad/auth/login` | Login, devuelve JWT |
-| POST | `/ms-pacientes/pacientes` | Crear paciente |
-| GET | `/ms-pacientes/pacientes` | Listar pacientes |
-| GET | `/ms-pacientes/pacientes/{id}` | Obtener paciente por ID |
-| GET | `/ms-pacientes/pacientes/cedula/{cedula}` | Obtener paciente por cédula |
-| POST | `/ms-pacientes/pacientes/signos-vitales` | Registrar signos vitales |
-| GET | `/ms-pacientes/pacientes/signos-vitales/registro/{idRegistro}` | Signos vitales de un registro de triage |
-| POST | `/ms-triage/triage` | Registrar llegada a triage |
-| GET | `/ms-triage/triage/prioridad` | Lista de priorización en tiempo real |
-| PUT | `/ms-triage/triage/{id}/en-atencion` | Marcar paciente en atención |
-| PUT | `/ms-triage/triage/{id}/atendido` | Cerrar el episodio de triage |
+| `POST` | `/ms-seguridad/auth/login` | Valida usuario/clave y turno; puede requerir 2FA o devolver token y actividades. |
+| `POST` | `/ms-seguridad/auth/verificar-2fa` | Valida código pendiente y devuelve token si es correcto. |
+| `POST` | `/ms-seguridad/auth/programar-teleconsulta` | Solicita programación/confirmación usando el usuario autenticado. |
+| `POST` | `/ms-seguridad/auditoria/registrar` | Registra una acción solicitada por el frontend; requiere JWT. |
+| `GET` | `/ms-seguridad/admin/perfiles` | Lista perfiles. |
+| `POST`, `PUT /{id}`, `DELETE /{id}` | `/ms-seguridad/admin/perfiles` | Crea, edita o elimina perfil. |
+| `GET` | `/ms-seguridad/admin/actividades` | Lista actividades. |
+| `POST`, `PUT /{id}`, `DELETE /{id}` | `/ms-seguridad/admin/actividades` | Crea, edita o elimina actividad. |
+| `GET`, `POST` | `/ms-seguridad/admin/perfil-actividad` | Lista asignaciones o asigna actividad a perfil. |
+| `DELETE` | `/ms-seguridad/admin/perfil-actividad/{id}` | Quita una asignación. |
+| `GET`, `POST` | `/ms-seguridad/admin/personal` | Lista o crea personal; al crear exige clave y turno. |
+| `PUT` | `/ms-seguridad/admin/personal/{id}` | Edita datos, perfil, 2FA y, opcionalmente, clave/turno. |
+| `PUT` | `/ms-seguridad/admin/personal/{id}/estado?idEstado=0\|1` | Activa o desactiva usuario. |
+| `GET`, `POST` | `/ms-seguridad/admin/turnos` | Lista o crea turnos. |
+| `PUT` | `/ms-seguridad/admin/turnos/{id}` | Edita las horas. |
+| `PUT` | `/ms-seguridad/admin/turnos/{id}/estado?idEstado=0\|1` | Activa o desactiva turno. |
+| `GET` | `/ms-seguridad/admin/auditoria` | Lista registros de auditoría. |
 
-Ejemplo de flujo de prueba completo en Postman:
-1. Login → copiar el token (para cuando protejamos estos endpoints con `@PreAuthorize` por rol)
-2. Crear paciente → anotar `idPaciente`
-3. Crear registro de triage con ese `idPaciente`
-4. Consultar `/ms-triage/triage/prioridad` → confirmar que aparece con el tiempo de espera calculado
+Las operaciones administrativas de `ms-seguridad` requieren token, pero actualmente no validan que el token tenga un rol administrativo. No expongas estas rutas fuera de un entorno controlado.
 
----
+### Pacientes
 
-## Pendiente por construir
+| Método | Ruta | Descripción |
+|---|---|---|
+| `POST` | `/ms-pacientes/pacientes` | Registra paciente; responde conflicto si la cédula ya existe. |
+| `GET` | `/ms-pacientes/pacientes` | Lista pacientes. |
+| `GET` | `/ms-pacientes/pacientes/{id}` | Busca por ID. |
+| `GET` | `/ms-pacientes/pacientes/cedula/{cedula}` | Busca por cédula exacta. |
+| `GET` | `/ms-pacientes/pacientes/buscar?q={texto}` | Hasta diez coincidencias parciales de cédula. |
+| `POST` | `/ms-pacientes/pacientes/signos-vitales` | Guarda una toma de signos vitales. |
+| `GET` | `/ms-pacientes/pacientes/signos-vitales/registro/{idRegistro}` | Lista tomas del episodio. |
+| `POST` | `/ms-pacientes/pacientes/{id}/enviar-historia` | Envía contenido por correo si el paciente tiene email. |
+| `POST` | `/ms-pacientes/pacientes/{id}/enviar-cita-teleconsulta` | Envía fecha/enlace recibidos en la solicitud. |
 
-Cada uno de estos sigue exactamente el mismo patrón que `ms-pacientes` y `ms-triage`: generar en Spring Initializr (Spring Boot 4.0.8, Java 17), configurar `application.properties`, entidades JPA, repositorios, servicio, controller, y agregar la ruta en `ms-gateway`.
+### Triage
 
-### `ms-analitica` (Big Data — puerto sugerido 8084)
-Requisito de la guía del corte II. Debe:
-- Ingerir un dataset histórico simulado (mínimo ~1000 registros de triage: signos vitales, categoría asignada, tiempo de espera, hora de llegada)
-- Procesar ese histórico (Java Streams, o Spark en modo local con su API de Java si se quiere usar tecnología Big Data real, como sugiere la guía)
-- Exponer endpoints con indicadores: tiempos de espera promedio por categoría, distribución de pacientes por hora/día, tendencias — datos que después consume el dashboard y el agente de IA
+| Método | Ruta | Descripción |
+|---|---|---|
+| `POST` | `/ms-triage/triage` | Crea episodio `En espera`; recibe ID paciente, categoría y ubicación opcional. |
+| `GET` | `/ms-triage/triage/{id}` | Obtiene episodio. |
+| `GET` | `/ms-triage/triage/prioridad` | Lista priorizada y tiempo de espera calculado en la consulta. |
+| `PUT` | `/ms-triage/triage/{id}/en-atencion` | Cambia estado a `En atencion`. |
+| `PUT` | `/ms-triage/triage/{id}/ubicacion` | Cambia ubicación. |
+| `PUT` | `/ms-triage/triage/{id}/atendido` | Cambia estado a `Atendido`; actualmente no persiste diagnóstico/tratamiento enviados por la interfaz. |
 
-### `ms-riesgos` (ISO 27005 / STRIDE / DREAD — puerto sugerido 8085)
-Corresponde al análisis de riesgos del anteproyecto SOS. Tablas sugeridas: activos de información, amenazas, vulnerabilidades, controles, con cálculo de nivel de riesgo.
+`frontend/assets/api.js` incluye el token en las peticiones cuando hay sesión, pero eso no significa que todos los servicios verifiquen el token.
 
-### `ms-auditoria` (puerto sugerido 8086)
-Tabla `registro_auditoria` (ya existe en el schema). Debe registrar acciones sensibles (quién accedió a qué paciente, cambios de estado, intentos de login fallidos) — corresponde al control de trazabilidad que exige el anteproyecto.
+## Pruebas y mantenimiento
 
-### `ms-ia-agente` (puerto sugerido 8087)
-El agente de IA que exige la guía. Debe consumir los endpoints de `ms-triage` y `ms-analitica` para responder preguntas en lenguaje natural, interpretar indicadores y generar alertas/recomendaciones — no debe ser un chatbot aislado, tiene que usar datos reales del sistema.
+Cada módulo tiene su propio ciclo Maven. Desde una terminal ubicada en la carpeta del módulo:
 
-### Dashboard
-Ampliar `frontend/index.html` (que hoy es solo una pantalla de prueba de login) con: lista de priorización en vivo, KPIs de `ms-analitica`, y un panel de chat con `ms-ia-agente`.
+```powershell
+.\mvnw.cmd test
+```
 
----
+También se puede usar `mvn test`. Las pruebas actuales son principalmente de arranque/contexto; no cubren exhaustivamente negocio, autorización, persistencia ni flujos clínicos. Para empaquetar un módulo sin pruebas:
 
-## Cómo agregar un microservicio nuevo
+```powershell
+.\mvnw.cmd package -DskipTests
+```
 
-1. **start.spring.io** (o el plugin de NetBeans): Group `com.sos`, Artifact `ms-nombre`, Package `com.sos.msnombre` (sin guiones), Spring Boot **4.0.8**, Java **17**
-2. Descomprimir en `sos-clinic/ms-nombre/`
-3. Abrir en NetBeans → **Properties → Run → Main Class**: escribir a mano `com.sos.msnombre.MsNombreApplication`
-4. **Properties → Actions → Run project → Execute Goals**: `spring-boot:run`
-5. `application.properties` con puerto propio, datos de conexión a Postgres, y `eureka.client.service-url.defaultZone=http://localhost:8761/eureka`
-6. Entidades JPA → Repositorios → Servicio → Controller (mismo patrón de `ms-pacientes`/`ms-triage`)
-7. Agregar la ruta correspondiente en `ms-gateway/application.properties`
-8. `Clean and Build`, `Run`, confirmar que aparece en `http://localhost:8761`
+Para detener infraestructura sin borrar los datos:
 
----
+```powershell
+cd infra
+docker compose down
+```
 
-## Problemas comunes
+Añadir `-v` borra el volumen, por lo que debe hacerse solo de forma intencional.
 
-**`Could not find or load main class ${start-class}`**
-Falta configurar `Properties → Actions → Run project → Execute Goals` a `spring-boot:run`. NetBeans por defecto intenta usar `exec-maven-plugin`, que no resuelve la clase principal automáticamente en este setup.
+## Estado y limitaciones conocidas
 
-**`Web server failed to start. Port XXXX was already in use`**
-Hay una instancia anterior del mismo microservicio corriendo. Encuentra el proceso con `netstat -ano | findstr :XXXX` y mátalo con `taskkill /PID <numero> /F`, o simplemente dale Stop a la pestaña de consola vieja en NetBeans.
+1. **SQL y entidades JPA no están sincronizados.** `schema-postgres.sql` define diez tablas, pero las entidades actuales también esperan `turno`, `codigo_verificacion` y columnas como `personal.requiere_2fa`, `paciente.email`, `registro_triage.diagnostico_final` y `registro_triage.tratamiento`. Con `ddl-auto=validate`, una base creada solo con ese SQL puede impedir el arranque de los servicios afectados. Actualiza el esquema mediante una migración controlada; no uses `ddl-auto=update` como sustituto de una migración revisada.
+2. **Faltan datos iniciales de acceso.** No se insertan usuario, actividades ni asignaciones `perfil_actividad`. Hay que provisionar la primera cuenta, sus turnos y actividades.
+3. **El alta no persiste todo lo que muestra la interfaz.** `seguimiento.html` recoge diagnóstico y tratamiento, pero `PUT /triage/{id}/atendido` no recibe esos campos y solo cambia el estado. Existe lógica de servicio para alta con esos datos, pero la ruta HTTP no la invoca.
+4. **Autorización por rol incompleta.** JWT se valida dentro de `ms-seguridad`, pero las APIs de pacientes y triage no instalan ese filtro; el gateway tampoco valida token globalmente. Las rutas administrativas solo requieren autenticación, no un rol específico.
+5. **Secretos locales en configuración.** Hay secretos JWT y SMTP en archivos de propiedades versionados. Deben considerarse expuestos: rótalos, retíralos del repositorio y léelos desde variables de entorno o un gestor de secretos. No los uses en producción.
+6. **Configuración de desarrollo sin endurecer.** PostgreSQL y pgAdmin publican puertos locales con credenciales de desarrollo; CORS debe limitarse al origen real del frontend. El repositorio no contiene un despliegue productivo completo para Azure.
+7. **Auditoría de mejor esfuerzo.** Parte de los eventos se solicita desde JavaScript y los errores de auditoría se silencian. No es una bitácora inmutable ni registra automáticamente todos los accesos a datos clínicos.
+8. **Analítica, riesgos y agente IA no implementados.** No hay módulos activos para Big Data, ISO 27005/STRIDE/DREAD o recomendaciones por IA. Son trabajo futuro, no endpoints disponibles.
+9. **No sustituye criterio clínico.** El personal ingresa la categoría. La aplicación no diagnostica, no detecta deterioro automáticamente y no debe ser el único mecanismo de priorización asistencial.
 
-**404 al pasar por el gateway**
-Spring Cloud Gateway Server **MVC** (la variante que usamos, no la reactiva) no tiene descubrimiento automático de rutas. Cada servicio nuevo necesita su ruta explícita en `ms-gateway/application.properties` (ver sección de arriba).
+## Problemas frecuentes
 
-**CORS bloqueado desde el navegador**
-Confirmar que `CorsConfig.java` existe en `ms-gateway`, que se hizo `Clean and Build`, y que el proceso de `ms-gateway` se reinició (Stop + Run) después del cambio — un simple Run sin reiniciar no aplica cambios de código ya compilado antes.
+**`Port XXXX was already in use`**
+Ya existe un proceso usando el puerto. Detén la ejecución anterior o identifica el proceso con `netstat -ano | findstr :XXXX` antes de cerrarlo.
 
-**pgAdmin no arranca / bucle de reinicio con error de email**
-El dominio del `PGADMIN_DEFAULT_EMAIL` no puede ser uno reservado (`.local`, `.test`, `.example`). Usar un dominio "normal" como `.com` aunque no exista de verdad — pgAdmin no envía correos, solo valida el formato.
+**Error de validación de Hibernate o columna/tabla faltante**
+Compara las entidades con `infra/schema-postgres.sql`. El esquema inicial está incompleto para los modelos actuales. Añade una migración/esquema actualizado; los scripts de inicialización no corren otra vez sobre volúmenes existentes.
 
-**Login funciona en Postman pero el hash de la clave no hace match**
-La clave en la base de datos tiene que estar hasheada con BCrypt, nunca en texto plano — `PasswordEncoder.matches()` siempre da `false` contra texto plano.
+**404 a través del gateway**
+Verifica que el servicio aparezca en Eureka y tenga ruta explícita en `ms-gateway/src/main/resources/application.properties`. Las rutas usan `StripPrefix=1`.
+
+**No se puede contactar al servidor**
+Comprueba Docker/PostgreSQL, Eureka, gateway y servicio destino, en ese orden. Revisa puertos y URL JDBC.
+
+**Login correcto pero sin pantalla de destino**
+Asigna al perfil una actividad cuyo enlace exista. `seguimiento.html` además necesita `idRegistro` en la URL.
+
+**Login rechazado por horario**
+Comprueba que la cuenta esté activa, que tenga turno con `id_estado = 1` y que la hora local esté dentro del intervalo. El perfil `administrador` es una excepción del código.
+
+**No llega el correo o código 2FA**
+Verifica SMTP y acceso de red. Usa secretos locales no versionados; no publiques contraseñas SMTP ni códigos.
+
+**Cambiaste SQL pero la base conserva el esquema anterior**
+El volumen conserva su estado. Aplica una migración explícita o, si los datos son descartables, elimina el volumen conscientemente. `docker compose down -v` es destructivo.

@@ -48,4 +48,7 @@ public class Personal {
 
     @Column(name = "id_estado", nullable = false)
     private Integer idEstado = 1;
+    
+    @Column(name = "requiere_2fa", nullable = false)
+    private Boolean requiere2fa = false;
 }

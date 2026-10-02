@@ -24,6 +24,8 @@ public class PacienteRequest {
     @NotNull(message = "La fecha de nacimiento es obligatoria")
     @Past(message = "La fecha de nacimiento debe ser anterior a hoy")
     private LocalDate fechaNacimiento;
+    
+    private String email;
 
     public String getNombre() { return nombre; }
     public void setNombre(String nombre) { this.nombre = nombre; }
@@ -33,4 +35,13 @@ public class PacienteRequest {
     public void setCedula(String cedula) { this.cedula = cedula; }
     public LocalDate getFechaNacimiento() { return fechaNacimiento; }
     public void setFechaNacimiento(LocalDate fechaNacimiento) { this.fechaNacimiento = fechaNacimiento; }
+
+    public String getEmail() {
+        return email;
+    }
+
+    public void setEmail(String email) {
+        this.email = email;
+    }
+    
 }

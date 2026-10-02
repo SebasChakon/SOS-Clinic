@@ -77,4 +77,24 @@ public class TriageService {
     public java.util.Optional<RegistroTriage> obtenerPorId(Integer idRegistro) {
         return registroTriageRepository.findById(idRegistro);
     }
+    
+    public RegistroTriage darDeAlta(Integer idRegistro, String diagnosticoFinal, String tratamiento) {
+        RegistroTriage registro = registroTriageRepository.findById(idRegistro)
+                .orElseThrow(() -> new NoSuchElementException("Registro de triage no encontrado"));
+
+        EstadoTriage atendido = estadoTriageRepository.findByNombreEstado("Atendido")
+                .orElseThrow(() -> new NoSuchElementException("Estado 'Atendido' no configurado"));
+
+        registro.setDiagnosticoFinal(diagnosticoFinal);
+        registro.setTratamiento(tratamiento);
+        registro.setEstadoTriage(atendido);
+        return registroTriageRepository.save(registro);
+    }
+
+    public RegistroTriage actualizarUbicacion(Integer idRegistro, String ubicacion) {
+        RegistroTriage registro = registroTriageRepository.findById(idRegistro)
+                .orElseThrow(() -> new NoSuchElementException("Registro de triage no encontrado"));
+        registro.setUbicacion(ubicacion);
+        return registroTriageRepository.save(registro);
+    }
 }

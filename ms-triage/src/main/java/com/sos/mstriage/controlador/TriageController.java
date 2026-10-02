@@ -5,6 +5,7 @@
 package com.sos.mstriage.controlador;
 
 import com.sos.mstriage.dto.RegistroTriageRequest;
+import com.sos.mstriage.dto.UbicacionRequest;
 import com.sos.mstriage.modelo.RegistroTriage;
 import com.sos.mstriage.servicio.TriageService;
 import jakarta.validation.Valid;
@@ -49,6 +50,16 @@ public class TriageController {
     public ResponseEntity<?> marcarEnAtencion(@PathVariable Integer id) {
         try {
             return ResponseEntity.ok(triageService.cambiarEstado(id, "En atencion"));
+        } catch (NoSuchElementException e) {
+            return ResponseEntity.status(404).body(e.getMessage());
+        }
+    }
+
+    @PutMapping("/{id}/ubicacion")
+    public ResponseEntity<?> actualizarUbicacion(@PathVariable Integer id,
+                                                  @Valid @RequestBody UbicacionRequest request) {
+        try {
+            return ResponseEntity.ok(triageService.actualizarUbicacion(id, request.getUbicacion()));
         } catch (NoSuchElementException e) {
             return ResponseEntity.status(404).body(e.getMessage());
         }
