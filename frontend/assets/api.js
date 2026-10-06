@@ -284,7 +284,8 @@ const ETIQUETAS_ACTIVIDAD = {
   seguimiento_paciente: 'Seguimiento',
   lista_espera: 'Lista de espera',
   auditoria: 'Auditoría',
-  gestion_roles: 'Roles'
+  gestion_roles: 'Roles',
+  enfermedades_crue: 'Enfermedades CRUE'
 };
 
 function pintarNav(idContenedor, enlaceActual) {

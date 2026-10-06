@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SOS · Enfermedades CRUE</title>
+<link rel="stylesheet" href="assets/estilos.css">
+<style>
+  .contenido-crue {
+    max-width: 1600px;
+    padding: 24px;
+  }
+
+  .crue-acciones {
+    display: flex;
+    justify-content: flex-end;
+    margin: -12px 0 12px;
+  }
+
+  .crue-acciones a {
+    color: var(--azul-medio);
+    font-size: 14px;
+  }
+
+  .crue-marco {
+    position: relative;
+    height: min(78vh, 920px);
+    min-height: 560px;
+    overflow: hidden;
+    border: 1px solid var(--gris-linea);
+    background: #fff;
+  }
+
+  .crue-marco iframe {
+    display: block;
+    width: 100%;
+    height: 100%;
+    border: 0;
+  }
+
+  .crue-cargando {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    background: #fff;
+    color: var(--texto-suave);
+    font-size: 14px;
+    pointer-events: none;
+  }
+
+  .crue-cargando[hidden] { display: none; }
+
+  @media (max-width: 640px) {
+    .contenido-crue { padding: 20px 12px; }
+    .crue-marco {
+      height: 74vh;
+      min-height: 480px;
+    }
+  }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="marca"><strong>SOS</strong> · Sistema de Triage Inteligente</div>
+  <nav id="navPrincipal"></nav>
+  <div style="display:flex; align-items:center; gap:14px;">
+    <span id="infoUsuario" style="font-size:13px; color:#b9c8d0;"></span>
+    <button class="salir" onclick="cerrarSesion()">Salir</button>
+  </div>
+</div>
+
+<main class="contenido contenido-crue">
+  <h1>Enfermedades atendidas por el CRUE</h1>
+  <div class="crue-acciones">
+    <a href="https://app.powerbi.com/view?r=eyJrIjoiMzZiMmNiNWUtOTk0Ni00MWM3LTgzNzctZDk0OTljN2ExNjAyIiwidCI6IjRhYjExODNlLTc1ZDYtNGI4Ny1iNGI1LWJmY2I5NjhjMWQ1NyIsImMiOjR9" target="_blank" rel="noopener noreferrer">Abrir reporte en otra pestaña</a>
+  </div>
+  <div class="crue-marco">
+    <div class="crue-cargando" id="estadoCarga" role="status">Cargando visualizador...</div>
+    <iframe
+      id="reporteCrue"
+      title="Power BI: principales enfermedades atendidas por el CRUE de Bogotá"
+      src="https://app.powerbi.com/view?r=eyJrIjoiMzZiMmNiNWUtOTk0Ni00MWM3LTgzNzctZDk0OTljN2ExNjAyIiwidCI6IjRhYjExODNlLTc1ZDYtNGI4Ny1iNGI1LWJmY2I5NjhjMWQ1NyIsImMiOjR9"
+      allowfullscreen="true">
+    </iframe>
+  </div>
+</main>
+
+<script src="assets/api.js"></script>
+<script>
+  exigirSesion();
+  pintarNav('navPrincipal', 'enfermedades-crue.html');
+
+  const sesion = obtenerSesion();
+  document.getElementById('infoUsuario').textContent = `${sesion.usuario} · ${sesion.perfil}`;
+  document.getElementById('reporteCrue').addEventListener('load', () => {
+    document.getElementById('estadoCarga').hidden = true;
+  });
+</script>
+
+</body>
+</html>

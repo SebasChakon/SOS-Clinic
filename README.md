@@ -93,10 +93,12 @@ Cada módulo Maven organiza normalmente su código en `src/main/java` así:
 | Ruta | Contenido |
 |---|---|
 | `infra/docker-compose.yml` | Contenedores `postgres` (PostgreSQL 16) y `pgadmin`, puertos, volumen y montaje del script inicial. |
-| `infra/schema-postgres.sql` | Esquema, claves foráneas y datos base de perfiles, categorías y estados de triage. Solo se ejecuta automáticamente al crear un volumen vacío. |
+| `infra/schema-postgres.sql` | Esquema, perfiles base, actividad CRUE y asignación inicial a todos los perfiles. Solo se ejecuta automáticamente al crear un volumen vacío. |
+| `infra/activar-enfermedades-crue.sql` | Registra la actividad CRUE y la asigna idempotentemente a todos los perfiles de una base existente. |
 | `frontend/index.html` | Login y formulario de verificación 2FA. |
 | `frontend/pacientes.html` | Registro/listado de pacientes y entrada al flujo según actividades asignadas. |
 | `frontend/triage-nuevo.html` | Búsqueda por cédula y registro de llegada con categoría y ubicación. |
+| `frontend/enfermedades-crue.html` | Visualizador Power BI de enfermedades atendidas por el CRUE de Bogotá. |
 | `frontend/lista-espera.html` | Consulta de priorización y acceso al seguimiento. |
 | `frontend/seguimiento.html` | Detalle del episodio, ubicación, transición a atención, signos vitales e interfaz de alta. Requiere `?idRegistro=...`. |
 | `frontend/auditoria.html` | Consulta de acciones registradas por backend y frontend. |
@@ -325,7 +327,7 @@ Añadir `-v` borra el volumen, por lo que debe hacerse solo de forma intencional
 ## Estado y limitaciones conocidas
 
 1. **SQL y entidades JPA no están sincronizados.** `schema-postgres.sql` define diez tablas, pero las entidades actuales también esperan `turno`, `codigo_verificacion` y columnas como `personal.requiere_2fa`, `paciente.email`, `registro_triage.diagnostico_final` y `registro_triage.tratamiento`. Con `ddl-auto=validate`, una base creada solo con ese SQL puede impedir el arranque de los servicios afectados. Actualiza el esquema mediante una migración controlada; no uses `ddl-auto=update` como sustituto de una migración revisada.
-2. **Faltan datos iniciales de acceso.** No se insertan usuario, actividades ni asignaciones `perfil_actividad`. Hay que provisionar la primera cuenta, sus turnos y actividades.
+2. **Faltan datos iniciales de acceso.** No se inserta usuario ni turnos. El esquema inicial registra la actividad CRUE y la asigna a todos los perfiles base; en una base existente, ejecuta `infra/activar-enfermedades-crue.sql` una vez porque los scripts de inicialización no corren de nuevo sobre volúmenes existentes.
 3. **El alta no persiste todo lo que muestra la interfaz.** `seguimiento.html` recoge diagnóstico y tratamiento, pero `PUT /triage/{id}/atendido` no recibe esos campos y solo cambia el estado. Existe lógica de servicio para alta con esos datos, pero la ruta HTTP no la invoca.
 4. **Autorización por rol incompleta.** JWT se valida dentro de `ms-seguridad`, pero las APIs de pacientes y triage no instalan ese filtro; el gateway tampoco valida token globalmente. Las rutas administrativas solo requieren autenticación, no un rol específico.
 5. **Secretos locales en configuración.** Hay secretos JWT y SMTP en archivos de propiedades versionados. Deben considerarse expuestos: rótalos, retíralos del repositorio y léelos desde variables de entorno o un gestor de secretos. No los uses en producción.
