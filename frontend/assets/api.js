@@ -284,7 +284,8 @@ const ETIQUETAS_ACTIVIDAD = {
   seguimiento_paciente: 'Seguimiento',
   lista_espera: 'Lista de espera',
   auditoria: 'Auditoría',
-  gestion_roles: 'Roles'
+  gestion_roles: 'Roles',
+  dashboard_analitica: 'Analítica'
 };
 
 function pintarNav(idContenedor, enlaceActual) {
@@ -306,6 +307,29 @@ function pintarNav(idContenedor, enlaceActual) {
     const clase = a.enlace === enlaceActual ? 'activo' : '';
     return `<a href="${a.enlace}" class="${clase}">${etiqueta}</a>`;
   }).join('');
+}
+
+/* ---------------------------------------------------------------------
+   ms-analitica
+   --------------------------------------------------------------------- */
+
+function parametrosDashboard(filtros) {
+  const parametros = new URLSearchParams({ desde: filtros.desde, hasta: filtros.hasta });
+  if (filtros.localidad) parametros.set('localidad', filtros.localidad);
+  if (filtros.turno) parametros.set('turno', filtros.turno);
+  return parametros.toString();
+}
+
+async function obtenerResumenDashboard(filtros) {
+  return llamarApi(`/ms-analitica/dashboard/resumen?${parametrosDashboard(filtros)}`);
+}
+
+async function obtenerLlegadasDashboard(filtros) {
+  return llamarApi(`/ms-analitica/dashboard/llegadas?${parametrosDashboard(filtros)}`);
+}
+
+async function obtenerCapacidadDashboard(filtros) {
+  return llamarApi(`/ms-analitica/dashboard/capacidad?${parametrosDashboard(filtros)}`);
 }
 
 /* ---------------------------------------------------------------------

@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SOS · Analítica</title>
+<link rel="stylesheet" href="assets/estilos.css">
+<style>
+  :root {
+    --analitica-tinta: #152a35;
+    --analitica-verde: #21846f;
+    --analitica-ambar: #d58a2b;
+    --analitica-coral: #c74e40;
+    --analitica-azul: #3978a5;
+  }
+  .contenido { max-width: 1380px; }
+  .dashboard-cabecera { display:flex; justify-content:space-between; align-items:flex-end; gap:24px; margin-bottom:20px; }
+  .dashboard-cabecera h1 { font-size:28px; color:var(--analitica-tinta); }
+  .dashboard-cabecera .sub { margin:0; }
+  .sello-sintetico { display:inline-flex; align-items:center; gap:8px; padding:8px 11px; border:1px solid #e7c99e; background:#fff6e9; color:#76501e; font-size:12px; font-weight:700; white-space:nowrap; }
+  .sello-sintetico::before { content:""; width:8px; height:8px; border-radius:50%; background:var(--analitica-ambar); }
+  .filtros-dashboard { display:grid; grid-template-columns:repeat(4, minmax(130px, 1fr)) auto; gap:14px; align-items:end; padding:18px 0; margin-bottom:18px; border-top:1px solid var(--gris-linea); border-bottom:1px solid var(--gris-linea); }
+  .filtros-dashboard .campo { margin:0; }
+  .filtros-dashboard button { min-height:42px; white-space:nowrap; }
+  .nota-lectura { display:flex; align-items:flex-start; gap:10px; padding:12px 14px; margin-bottom:18px; border-left:3px solid var(--analitica-azul); background:#edf5fa; color:#365163; font-size:13px; line-height:1.5; }
+  .kpis-dashboard { display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:12px; margin-bottom:18px; }
+  .kpi-dashboard { min-height:118px; padding:18px 20px; border:1px solid var(--gris-linea); border-top:3px solid var(--analitica-verde); background:#fff; }
+  .kpi-dashboard:nth-child(2) { border-top-color:var(--analitica-coral); }
+  .kpi-etiqueta { display:block; color:var(--texto-suave); font-size:12px; font-weight:600; }
+  .kpi-valor { display:block; margin-top:9px; color:var(--analitica-tinta); font-size:30px; font-weight:700; font-variant-numeric:tabular-nums; }
+  .grid-graficos { display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:14px 18px; }
+  .panel-grafico { min-width:0; padding:16px 0 10px; border-top:1px solid var(--gris-linea); }
+  .panel-grafico h2 { margin:0 0 4px; color:var(--analitica-tinta); font-size:17px; }
+  .panel-grafico p { margin:0 0 12px; color:var(--texto-suave); font-size:13px; }
+  .grafico-contenedor { position:relative; height:300px; min-height:240px; }
+  .grafico-contenedor canvas { display:block; }
+  .grafico-vacio { position:absolute; inset:0; display:grid; place-items:center; padding:20px; background:rgba(255,255,255,.88); color:var(--texto-suave); text-align:center; font-size:13px; }
+  .grafico-vacio[hidden] { display:none; }
+  .estado-dashboard { min-height:22px; margin:0 0 12px; color:var(--texto-suave); font-size:13px; }
+  .estado-dashboard.error { color:var(--rojo-alerta); }
+  @media (max-width:900px) {
+    .contenido { padding:24px; }
+    .filtros-dashboard { grid-template-columns:repeat(2, minmax(0, 1fr)); }
+    .grid-graficos { grid-template-columns:1fr; }
+  }
+  @media (max-width:560px) {
+    .contenido { padding:20px 16px; }
+    .dashboard-cabecera { align-items:flex-start; flex-direction:column; gap:12px; }
+    .dashboard-cabecera h1 { font-size:24px; }
+    .filtros-dashboard { grid-template-columns:1fr 1fr; gap:10px; }
+    .kpis-dashboard { gap:8px; }
+    .kpi-dashboard { min-height:100px; padding:14px; }
+    .kpi-valor { font-size:24px; }
+    .grafico-contenedor { height:270px; }
+  }
+</style>
+</head>
+<body>
+<header class="topbar">
+  <div class="marca"><strong>SOS</strong> · Sistema de Triage Inteligente</div>
+  <nav id="navPrincipal" aria-label="Navegación principal"></nav>
+  <div style="display:flex; align-items:center; gap:14px;">
+    <span id="infoUsuario" style="font-size:13px; color:#b9c8d0;"></span>
+    <button class="salir" onclick="cerrarSesion()">Salir</button>
+  </div>
+</header>
+
+<main class="contenido">
+  <div class="dashboard-cabecera">
+    <div>
+      <h1>Analítica de llegadas</h1>
+      <p class="sub">Volumen y capacidad agregados por período.</p>
+    </div>
+    <span class="sello-sintetico">Datos sintéticos</span>
+  </div>
+
+  <form class="filtros-dashboard" id="filtrosDashboard">
+    <div class="campo">
+      <label for="desde">Desde</label>
+      <input id="desde" name="desde" type="date" required>
+    </div>
+    <div class="campo">
+      <label for="hasta">Hasta</label>
+      <input id="hasta" name="hasta" type="date" required>
+    </div>
+    <div class="campo">
+      <label for="localidad">Localidad</label>
+      <select id="localidad" name="localidad">
+        <option value="">Todas</option>
+        <option>Norte</option><option>Sur</option><option>Centro</option>
+        <option>Occidente</option><option>Oriente</option>
+      </select>
+    </div>
+    <div class="campo">
+      <label for="turno">Turno</label>
+      <select id="turno" name="turno">
+        <option value="">Todos</option>
+        <option>Mañana</option><option>Tarde</option><option>Noche</option>
+      </select>
+    </div>
+    <button class="boton-primario" type="submit">Aplicar filtros</button>
+  </form>
+
+  <p class="nota-lectura">Estos registros son simulados y se generaron aleatoriamente. Las distribuciones describen únicamente el conjunto de demostración; no representan tendencias clínicas ni relaciones causales.</p>
+  <p class="estado-dashboard" id="estadoDashboard" role="status" aria-live="polite"></p>
+
+  <section class="kpis-dashboard" aria-label="Indicadores del período">
+    <div class="kpi-dashboard">
+      <span class="kpi-etiqueta">Llegadas en el período</span>
+      <strong class="kpi-valor" id="totalLlegadas">—</strong>
+    </div>
+    <div class="kpi-dashboard">
+      <span class="kpi-etiqueta">Espera promedio</span>
+      <strong class="kpi-valor" id="esperaPromedio">—</strong>
+    </div>
+  </section>
+
+  <section class="grid-graficos" aria-label="Gráficos del dashboard">
+    <article class="panel-grafico">
+      <h2>Llegadas por hora del día</h2>
+      <p>Distribución agregada de las horas registradas.</p>
+      <div class="grafico-contenedor"><canvas id="graficoHora" aria-label="Llegadas agrupadas por hora del día"></canvas><div class="grafico-vacio" id="vacioHora" hidden></div></div>
+    </article>
+    <article class="panel-grafico">
+      <h2>Distribución por prioridad</h2>
+      <p>Conteo de registros por categoría sintética.</p>
+      <div class="grafico-contenedor"><canvas id="graficoPrioridad" aria-label="Llegadas agrupadas por prioridad"></canvas><div class="grafico-vacio" id="vacioPrioridad" hidden></div></div>
+    </article>
+    <article class="panel-grafico">
+      <h2>Llegadas por localidad</h2>
+      <p>El filtro de localidad también se aplica a esta distribución.</p>
+      <div class="grafico-contenedor"><canvas id="graficoLocalidad" aria-label="Llegadas agrupadas por localidad"></canvas><div class="grafico-vacio" id="vacioLocalidad" hidden></div></div>
+    </article>
+    <article class="panel-grafico">
+      <h2>Demanda y capacidad por turno</h2>
+      <p>Promedios diarios del período; el filtro de localidad no aplica a capacidad.</p>
+      <div class="grafico-contenedor"><canvas id="graficoCapacidad" aria-label="Demanda y capacidad media por turno"></canvas><div class="grafico-vacio" id="vacioCapacidad" hidden></div></div>
+    </article>
+  </section>
+</main>
+
+<script src="assets/api.js"></script>
+<script src="assets/vendor/chart.umd.min.js"></script>
+<script>
+  exigirSesion();
+  pintarNav('navPrincipal', 'dashboard.html');
+  const sesion = obtenerSesion();
+  document.getElementById('infoUsuario').textContent = `${sesion.usuario} · ${sesion.perfil}`;
+
+  const formatoNumero = new Intl.NumberFormat('es-CO', { maximumFractionDigits: 0 });
+  const formatoDecimal = new Intl.NumberFormat('es-CO', { maximumFractionDigits: 1 });
+  const charts = {};
+  const paleta = ['#21846f', '#d58a2b', '#c74e40', '#3978a5', '#7c6c9b'];
+
+  function fechaLocal(fecha) {
+    const anio = fecha.getFullYear();
+    const mes = String(fecha.getMonth() + 1).padStart(2, '0');
+    const dia = String(fecha.getDate()).padStart(2, '0');
+    return `${anio}-${mes}-${dia}`;
+  }
+
+  const hoy = new Date();
+  const ayer = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate() - 1);
+  const inicio = new Date(ayer.getFullYear(), ayer.getMonth(), ayer.getDate() - 364);
+  document.getElementById('desde').value = fechaLocal(inicio);
+  document.getElementById('hasta').value = fechaLocal(ayer);
+
+  function opcionesBase() {
+    return {
+      responsive: true,
+      maintainAspectRatio: false,
+      devicePixelRatio: Math.max(window.devicePixelRatio || 1, 2),
+      animation: { duration: 350 },
+      plugins: {
+        legend: { display: false, labels: { color: '#33454d', font: { size: 13 } } },
+        tooltip: { titleFont: { size: 13 }, bodyFont: { size: 13 } }
+      },
+      scales: {
+        x: { grid: { display: false }, ticks: { color: '#46575e', font: { size: 12 }, maxRotation: 0 } },
+        y: { beginAtZero: true, grid: { color: '#dce4e6' }, ticks: { color: '#46575e', font: { size: 12 }, precision: 0 } }
+      }
+    };
+  }
+
+  function actualizarGrafico(id, tipo, etiquetas, datasets) {
+    const lienzo = document.getElementById(id);
+    if (!charts[id]) {
+      charts[id] = new Chart(lienzo, {
+        type: tipo,
+        data: { labels: etiquetas, datasets },
+        options: opcionesBase()
+      });
+      return;
+    }
+    charts[id].data.labels = etiquetas;
+    charts[id].data.datasets = datasets;
+    charts[id].update();
+  }
+
+  function mostrarVacio(nombre, vacio, mensaje = 'Sin registros para los filtros elegidos.') {
+    const elemento = document.getElementById(`vacio${nombre}`);
+    elemento.textContent = vacio ? mensaje : '';
+    elemento.hidden = !vacio;
+  }
+
+  function filtrosActuales() {
+    return {
+      desde: document.getElementById('desde').value,
+      hasta: document.getElementById('hasta').value,
+      localidad: document.getElementById('localidad').value,
+      turno: document.getElementById('turno').value
+    };
+  }
+
+  async function cargarDashboard(evento) {
+    if (evento) evento.preventDefault();
+    const estado = document.getElementById('estadoDashboard');
+    const filtros = filtrosActuales();
+    if (filtros.desde > filtros.hasta) {
+      estado.textContent = 'La fecha inicial debe ser anterior o igual a la fecha final.';
+      estado.className = 'estado-dashboard error';
+      return;
+    }
+
+    estado.textContent = 'Consultando agregados…';
+    estado.className = 'estado-dashboard';
+    try {
+      const [resumen, llegadas, capacidad] = await Promise.all([
+        obtenerResumenDashboard(filtros),
+        obtenerLlegadasDashboard(filtros),
+        obtenerCapacidadDashboard(filtros)
+      ]);
+      document.getElementById('totalLlegadas').textContent = formatoNumero.format(resumen.totalLlegadas);
+      document.getElementById('esperaPromedio').textContent = `${formatoDecimal.format(resumen.esperaPromedioMin)} min`;
+
+      const porHora = Array.from({ length: 24 }, (_, hora) => {
+        const registro = llegadas.porHora.find(item => item.hora === hora);
+        return registro ? registro.total : 0;
+      });
+      actualizarGrafico('graficoHora', 'line', Array.from({ length: 24 }, (_, hora) => `${String(hora).padStart(2, '0')}:00`), [{
+        label: 'Llegadas', data: porHora, borderColor: '#21846f', backgroundColor: 'rgba(33,132,111,.12)',
+        borderWidth: 3, fill: true, tension: .28, pointRadius: 2.5, pointHoverRadius: 5
+      }]);
+      actualizarGrafico('graficoPrioridad', 'bar', llegadas.porPrioridad.map(item => item.etiqueta), [{
+        label: 'Llegadas', data: llegadas.porPrioridad.map(item => item.total),
+        backgroundColor: llegadas.porPrioridad.map((_, index) => paleta[index % paleta.length]), borderRadius: 3
+      }]);
+      actualizarGrafico('graficoLocalidad', 'bar', llegadas.porLocalidad.map(item => item.etiqueta), [{
+        label: 'Llegadas', data: llegadas.porLocalidad.map(item => item.total),
+        backgroundColor: '#3978a5', borderRadius: 3
+      }]);
+      actualizarGrafico('graficoCapacidad', 'bar', capacidad.map(item => item.turno), [
+        { label: 'Llegadas promedio/día', data: capacidad.map(item => item.llegadasPromedio), backgroundColor: '#c74e40', borderRadius: 3 },
+        { label: 'Personal promedio', data: capacidad.map(item => item.personalPromedio), backgroundColor: '#21846f', borderRadius: 3 },
+        { label: 'Puestos de triage', data: capacidad.map(item => item.puestosTriagePromedio), backgroundColor: '#d58a2b', borderRadius: 3 },
+        { label: 'Camas disponibles', data: capacidad.map(item => item.camasDisponiblesPromedio), backgroundColor: '#3978a5', borderRadius: 3 }
+      ]);
+      charts.graficoCapacidad.options.plugins.legend.display = true;
+      charts.graficoCapacidad.update();
+
+      mostrarVacio('Hora', resumen.totalLlegadas === 0);
+      mostrarVacio('Prioridad', llegadas.porPrioridad.length === 0);
+      mostrarVacio('Localidad', llegadas.porLocalidad.length === 0);
+      mostrarVacio('Capacidad', capacidad.length === 0);
+      estado.textContent = 'Agregados actualizados.';
+    } catch (error) {
+      document.getElementById('totalLlegadas').textContent = '—';
+      document.getElementById('esperaPromedio').textContent = '—';
+      for (const nombre of ['Hora', 'Prioridad', 'Localidad', 'Capacidad']) {
+        mostrarVacio(nombre, true, 'No fue posible cargar estos datos.');
+      }
+      estado.textContent = error.message;
+      estado.className = 'estado-dashboard error';
+    }
+  }
+
+  document.getElementById('filtrosDashboard').addEventListener('submit', cargarDashboard);
+  cargarDashboard();
+</script>
+</body>
+</html>
