@@ -113,7 +113,9 @@ async function llamarApi(ruta, opciones = {}) {
     // lea el mensaje real del backend ("Fuera de tu horario...", "Usuario o clave incorrectos", etc.)
   }
 
-  const datos = await respuesta.json().catch(() => null);
+  const textoRespuesta = await respuesta.text();
+  let datos = null;
+  try { datos = textoRespuesta ? JSON.parse(textoRespuesta) : null; } catch (e) { datos = textoRespuesta; }
 
   if (!respuesta.ok) {
     const mensaje = (datos && typeof datos === 'string')
@@ -285,7 +287,8 @@ const ETIQUETAS_ACTIVIDAD = {
   lista_espera: 'Lista de espera',
   auditoria: 'Auditoría',
   gestion_roles: 'Roles',
-  enfermedades_crue: 'Enfermedades CRUE'
+  enfermedades_crue: 'Enfermedades CRUE',
+  dashboard_analitica: 'Analítica'
 };
 
 function pintarNav(idContenedor, enlaceActual) {
@@ -307,6 +310,29 @@ function pintarNav(idContenedor, enlaceActual) {
     const clase = a.enlace === enlaceActual ? 'activo' : '';
     return `<a href="${a.enlace}" class="${clase}">${etiqueta}</a>`;
   }).join('');
+}
+
+/* ---------------------------------------------------------------------
+   ms-analitica
+   --------------------------------------------------------------------- */
+
+function parametrosDashboard(filtros) {
+  const parametros = new URLSearchParams({ desde: filtros.desde, hasta: filtros.hasta });
+  if (filtros.localidad) parametros.set('localidad', filtros.localidad);
+  if (filtros.turno) parametros.set('turno', filtros.turno);
+  return parametros.toString();
+}
+
+async function obtenerResumenDashboard(filtros) {
+  return llamarApi(`/ms-analitica/dashboard/resumen?${parametrosDashboard(filtros)}`);
+}
+
+async function obtenerLlegadasDashboard(filtros) {
+  return llamarApi(`/ms-analitica/dashboard/llegadas?${parametrosDashboard(filtros)}`);
+}
+
+async function obtenerCapacidadDashboard(filtros) {
+  return llamarApi(`/ms-analitica/dashboard/capacidad?${parametrosDashboard(filtros)}`);
 }
 
 /* ---------------------------------------------------------------------
@@ -351,4 +377,17 @@ async function registrarAuditoria(accion, detalle) {
     console.error('No se pudo registrar en auditoria:', error.message);
     // No relanzamos el error: que falle el log de auditoria no debe tumbar la accion principal del usuario
   }
+}
+
+
+async function preguntarAgente(payload) {
+  return llamarApi('/ms-ia-agente/agente/preguntar', { method: 'POST', body: JSON.stringify(payload) });
+}
+
+async function transcribirAudio(blob) {
+  return llamarApi('/ms-ia-agente/agente/transcribir', {
+    method: 'POST',
+    headers: { 'Content-Type': blob.type || 'audio/webm' },
+    body: blob
+  });
 }

@@ -40,9 +40,12 @@ Navegador
         └── ms-gateway :8080
               ├── ms-seguridad :8081
               ├── ms-pacientes :8082
-              └── ms-triage :8083
+              ├── ms-triage :8083
+              └── ms-analitica :8084 (local, fuera de Docker)
                     │
                     └── Eureka :8761 (registro y descubrimiento)
+
+ms-analitica lee agregados del MySQL sintético `urgencias_hospital` en `localhost:3306`; no conecta el navegador directamente a la base.
 
 Los servicios de negocio se conectan a PostgreSQL :5432.
 pgAdmin, opcional, está publicado en :5050.
@@ -112,6 +115,7 @@ Cada módulo Maven organiza normalmente su código en `src/main/java` así:
 - Docker Desktop con Docker Compose.
 - Maven 3.9 o superior si se usa `levantar-sistema.bat` o `mvn`. También se puede usar `mvnw.cmd` incluido en cada módulo.
 - Navegador moderno.
+- Para preparar los datos de analítica: MySQL Server iniciado, el cliente `mysql` en `PATH` y Python disponible como `python`.
 - Opcional: NetBeans para abrir/ejecutar los proyectos y pgAdmin para inspeccionar PostgreSQL.
 
 El IDE no es requisito para compilar o ejecutar. El plugin de Spring para NetBeans mencionado en documentación antigua no es necesario para el flujo normal.
@@ -151,13 +155,27 @@ docker exec -it sos-postgres psql -U sos_admin -d sosclinic -c "SELECT * FROM pe
 
 > **Importante:** antes de iniciar las aplicaciones en una base nueva, revisa [Estado y limitaciones conocidas](#estado-y-limitaciones-conocidas). El SQL actual no cubre todas las entidades mapeadas por JPA y los servicios usan `ddl-auto=validate`.
 
-### 2. Iniciar servicios
+### 2. Preparar la base MySQL de analítica
+
+Este paso es independiente de PostgreSQL y es necesario para que `ms-analitica` encuentre su base de datos local. Con MySQL iniciado, el cliente `mysql` disponible en `PATH` y Python instalado, ejecuta desde la raíz del repositorio:
+
+```powershell
+.\levantar-bd-local.bat
+```
+
+El BAT ejecuta `bd_local.sql` con las credenciales locales `root:root` en `localhost:3306`. Ese SQL elimina y vuelve a crear `urgencias_hospital`. Después, el BAT verifica Python, instala `pandas`, `faker`, `sqlalchemy` y `pymysql`, y ejecuta `llenar_hospital.py`, que carga datos sintéticos de localidades, días, turnos y 50.000 llegadas.
+
+> **Importante:** cada ejecución borra todos los datos previos de `urgencias_hospital` antes de volver a generarlos. El SQL se ejecuta antes de comprobar Python, por lo que la base también se reinicia si Python no está instalado y el BAT luego se detiene con el aviso correspondiente.
+
+### 3. Iniciar servicios
 
 Orden recomendado: Eureka, gateway y luego servicios de negocio:
 
 1. `eureka-server`
 2. `ms-gateway`
-3. `ms-seguridad`, `ms-pacientes` y `ms-triage`
+3. `ms-seguridad`, `ms-pacientes`, `ms-triage` y `ms-analitica`
+
+Antes de arrancar, configura en el entorno local `ANALITICA_DB_USERNAME` y `ANALITICA_DB_PASSWORD` para MySQL; opcionalmente, `ANALITICA_DB_URL` (por defecto `jdbc:mysql://localhost:3306/urgencias_hospital`). `ms-seguridad` y `ms-analitica` comparten el fallback JWT local existente para desarrollo, por lo que no hace falta configurar una variable para el arranque actual. Puedes definir `APP_JWT_SECRET` para reemplazarlo, pero debe tener el mismo valor en ambos procesos. El fallback no es apropiado para producción.
 
 Abre una terminal por servicio desde la raíz:
 
@@ -166,7 +184,7 @@ cd eureka-server
 .\mvnw.cmd spring-boot:run
 ```
 
-Repite en terminales separadas desde las carpetas `ms-gateway`, `ms-seguridad`, `ms-pacientes` y `ms-triage`. También puedes ejecutar `mvn spring-boot:run` si Maven está instalado globalmente. Para usar el script de Windows desde la raíz:
+Repite en terminales separadas desde las carpetas `ms-gateway`, `ms-seguridad`, `ms-pacientes`, `ms-triage` y `ms-analitica`. También puedes ejecutar `mvn spring-boot:run` si Maven está instalado globalmente. Para usar el script de Windows desde la raíz:
 
 ```powershell
 .\levantar-sistema.bat
@@ -174,13 +192,15 @@ Repite en terminales separadas desde las carpetas `ms-gateway`, `ms-seguridad`, 
 
 El script abre las consolas en el orden básico, pero no valida que PostgreSQL o cada servicio estén listos; si hay demoras, revisa la salida de la consola correspondiente.
 
+`ms-analitica` corre como proceso local fuera de Docker y requiere que el MySQL sintético ya esté disponible. Prepara esa base manualmente en el paso 2; el arranque de servicios no ejecuta el generador. El script de inicio hereda las variables de entorno del proceso que lo inicia.
+
 Comprobaciones:
 
 - Eureka: `http://localhost:8761`
 - Gateway: `http://localhost:8080`
-- En Eureka deben aparecer `MS-GATEWAY`, `MS-SEGURIDAD`, `MS-PACIENTES` y `MS-TRIAGE` una vez registrados.
+- En Eureka deben aparecer `MS-GATEWAY`, `MS-SEGURIDAD`, `MS-PACIENTES`, `MS-TRIAGE` y `MS-ANALITICA` una vez registrados.
 
-### 3. Preparar datos de aplicación
+### 4. Preparar datos de aplicación
 
 El SQL incluido crea cuatro perfiles base (`triage`, `medico`, `coordinacion`, `seguridad`), cinco categorías de triage y tres estados de episodio. **No crea administrador, usuarios, actividades ni asignaciones `perfil_actividad`.** El esquema tampoco contiene hoy varias columnas/tablas que necesitan los modelos actuales; primero alinea la base de datos.
 
@@ -188,7 +208,9 @@ Una vez actualizado el esquema, crea la primera cuenta de forma controlada. La c
 
 Después del primer acceso, asigna actividades con enlaces válidos al perfil correspondiente. Sin actividades, el usuario puede autenticarse pero el frontend no tendrá una pantalla de destino.
 
-### 4. Abrir el frontend
+Para registrar `dashboard_analitica` y asignarla al perfil `coordinacion`, ejecuta una sola vez `infra/analytics-dashboard-activity.sql` contra PostgreSQL `sosclinic`. La actividad controla navegación; la API también valida el JWT compartido y exige el rol `COORDINACION` o `ADMINISTRADOR`.
+
+### 5. Abrir el frontend
 
 El script de Windows abre `frontend/index.html`; también puedes abrirlo directamente. La API apunta a `http://localhost:8080`, y el navegador guarda token y datos básicos de sesión en `sessionStorage`. Si el navegador bloquea las peticiones por CORS al abrir el archivo directamente, sirve `frontend/` desde un servidor estático local y permite ese origen en la configuración CORS del gateway.
 
@@ -299,6 +321,20 @@ Las operaciones administrativas de `ms-seguridad` requieren token, pero actualme
 | `PUT` | `/ms-triage/triage/{id}/ubicacion` | Cambia ubicación. |
 | `PUT` | `/ms-triage/triage/{id}/atendido` | Cambia estado a `Atendido`; actualmente no persiste diagnóstico/tratamiento enviados por la interfaz. |
 
+### Analítica sintética
+
+Las rutas requieren un JWT firmado con `APP_JWT_SECRET` y perfil `coordinacion` o `administrador`. Todas reciben fechas ISO inclusivas `desde=AAAA-MM-DD` y `hasta=AAAA-MM-DD`.
+
+| Método | Ruta | Descripción |
+|---|---|---|
+| `GET` | `/ms-analitica/dashboard/resumen` | Conteo de llegadas y espera media; filtros opcionales `localidad` y `turno`. |
+| `GET` | `/ms-analitica/dashboard/llegadas` | Conteos por hora, prioridad y localidad; filtros opcionales `localidad` y `turno`. |
+| `GET` | `/ms-analitica/dashboard/capacidad` | Llegadas, personal, puestos de triage y camas disponibles promedio por turno; filtro opcional `turno`. La localidad no aplica a capacidad global. |
+
+El dashboard está en `frontend/dashboard.html`. Chart.js se distribuye como archivo local; los datos están marcados como sintéticos y no representan relaciones clínicas o causales.
+
+El esquema MySQL observado es compatible con el seeder: `contexto_zona` contiene `localidad VARCHAR(100)` (clave), `poblacion INT`, `porcentaje_mayores_60 DECIMAL(5,2)` y `densidad_poblacional DECIMAL(10,2)`; `contexto_diario` contiene `fecha DATE` (clave), `es_festivo TINYINT(1)`, `lluvia_mm DECIMAL(6,2)`, `temperatura DECIMAL(5,2)`, `pm25 DECIMAL(6,2)` y `evento_masivo TINYINT(1)`; `capacidad_turno` contiene `(fecha DATE, turno VARCHAR(20))` como clave compuesta, más `personal_disponible`, `puestos_triage` y `camas_disponibles INT`; `llegadas` contiene `id_llegada INT AUTO_INCREMENT`, `fecha_hora DATETIME`, `fecha DATE`, `turno VARCHAR(20)`, `localidad VARCHAR(100)`, `prioridad VARCHAR(20)`, `estado VARCHAR(50)` y tiempos `INT`. Hay índices/FK para localidad y `(fecha, turno)`. Al verificarlo: 5 zonas, 365 días, 1.095 turnos y 50.000 llegadas.
+
 `frontend/assets/api.js` incluye el token en las peticiones cuando hay sesión, pero eso no significa que todos los servicios verifiquen el token.
 
 ## Pruebas y mantenimiento
@@ -361,3 +397,7 @@ Verifica SMTP y acceso de red. Usa secretos locales no versionados; no publiques
 
 **Cambiaste SQL pero la base conserva el esquema anterior**
 El volumen conserva su estado. Aplica una migración explícita o, si los datos son descartables, elimina el volumen conscientemente. `docker compose down -v` es destructivo.
+
+## API KEY IA
+setx GROQ_API_KEY "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"
+
