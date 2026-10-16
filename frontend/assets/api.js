@@ -252,7 +252,7 @@ async function buscarPacientesPorCedula(q) {
 
 const UBICACIONES_DISPONIBLES = [
   'Consultorio 1', 'Consultorio 2', 'Consultorio 3', 'Consultorio 4', 'Consultorio 5',
-  'Sala de espera', 'Rayos X', 'Laboratorio', 'Ginecología', 'Pediatría', 'Cirugía', 'UCI', 'Urgencias', 'Observación', 'Farmacia', 'Sala de espera', 'Otro'
+  'Sala de espera', 'Rayos X', 'Laboratorio', 'Ginecología', 'Pediatría', 'Cirugía', 'UCI', 'Urgencias', 'Observación', 'Farmacia', 'Otro'
 ];
 
 async function obtenerRegistroTriage(idRegistro) {
@@ -288,7 +288,8 @@ const ETIQUETAS_ACTIVIDAD = {
   auditoria: 'Auditoría',
   gestion_roles: 'Roles',
   enfermedades_crue: 'Enfermedades CRUE',
-  dashboard_analitica: 'Analítica'
+  dashboard_analitica: 'Analítica',
+  dashboard: 'Analítica'
 };
 
 function pintarNav(idContenedor, enlaceActual) {

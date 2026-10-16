@@ -3,6 +3,9 @@ setlocal
 
 set BASE=%~dp0
 
+if not defined ANALITICA_DB_USERNAME set ANALITICA_DB_USERNAME=root
+if not defined ANALITICA_DB_PASSWORD set ANALITICA_DB_PASSWORD=root
+
 echo ===============================================
 echo   Levantando infraestructura Docker...
 echo ===============================================
@@ -32,6 +35,16 @@ timeout /t 6 /nobreak >nul
 
 echo Iniciando ms-triage...
 start "ms-triage" cmd /k "cd /d %BASE%ms-triage && mvn spring-boot:run"
+timeout /t 6 /nobreak >nul
+
+echo Iniciando ms-analitica (requiere MySQL local)...
+start "ms-analitica" cmd /k "cd /d %BASE%ms-analitica && mvn spring-boot:run"
+timeout /t 6 /nobreak >nul
+
+echo Iniciando ms-ia-agente...
+start "ms-ia-agente" cmd /k "cd /d %BASE%ms-ia-agente && mvn spring-boot:run"
+
+if not defined GROQ_API_KEY echo ADVERTENCIA: GROQ_API_KEY no esta definida; el agente respondera que no esta configurado.
 
 echo Esperando a que todos terminen de arrancar...
 timeout /t 20 /nobreak >nul

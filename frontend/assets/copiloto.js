@@ -1,4 +1,3 @@
-/* SOS · copiloto.js — asistente flotante: chat + control de pantalla */
 /* SOS · copiloto.js — asistente flotante: chat + voz + control de pantalla */
 (function () {
   if (typeof haySesion !== 'function') { console.warn('copiloto: api.js no está cargado antes que copiloto.js'); return; }

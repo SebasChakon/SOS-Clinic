@@ -12,4 +12,6 @@ import java.util.List;
 public interface PerfilActividadRepository extends JpaRepository<PerfilActividad, Integer> {
 
     List<PerfilActividad> findByPerfil_IdPerfil(Integer idPerfil);
+
+    List<PerfilActividad> findByActividad_IdActividad(Integer idActividad);
 }

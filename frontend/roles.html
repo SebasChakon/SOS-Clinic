@@ -287,7 +287,12 @@
 
   async function borrarActividad(id) {
     if (!confirm('¿Eliminar esta actividad?')) return;
-    try { await eliminarActividad(id); cargarActividades(); } catch (error) { alert(error.message); }
+    limpiarMensaje('mensajeActividad');
+    try {
+      await eliminarActividad(id);
+      mostrarMensaje('mensajeActividad', 'Actividad eliminada correctamente', 'exito');
+      cargarActividades();
+    } catch (error) { mostrarMensaje('mensajeActividad', error.message, 'error'); }
   }
 
   document.getElementById('formActividad').addEventListener('submit', async (e) => {
@@ -323,7 +328,12 @@
 
   async function quitarAsignacion(id) {
     if (!confirm('¿Quitar esta actividad del perfil?')) return;
-    try { await quitarActividad(id); cargarAsignaciones(); } catch (error) { alert(error.message); }
+    limpiarMensaje('mensajeAsignacion');
+    try {
+      await quitarActividad(id);
+      mostrarMensaje('mensajeAsignacion', 'Actividad quitada del perfil correctamente', 'exito');
+      cargarAsignaciones();
+    } catch (error) { mostrarMensaje('mensajeAsignacion', error.message, 'error'); }
   }
 
   document.getElementById('formAsignacion').addEventListener('submit', async (e) => {

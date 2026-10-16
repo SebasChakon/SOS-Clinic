@@ -30,7 +30,7 @@ Sujeto a que la base esté alineada con los modelos actuales, el sistema permite
 - Guardar y consultar tomas de signos vitales asociadas a un episodio.
 - Consultar eventos de auditoría y enviar algunos correos de historias clínicas/teleconsultas.
 
-No existen servicios implementados para analítica Big Data, gestión de riesgos o un agente de IA. La categoría de triage la selecciona el operador; no la calcula un modelo de IA. La lista de espera se consulta bajo demanda y no es un tablero con actualización automática en vivo.
+El tablero de analítica (`ms-analitica`, base MySQL sintética) y el agente conversacional (`ms-ia-agente`, API de Groq) existen como prototipos; no hay gestión de riesgos ni procesamiento Big Data real. La categoría de triage la selecciona el operador; no la calcula un modelo de IA. La lista de espera se consulta bajo demanda y no es un tablero con actualización automática en vivo.
 
 ## Arquitectura
 
@@ -51,7 +51,7 @@ Los servicios de negocio se conectan a PostgreSQL :5432.
 pgAdmin, opcional, está publicado en :5050.
 ```
 
-Los cinco proyectos ejecutables son proyectos Maven independientes basados en Java 17, Spring Boot 4.0.8 y Spring Cloud 2025.1.3. Eureka permite que el gateway encuentre instancias por nombre. Las rutas del gateway son explícitas y están en `ms-gateway/src/main/resources/application.properties`; al agregar un servicio se debe definir allí una ruta `lb://...`.
+Los siete proyectos ejecutables son proyectos Maven independientes basados en Java 17, Spring Boot 4.0.8 y Spring Cloud 2025.1.3. Eureka permite que el gateway encuentre instancias por nombre. Las rutas del gateway son explícitas y están en `ms-gateway/src/main/resources/application.properties`; al agregar un servicio se debe definir allí una ruta `lb://...`.
 
 Aunque conceptualmente cada microservicio tiene tablas bajo su responsabilidad, hoy todos usan el mismo esquema y las mismas credenciales de PostgreSQL (`sosclinic`). No hay una base de datos aislada por servicio ni mensajería entre servicios. Las referencias entre dominios se hacen principalmente mediante identificadores numéricos.
 
@@ -64,7 +64,7 @@ Aunque conceptualmente cada microservicio tiene tablas bajo su responsabilidad, 
 | Ruta | Responsabilidad |
 |---|---|
 | `README.md` | Guía de arquitectura, configuración, operación y limitaciones. |
-| `levantar-sistema.bat` | En Windows, levanta Docker Compose, abre consolas para los cuatro servicios de aplicación y abre el login. Usa el comando global `mvn`; requiere Maven en `PATH`. Sus pausas son fijas, no comprobaciones de disponibilidad. |
+| `levantar-sistema.bat` | En Windows, levanta Docker Compose, abre consolas para todos los servicios de aplicación (gateway, seguridad, pacientes, triage, analítica y agente), define credenciales por defecto de MySQL para analítica si faltan y abre el login. Usa el comando global `mvn`; requiere Maven en `PATH`. Sus pausas son fijas, no comprobaciones de disponibilidad. |
 | `infra/` | Infraestructura local PostgreSQL/pgAdmin y SQL inicial. |
 | `frontend/` | Interfaz estática que consume el gateway. |
 | `eureka-server/` | Registro y descubrimiento de servicios. |
@@ -72,6 +72,8 @@ Aunque conceptualmente cada microservicio tiene tablas bajo su responsabilidad, 
 | `ms-seguridad/` | Autenticación, JWT, identidades, perfiles, actividades, turnos y auditoría. |
 | `ms-pacientes/` | Datos demográficos, signos vitales y correos relacionados con pacientes. |
 | `ms-triage/` | Episodios, categorías, estados, ubicación y priorización. |
+| `ms-analitica/` | Tablero de analítica sobre la base MySQL sintética `urgencias_hospital`. |
+| `ms-ia-agente/` | Agente conversacional (chat y voz) con Groq y herramientas contra el gateway. |
 | `legacy/` | Prototipo Java EE/Ant/TomEE, conservado como referencia; no ejecutarlo como parte del arranque actual. |
 | `src/`, `web/`, `nbproject/` | Estructura NetBeans del proyecto antiguo en la raíz; no es uno de los microservicios Maven actuales. |
 | `build/`, `legacy/build/` | Salidas generadas de compilaciones/prototipos; no son fuente y no deben editarse. |
@@ -106,7 +108,9 @@ Cada módulo Maven organiza normalmente su código en `src/main/java` así:
 | `frontend/seguimiento.html` | Detalle del episodio, ubicación, transición a atención, signos vitales e interfaz de alta. Requiere `?idRegistro=...`. |
 | `frontend/auditoria.html` | Consulta de acciones registradas por backend y frontend. |
 | `frontend/roles.html` | Administración de perfiles, actividades, asignaciones, usuarios y turnos. |
+| `frontend/dashboard.html` | Tablero de analítica por rango de fechas, localidad y turno; consume `ms-analitica` vía gateway. |
 | `frontend/assets/api.js` | URL base, sesión en `sessionStorage`, envío JWT, manejo de errores y funciones compartidas de API. |
+| `frontend/assets/copiloto.js` | Widget flotante del agente IA (chat y voz) en las páginas con sesión activa. |
 | `frontend/assets/estilos.css` | Estilos compartidos; algunas páginas añaden estilos locales en su HTML. |
 
 ## Requisitos
@@ -184,7 +188,7 @@ cd eureka-server
 .\mvnw.cmd spring-boot:run
 ```
 
-Repite en terminales separadas desde las carpetas `ms-gateway`, `ms-seguridad`, `ms-pacientes`, `ms-triage` y `ms-analitica`. También puedes ejecutar `mvn spring-boot:run` si Maven está instalado globalmente. Para usar el script de Windows desde la raíz:
+Repite en terminales separadas desde las carpetas `ms-gateway`, `ms-seguridad`, `ms-pacientes`, `ms-triage`, `ms-analitica` y `ms-ia-agente`. También puedes ejecutar `mvn spring-boot:run` si Maven está instalado globalmente. Para usar el script de Windows desde la raíz:
 
 ```powershell
 .\levantar-sistema.bat
@@ -192,13 +196,13 @@ Repite en terminales separadas desde las carpetas `ms-gateway`, `ms-seguridad`, 
 
 El script abre las consolas en el orden básico, pero no valida que PostgreSQL o cada servicio estén listos; si hay demoras, revisa la salida de la consola correspondiente.
 
-`ms-analitica` corre como proceso local fuera de Docker y requiere que el MySQL sintético ya esté disponible. Prepara esa base manualmente en el paso 2; el arranque de servicios no ejecuta el generador. El script de inicio hereda las variables de entorno del proceso que lo inicia.
+`ms-analitica` corre como proceso local fuera de Docker y requiere que el MySQL sintético ya esté disponible. Prepara esa base manualmente en el paso 2; el arranque de servicios no ejecuta el generador. `levantar-sistema.bat` define `ANALITICA_DB_USERNAME` y `ANALITICA_DB_PASSWORD` en `root` solo si no están definidas; para otro usuario o clave, expórtalas antes de ejecutarlo. `ms-ia-agente` necesita `GROQ_API_KEY` para responder; sin ella el asistente indica que no está configurado.
 
 Comprobaciones:
 
 - Eureka: `http://localhost:8761`
 - Gateway: `http://localhost:8080`
-- En Eureka deben aparecer `MS-GATEWAY`, `MS-SEGURIDAD`, `MS-PACIENTES`, `MS-TRIAGE` y `MS-ANALITICA` una vez registrados.
+- En Eureka deben aparecer `MS-GATEWAY`, `MS-SEGURIDAD`, `MS-PACIENTES`, `MS-TRIAGE`, `MS-ANALITICA` y `MS-IA-AGENTE` una vez registrados.
 
 ### 4. Preparar datos de aplicación
 
@@ -221,7 +225,7 @@ El script de Windows abre `frontend/index.html`; también puedes abrirlo directa
 3. **Llegada a triage.** El operador selecciona paciente, categoría y, opcionalmente, ubicación. El backend crea el episodio en estado `En espera` y define la hora de llegada con el reloj del servidor. La categoría no se determina automáticamente.
 4. **Priorización.** `GET /ms-triage/triage/prioridad` devuelve la lista priorizada. La prioridad numérica 1 es la más urgente; el tiempo de espera en minutos se calcula al consultar y no se mantiene como contador en segundo plano.
 5. **Atención y seguimiento.** Desde la lista se abre `seguimiento.html?idRegistro=...`. Se puede actualizar ubicación, marcar `En atencion` y guardar tomas sucesivas de signos vitales. Las tomas anteriores se conservan.
-6. **Cierre.** La interfaz solicita diagnóstico y tratamiento antes del alta, pero el endpoint actual solo cambia el estado a `Atendido`; no recibe ni persiste esos datos. No asumas que el alta conserva esa información hasta corregir la ruta.
+6. **Cierre.** La interfaz exige diagnóstico y tratamiento antes del alta; `PUT /triage/{id}/atendido` recibe ambos campos (obligatorios), los persiste en `registro_triage` y cambia el estado a `Atendido`.
 7. **Trazabilidad.** Algunas operaciones administrativas se registran desde el backend; el frontend intenta registrar login, creación y cambios de triage. La auditoría es de mejor esfuerzo: un error al guardar el log no cancela la operación principal.
 
 Las funciones de historia clínica y teleconsulta dependen de correo SMTP. No asumas que el correo se entregó porque el cambio de estado haya concluido correctamente.
@@ -319,7 +323,7 @@ Las operaciones administrativas de `ms-seguridad` requieren token, pero actualme
 | `GET` | `/ms-triage/triage/prioridad` | Lista priorizada y tiempo de espera calculado en la consulta. |
 | `PUT` | `/ms-triage/triage/{id}/en-atencion` | Cambia estado a `En atencion`. |
 | `PUT` | `/ms-triage/triage/{id}/ubicacion` | Cambia ubicación. |
-| `PUT` | `/ms-triage/triage/{id}/atendido` | Cambia estado a `Atendido`; actualmente no persiste diagnóstico/tratamiento enviados por la interfaz. |
+| `PUT` | `/ms-triage/triage/{id}/atendido` | Da de alta: persiste `diagnosticoFinal` y `tratamiento` (obligatorios) y cambia el estado a `Atendido`. |
 
 ### Analítica sintética
 
@@ -364,12 +368,12 @@ Añadir `-v` borra el volumen, por lo que debe hacerse solo de forma intencional
 
 1. **SQL y entidades JPA no están sincronizados.** `schema-postgres.sql` define diez tablas, pero las entidades actuales también esperan `turno`, `codigo_verificacion` y columnas como `personal.requiere_2fa`, `paciente.email`, `registro_triage.diagnostico_final` y `registro_triage.tratamiento`. Con `ddl-auto=validate`, una base creada solo con ese SQL puede impedir el arranque de los servicios afectados. Actualiza el esquema mediante una migración controlada; no uses `ddl-auto=update` como sustituto de una migración revisada.
 2. **Faltan datos iniciales de acceso.** No se inserta usuario ni turnos. El esquema inicial registra la actividad CRUE y la asigna a todos los perfiles base; en una base existente, ejecuta `infra/activar-enfermedades-crue.sql` una vez porque los scripts de inicialización no corren de nuevo sobre volúmenes existentes.
-3. **El alta no persiste todo lo que muestra la interfaz.** `seguimiento.html` recoge diagnóstico y tratamiento, pero `PUT /triage/{id}/atendido` no recibe esos campos y solo cambia el estado. Existe lógica de servicio para alta con esos datos, pero la ruta HTTP no la invoca.
+3. **Historia clínica y teleconsulta por correo.** El alta ya persiste diagnóstico y tratamiento en `registro_triage`, pero los correos dependen de SMTP y se registran como mejor esfuerzo: no asumas que la historia clínica llegó porque el alta concluya.
 4. **Autorización por rol incompleta.** JWT se valida dentro de `ms-seguridad`, pero las APIs de pacientes y triage no instalan ese filtro; el gateway tampoco valida token globalmente. Las rutas administrativas solo requieren autenticación, no un rol específico.
 5. **Secretos locales en configuración.** Hay secretos JWT y SMTP en archivos de propiedades versionados. Deben considerarse expuestos: rótalos, retíralos del repositorio y léelos desde variables de entorno o un gestor de secretos. No los uses en producción.
 6. **Configuración de desarrollo sin endurecer.** PostgreSQL y pgAdmin publican puertos locales con credenciales de desarrollo; CORS debe limitarse al origen real del frontend. El repositorio no contiene un despliegue productivo completo para Azure.
 7. **Auditoría de mejor esfuerzo.** Parte de los eventos se solicita desde JavaScript y los errores de auditoría se silencian. No es una bitácora inmutable ni registra automáticamente todos los accesos a datos clínicos.
-8. **Analítica, riesgos y agente IA no implementados.** No hay módulos activos para Big Data, ISO 27005/STRIDE/DREAD o recomendaciones por IA. Son trabajo futuro, no endpoints disponibles.
+8. **Analítica y agente IA en modo prototipo.** `ms-analitica` consulta una base MySQL sintética y `ms-ia-agente` usa la API de Groq para chat y voz; siguen sin existir módulos de Big Data, ISO 27005/STRIDE/DREAD o recomendaciones clínicas automáticas.
 9. **No sustituye criterio clínico.** El personal ingresa la categoría. La aplicación no diagnostica, no detecta deterioro automáticamente y no debe ser el único mecanismo de priorización asistencial.
 
 ## Problemas frecuentes
@@ -394,6 +398,9 @@ Comprueba que la cuenta esté activa, que tenga turno con `id_estado = 1` y que 
 
 **No llega el correo o código 2FA**
 Verifica SMTP y acceso de red. Usa secretos locales no versionados; no publiques contraseñas SMTP ni códigos.
+
+**No se puede eliminar una actividad**
+La actividad está asignada a uno o más perfiles (tabla `perfil_actividad`). La API responde 409 e indica los perfiles involucrados; quita primero esas asignaciones en `roles.html` y vuelve a intentar.
 
 **Cambiaste SQL pero la base conserva el esquema anterior**
 El volumen conserva su estado. Aplica una migración explícita o, si los datos son descartables, elimina el volumen conscientemente. `docker compose down -v` es destructivo.

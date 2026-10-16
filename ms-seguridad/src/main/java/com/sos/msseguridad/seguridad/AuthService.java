@@ -133,6 +133,11 @@ public class AuthService {
     }
 
     private void enviarCodigo(Personal personal) {
+        if (personal.getEmail() == null || personal.getEmail().isBlank()) {
+            throw new BadCredentialsException(
+                    "Tu usuario requiere verificacion por correo (2FA) pero no tiene un correo registrado. Pide al administrador que lo registre.");
+        }
+
         String codigoGenerado = String.format("%06d", (int) (Math.random() * 1_000_000));
 
         CodigoVerificacion cv = new CodigoVerificacion();

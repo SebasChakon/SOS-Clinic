@@ -4,6 +4,7 @@
  */
 package com.sos.mstriage.controlador;
 
+import com.sos.mstriage.dto.AltaRequest;
 import com.sos.mstriage.dto.RegistroTriageRequest;
 import com.sos.mstriage.dto.UbicacionRequest;
 import com.sos.mstriage.modelo.RegistroTriage;
@@ -66,9 +67,10 @@ public class TriageController {
     }
 
     @PutMapping("/{id}/atendido")
-    public ResponseEntity<?> marcarAtendido(@PathVariable Integer id) {
+    public ResponseEntity<?> marcarAtendido(@PathVariable Integer id,
+                                             @Valid @RequestBody AltaRequest request) {
         try {
-            return ResponseEntity.ok(triageService.cambiarEstado(id, "Atendido"));
+            return ResponseEntity.ok(triageService.darDeAlta(id, request.getDiagnosticoFinal(), request.getTratamiento()));
         } catch (NoSuchElementException e) {
             return ResponseEntity.status(404).body(e.getMessage());
         }
