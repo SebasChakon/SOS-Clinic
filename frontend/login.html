@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SOS Clinic · Acceso al sistema</title>
+<link rel="stylesheet" href="assets/estilos.css">
+<script src="assets/movimiento.js"></script>
+<style>
+  /* Marca sobre el degradado */
+  .layout-login .marca-login {
+    display: flex; flex-direction: column; align-items: center; gap: 6px;
+    animation: bajar .6s cubic-bezier(.2, .7, .3, 1) both .12s;
+  }
+  .layout-login .marca-fila { display: flex; align-items: baseline; gap: 10px; }
+  .layout-login .marca-logo {
+    font-size: clamp(26px, 2.4vw, 33px); font-weight: 500; letter-spacing: .12em; color: var(--hueso);
+  }
+  .layout-login .marca-logo-2 {
+    font-size: clamp(26px, 2.4vw, 33px); font-weight: 500; letter-spacing: .12em;
+    color: transparent; -webkit-text-stroke: 1px var(--acento-claro);
+  }
+  .layout-login .marca-linea {
+    font-family: var(--mono); font-size: 10px; text-transform: uppercase;
+    letter-spacing: .2em; color: var(--acento-claro);
+  }
+
+  /* Entradas suaves de la columna */
+  .layout-login .titular-login { animation: aparecer .6s ease both .22s; }
+  .layout-login .intro-login { animation: aparecer .6s ease both .32s; }
+  .layout-login .enlace-presentacion { animation: aparecer .6s ease both .44s; }
+
+  /* Lema del pie */
+  .layout-login .lema-login {
+    display: flex; align-items: center; margin: 0;
+    font-family: var(--mono); font-size: 13px; letter-spacing: .02em; color: var(--hueso);
+    animation: aparecer .6s ease both .5s;
+  }
+  .layout-login .lema-comilla { color: var(--acento-claro); }
+  .layout-login .lema-punto {
+    width: 8px; height: 8px; border-radius: 50%; flex: none; margin-right: 10px;
+    background: var(--acento-claro); animation: parpadeoVista 2.4s ease-in-out infinite;
+  }
+</style>
+</head>
+
+<body>
+
+<div class="layout-login">
+
+  <span class="marca-fondo-login" aria-hidden="true">SOS Clinic</span>
+
+  <header class="panel-info">
+    <div class="marca-login">
+      <span class="marca-fila"><span class="marca-logo">SOS</span><span class="marca-logo-2">CLINIC</span></span>
+      <span class="marca-linea">Sistema de Triage Inteligente</span>
+    </div>
+    <h1 class="titular-login">Acceso del personal de urgencias</h1>
+    <p class="intro-login">Ingresa con tu usuario y clave registrados para acceder al registro de pacientes y a la lista de priorizacion.</p>
+  </header>
+
+  <div class="panel-form">
+    <div class="tarjeta">
+      <h2 id="tituloForm">Iniciar sesión</h2>
+      <p class="sub" id="subtituloForm">Ingresa con tus credenciales de personal registrado.</p>
+
+      <form id="formLogin">
+        <div class="campo">
+          <label for="usuario">Usuario</label>
+          <input type="text" id="usuario" placeholder="ana.triage" autocomplete="username" required>
+        </div>
+
+        <div class="campo">
+          <label for="clave">Clave</label>
+          <input type="password" id="clave" placeholder="********" autocomplete="current-password" required>
+        </div>
+
+        <button type="submit" id="btnEntrar" class="boton-primario boton-full">Entrar</button>
+      </form>
+
+      <form id="formCodigo" style="display:none;">
+        <input type="hidden" id="usuarioParaCodigo">
+        <div class="campo">
+          <label for="codigoIngresado">Código de verificación</label>
+          <input type="text" id="codigoIngresado" placeholder="123456" maxlength="6" inputmode="numeric" required>
+        </div>
+        <button type="submit" id="btnVerificar" class="boton-primario boton-full">Verificar</button>
+        <button type="button" class="boton-secundario boton-full" style="margin-top:8px;" onclick="volverALogin()">Volver</button>
+      </form>
+
+      <div class="mensaje" id="mensaje"></div>
+    </div>
+  </div>
+
+  <footer class="pie-login">
+    <p class="lema-login"><span class="lema-punto"></span><span class="lema-comilla">«</span>A service made by the people for the people<span class="lema-comilla">»</span></p>
+    <a class="enlace-presentacion" href="index.html">Conoce el proyecto SOS Clinic →</a>
+  </footer>
+
+</div>
+
+<script src="assets/api.js"></script>
+<script>
+  const formLogin = document.getElementById('formLogin');
+  const formCodigo = document.getElementById('formCodigo');
+  const boton = document.getElementById('btnEntrar');
+  const botonVerificar = document.getElementById('btnVerificar');
+
+  // Si ya hay una sesion activa, no tiene sentido mostrar el login de nuevo
+  if (haySesion()) {
+    const sesion = obtenerSesion();
+    window.location.href = primerDestinoValido(sesion.actividades) || 'login.html';
+  }
+
+  formLogin.addEventListener('submit', async (evento) => {
+    evento.preventDefault();
+
+    const usuario = document.getElementById('usuario').value.trim();
+    const clave = document.getElementById('clave').value;
+
+    limpiarMensaje('mensaje');
+    boton.disabled = true;
+    boton.textContent = 'Verificando...';
+
+    try {
+      const datos = await login(usuario, clave);
+
+      if (datos.requiere2fa) {
+        mostrarPasoCodigo(usuario);
+        return;
+      }
+
+      const destino = primerDestinoValido(datos.actividades);
+
+      if (!destino) {
+        mostrarMensaje('mensaje', 'Tu usuario no tiene ninguna pantalla asignada. Contacta al coordinador de turnos.', 'error');
+        return;
+      }
+
+      mostrarMensaje('mensaje', `Sesion iniciada como ${datos.usuario} (perfil: ${datos.perfil}). Redirigiendo...`, 'exito');
+      setTimeout(() => { window.location.href = destino; }, 700);
+    } catch (error) {
+      mostrarMensaje('mensaje', error.message, 'error');
+    } finally {
+      boton.disabled = false;
+      boton.textContent = 'Entrar';
+    }
+  });
+
+  function mostrarPasoCodigo(usuario) {
+    formLogin.style.display = 'none';
+    formCodigo.style.display = 'block';
+    document.getElementById('usuarioParaCodigo').value = usuario;
+    document.getElementById('tituloForm').textContent = 'Verificación en dos pasos';
+    document.getElementById('subtituloForm').textContent = 'Revisa tu correo e ingresa el código de 6 dígitos.';
+    mostrarMensaje('mensaje', 'Te enviamos un código a tu correo registrado. Expira en 5 minutos.', 'exito');
+    document.getElementById('codigoIngresado').focus();
+  }
+
+  function volverALogin() {
+    formCodigo.style.display = 'none';
+    formLogin.style.display = 'block';
+    document.getElementById('tituloForm').textContent = 'Iniciar sesión';
+    document.getElementById('subtituloForm').textContent = 'Ingresa con tus credenciales de personal registrado.';
+    document.getElementById('codigoIngresado').value = '';
+    limpiarMensaje('mensaje');
+  }
+
+  formCodigo.addEventListener('submit', async (evento) => {
+    evento.preventDefault();
+
+    const usuario = document.getElementById('usuarioParaCodigo').value;
+    const codigo = document.getElementById('codigoIngresado').value.trim();
+
+    limpiarMensaje('mensaje');
+    botonVerificar.disabled = true;
+    botonVerificar.textContent = 'Verificando...';
+
+    try {
+      const datos = await verificarCodigo2fa(usuario, codigo);
+      const destino = primerDestinoValido(datos.actividades);
+
+      if (!destino) {
+        mostrarMensaje('mensaje', 'Tu usuario no tiene ninguna pantalla asignada. Contacta al coordinador de turnos.', 'error');
+        return;
+      }
+
+      mostrarMensaje('mensaje', 'Código verificado. Redirigiendo...', 'exito');
+      setTimeout(() => { window.location.href = destino; }, 700);
+    } catch (error) {
+      mostrarMensaje('mensaje', error.message, 'error');
+    } finally {
+      botonVerificar.disabled = false;
+      botonVerificar.textContent = 'Verificar';
+    }
+  });
+</script>
+
+</body>
+</html>

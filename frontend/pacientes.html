@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>SOS · Pacientes</title>
 <link rel="stylesheet" href="assets/estilos.css">
+<script src="assets/movimiento.js"></script>
 <style>
   .grid-pacientes {
     display: grid;
@@ -31,8 +32,8 @@
   }
 
   .barra-lista .campo-busqueda button {
-    padding: 10px 14px;
-    font-size: 13.5px;
+    padding: 11px 14px;
+    font-size: 11px;
   }
 
   @media (max-width: 900px) {
@@ -49,7 +50,7 @@
   <div class="marca"><strong>SOS</strong> · Sistema de Triage Inteligente</div>
   <nav id="navPrincipal"></nav>
   <div style="display:flex; align-items:center; gap:14px;">
-    <span id="infoUsuario" style="font-size:13px; color:#b9c8d0;"></span>
+    <span id="infoUsuario" class="usuario-info"></span>
     <button class="salir" onclick="cerrarSesion()">Salir</button>
   </div>
 </div>

@@ -1,4 +1,4 @@
-/* SOS · copiloto.js — asistente flotante: chat + voz + control de pantalla */
+/* SOS Clinic · copiloto.js — SosIA, asistente flotante: chat + voz + control de pantalla */
 (function () {
   if (typeof haySesion !== 'function') { console.warn('copiloto: api.js no está cargado antes que copiloto.js'); return; }
   if (!haySesion()) return;
@@ -24,30 +24,36 @@
   const estilo = document.createElement('style');
   estilo.textContent = `
     #sos-copiloto{position:fixed;right:20px;bottom:20px;z-index:9999}
-    #sos-copiloto .cop-boton{background:var(--teal);color:#fff;border-radius:999px;padding:12px 20px;box-shadow:0 4px 14px rgba(0,0,0,.25)}
-    #sos-copiloto .cop-boton:hover{background:var(--teal-hover)}
-    #sos-copiloto .cop-panel{position:absolute;right:0;bottom:56px;width:340px;height:440px;background:#fff;border:1px solid var(--gris-linea);border-radius:12px;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 8px 30px rgba(0,0,0,.25)}
+    #sos-copiloto .cop-boton{background:var(--acento);color:#fff;border-radius:999px;padding:11px 20px;font-family:var(--mono);font-size:12px;text-transform:uppercase;letter-spacing:.05em;animation:copFlota 3.2s ease-in-out infinite alternate}
+    #sos-copiloto .cop-boton:hover{background:var(--acento-hover)}
+    #sos-copiloto .cop-panel{position:absolute;right:0;bottom:56px;width:340px;height:440px;background:#fff;border:1px solid var(--liquen);border-radius:16px;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 18px 44px rgba(34,47,48,.22);animation:copAparece .3s cubic-bezier(.2,.7,.3,1) both}
     #sos-copiloto .cop-panel[hidden]{display:none}
-    .cop-cabecera{background:var(--azul-noche);color:#fff;padding:12px 14px;display:flex;justify-content:space-between;align-items:center;font-size:14px}
+    .cop-cabecera{background:var(--tinta);color:#fff;padding:12px 14px;display:flex;justify-content:space-between;align-items:center;font-family:var(--mono);font-size:12.5px;text-transform:uppercase;letter-spacing:.05em}
+    .cop-titulo{display:flex;align-items:center;gap:8px}
+    .cop-luz{width:7px;height:7px;border-radius:50%;background:var(--acento-claro);animation:copPulso 1.8s ease-in-out infinite}
     .cop-cerrar{background:none;color:#fff;padding:0 6px;font-size:20px}
     .cop-mensajes{flex:1;overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:8px;background:var(--hueso)}
-    .cop-msg{max-width:85%;padding:8px 11px;border-radius:10px;font-size:13.5px;line-height:1.45;white-space:pre-wrap}
-    .cop-msg.user{align-self:flex-end;background:var(--teal);color:#fff}
-    .cop-msg.assistant{align-self:flex-start;background:#fff;border:1px solid var(--gris-linea)}
-    .cop-msg.nota{align-self:center;color:var(--texto-suave);font-size:12px;text-align:center}
-    .cop-form{display:flex;gap:6px;padding:10px;border-top:1px solid var(--gris-linea)}
+    .cop-msg{max-width:85%;padding:8px 11px;border-radius:12px;font-size:13.5px;line-height:1.45;white-space:pre-wrap}
+    .cop-msg.user{align-self:flex-end;background:var(--acento);color:#fff}
+    .cop-msg.assistant{align-self:flex-start;background:#fff;border:1px solid var(--liquen)}
+    .cop-msg.nota{align-self:center;color:var(--texto-suave);font-family:var(--mono);font-size:11.5px;text-align:center}
+    .cop-form{display:flex;gap:6px;padding:10px;border-top:1px solid var(--liquen)}
     .cop-form input{flex:1;width:auto;padding:9px 11px;font-size:13.5px}
-    .cop-form button{padding:9px 14px;background:var(--teal);color:#fff;font-size:13.5px}
+    .cop-form button{padding:9px 14px;background:var(--acento);color:#fff;font-size:11.5px}
+    .cop-form button:hover{background:var(--acento-hover)}
     #sos-copiloto .cop-mic{background:var(--gris-fondo);color:var(--texto);padding:9px 10px;display:flex;align-items:center}
     #sos-copiloto .cop-mic.grabando{background:var(--rojo-alerta);color:#fff;animation:copPulso 1s infinite}
-    @keyframes copPulso{50%{opacity:.6}}`;
+    @keyframes copPulso{50%{opacity:.6}}
+    @keyframes copAparece{from{opacity:0;transform:translateY(14px) scale(.97)}to{opacity:1;transform:none}}
+    @keyframes copFlota{from{translate:0 0}to{translate:0 -4px}}
+    @media (prefers-reduced-motion:reduce){html:not(.movimiento) #sos-copiloto .cop-boton,html:not(.movimiento) #sos-copiloto .cop-panel{animation:none}}`;
   document.head.appendChild(estilo);
 
   const raiz = document.createElement('div');
   raiz.id = 'sos-copiloto';
   raiz.innerHTML = `
     <div class="cop-panel" hidden>
-      <div class="cop-cabecera"><span>Asistente SOS</span><button class="cop-cerrar" title="Cerrar">×</button></div>
+      <div class="cop-cabecera"><span class="cop-titulo"><span class="cop-luz"></span>SosIA</span><button class="cop-cerrar" title="Cerrar">×</button></div>
       <div class="cop-mensajes"></div>
       <form class="cop-form">
         <button type="button" class="cop-mic" title="Hablar">
@@ -57,7 +63,7 @@
         <button type="submit">Enviar</button>
       </form>
     </div>
-    <button class="cop-boton">Asistente</button>`;
+    <button class="cop-boton">SosIA</button>`;
   document.body.appendChild(raiz);
 
   const panel = raiz.querySelector('.cop-panel');
@@ -167,7 +173,7 @@
     // clic (tambien "elegir" sobre pestañas o botones)
     const texto = etiqueta(el);
     const critico = el.type === 'submit' || CRITICO.test(texto);
-    if (critico && !confirm(`El asistente quiere pulsar «${texto || p.objetivo}». ¿Continuar?`)) {
+    if (critico && !confirm(`SosIA quiere pulsar «${texto || p.objetivo}». ¿Continuar?`)) {
       return { fallo: 'Cancelado por ti.' };
     }
     el.click();

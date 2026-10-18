@@ -30,7 +30,7 @@ public class WhisperCliente {
     private static final String URL = "https://api.groq.com/openai/v1/audio/transcriptions";
 
     // Vocabulario del dominio: ayuda a Whisper con terminos medicos y nombres de pantallas
-    private static final String PISTA = "SOS Clinic, triage, paciente, cédula, consultorio, signos vitales, "
+    private static final String PISTA = "SosIA, SOS Clinic, triage, paciente, cédula, consultorio, signos vitales, "
             + "frecuencia cardíaca, frecuencia respiratoria, presión sistólica, diastólica, saturación, glucemia, "
             + "temperatura, Resucitación, Emergencia, Urgencia, lista de espera, seguimiento, alta, diagnóstico, tratamiento.";
 

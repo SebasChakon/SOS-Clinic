@@ -5,8 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>SOS · Auditoría</title>
 <link rel="stylesheet" href="assets/estilos.css">
+<script src="assets/movimiento.js"></script>
 <style>
-  .accion-badge { padding: 2px 8px; border-radius: 999px; font-size: 11.5px; font-weight: 600; }
+  .accion-badge { padding: 3px 10px; border-radius: 9999px; font-size: 11.5px; font-weight: 500; }
   .accion-crear { background: var(--verde-fondo); color: var(--teal-hover); }
   .accion-actualizar { background: #fff4e0; color: #a9670a; }
   .accion-eliminar, .accion-desactivar { background: var(--rojo-fondo); color: var(--rojo-alerta); }
@@ -21,7 +22,7 @@
   <div class="marca"><strong>SOS</strong> · Sistema de Triage Inteligente</div>
   <nav id="navPrincipal"></nav>
   <div style="display:flex; align-items:center; gap:14px;">
-    <span id="infoUsuario" style="font-size:13px; color:#b9c8d0;"></span>
+    <span id="infoUsuario" class="usuario-info"></span>
     <button class="salir" onclick="cerrarSesion()">Salir</button>
   </div>
 </div>

@@ -65,7 +65,22 @@ echo Esperando a que todos terminen de arrancar...
 timeout /t 20 /nobreak >nul
 
 echo Abriendo el sistema en el navegador...
-start "" "%BASE%frontend\index.html"
+set "PY_FRONT="
+where python >nul 2>nul && set "PY_FRONT=python"
+if not defined PY_FRONT (
+  where py >nul 2>nul
+  if not errorlevel 1 set "PY_FRONT=py -3"
+)
+if defined PY_FRONT (
+  echo Sirviendo frontend en http://localhost:5500 ...
+  start "frontend-sos" cmd /k "cd /d %BASE%frontend && %PY_FRONT% -m http.server 5500"
+  timeout /t 4 /nobreak >nul
+  start "" "http://localhost:5500/index.html"
+) else (
+  echo ADVERTENCIA: Python no esta disponible; se abren los archivos directamente.
+  echo              El video de la landing mostrara solo la miniatura hacia YouTube.
+  start "" "%BASE%frontend\index.html"
+)
 
 echo Listo. Cierra esta ventana cuando quieras (los microservicios siguen en sus propias ventanas).
 endlocal

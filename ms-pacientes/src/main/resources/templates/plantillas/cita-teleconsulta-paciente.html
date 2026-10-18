@@ -5,28 +5,28 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Cita de teleconsulta · SOS Clinic</title>
 </head>
-<body style="margin:0; padding:0; background-color:#eef4f6; font-family:'Segoe UI', 'Helvetica Neue', Arial, sans-serif;">
+<body style="margin:0; padding:0; background-color:#f7f7f5; font-family:'Inter Tight', 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;">
 
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#eef4f6;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#f7f7f5;">
   <tr>
     <td align="center" style="padding:28px 12px;">
 
       <table role="presentation" width="600" cellpadding="0" cellspacing="0"
-             style="max-width:600px; width:100%; background-color:#ffffff; border-radius:12px; overflow:hidden; box-shadow:0 2px 10px rgba(15,23,42,.08);">
+             style="max-width:600px; width:100%; background-color:#ffffff; border:1px solid #e7e8e1; border-radius:16px; overflow:hidden;">
 
         <!-- Encabezado de marca -->
         <tr>
-          <td style="background-color:#0f766e; background-image:linear-gradient(135deg,#0f766e 0%,#0e7490 100%); padding:26px 32px;">
-            <div style="font-size:24px; font-weight:700; color:#ffffff; letter-spacing:.5px;">SOS <span style="font-weight:300;">Clinic</span></div>
-            <div style="font-size:13px; color:#c7e9e5; margin-top:4px;">Sistema de Triage Inteligente</div>
+          <td style="background-color:#222f30; padding:24px 32px; border-bottom:3px solid #0F747D;">
+            <div style="font-family:'Roboto Mono','Consolas',monospace; font-size:19px; font-weight:500; color:#ffffff; letter-spacing:.12em;">SOS <span style="font-weight:400; opacity:.62; text-transform:uppercase; letter-spacing:.08em;">Clinic</span></div>
+            <div style="font-family:'Roboto Mono','Consolas',monospace; font-size:10.5px; color:#6FBDC2; margin-top:6px; letter-spacing:.16em; text-transform:uppercase;">Sistema de Triage Inteligente</div>
           </td>
         </tr>
 
         <!-- Titulo -->
         <tr>
           <td style="padding:28px 32px 6px;">
-            <div style="font-size:20px; font-weight:700; color:#0f172a;">Tu cita de teleconsulta está confirmada</div>
-            <div style="font-size:14px; color:#64748b; margin-top:8px; line-height:1.6;">
+            <div style="font-size:20px; font-weight:500; color:#222f30; letter-spacing:-.01em;">Tu cita de teleconsulta está confirmada</div>
+            <div style="font-size:14px; color:#4d5757; margin-top:8px; line-height:1.6;">
               Hola <b th:text="${nombrePaciente}">paciente</b>, agenda este encuentro con tu equipo de atención.
               Recibirás la videollamada por este mismo medio.
             </div>
@@ -37,23 +37,23 @@
         <tr>
           <td style="padding:18px 32px 6px;">
             <table role="presentation" width="100%" cellpadding="0" cellspacing="0"
-                   style="background-color:#f0fdfa; border:1px solid #ccfbf1; border-radius:10px;">
+                   style="background-color:#f4f9f8; border:1px solid #e9f3f1; border-radius:10px;">
               <tr>
-                <td style="padding:14px 18px; border-bottom:1px solid #ccfbf1;">
-                  <div style="font-size:11px; text-transform:uppercase; letter-spacing:.08em; color:#0f766e; font-weight:700;">Fecha y hora</div>
-                  <div style="font-size:16px; color:#0f172a; margin-top:3px;" th:text="${fechaHora}">sábado 24 de octubre a las 10:00</div>
+                <td style="padding:14px 18px; border-bottom:1px solid #e9f3f1;">
+                  <div style="font-family:'Roboto Mono','Consolas',monospace; font-size:10.5px; text-transform:uppercase; letter-spacing:.08em; color:#4d5757; font-weight:500;">Fecha y hora</div>
+                  <div style="font-size:16px; color:#222f30; margin-top:3px;" th:text="${fechaHora}">sábado 24 de octubre a las 10:00</div>
                 </td>
               </tr>
               <tr>
-                <td style="padding:14px 18px; border-bottom:1px solid #ccfbf1;">
-                  <div style="font-size:11px; text-transform:uppercase; letter-spacing:.08em; color:#0f766e; font-weight:700;">Duración estimada</div>
-                  <div style="font-size:16px; color:#0f172a; margin-top:3px;">30 minutos</div>
+                <td style="padding:14px 18px; border-bottom:1px solid #e9f3f1;">
+                  <div style="font-family:'Roboto Mono','Consolas',monospace; font-size:10.5px; text-transform:uppercase; letter-spacing:.08em; color:#4d5757; font-weight:500;">Duración estimada</div>
+                  <div style="font-size:16px; color:#222f30; margin-top:3px;">30 minutos</div>
                 </td>
               </tr>
               <tr>
                 <td style="padding:14px 18px;">
-                  <div style="font-size:11px; text-transform:uppercase; letter-spacing:.08em; color:#0f766e; font-weight:700;">Modalidad</div>
-                  <div style="font-size:16px; color:#0f172a; margin-top:3px;">Videoconsulta en línea (no requiere instalar nada)</div>
+                  <div style="font-family:'Roboto Mono','Consolas',monospace; font-size:10.5px; text-transform:uppercase; letter-spacing:.08em; color:#4d5757; font-weight:500;">Modalidad</div>
+                  <div style="font-size:16px; color:#222f30; margin-top:3px;">Videoconsulta en línea (no requiere instalar nada)</div>
                 </td>
               </tr>
             </table>
@@ -65,15 +65,15 @@
           <td align="center" style="padding:22px 32px 6px;">
             <table role="presentation" cellpadding="0" cellspacing="0">
               <tr>
-                <td style="background-color:#0f766e; border-radius:8px;">
+                <td style="background-color:#222f30; border-radius:8px;">
                   <a th:href="${enlace}" target="_blank"
-                     style="display:inline-block; padding:13px 30px; font-size:15px; font-weight:600; color:#ffffff; text-decoration:none;">
+                     style="display:inline-block; padding:14px 28px; font-family:'Roboto Mono','Consolas',monospace; font-size:12px; font-weight:500; letter-spacing:.06em; text-transform:uppercase; color:#ffffff; text-decoration:none;">
                     Unirme a la videollamada
                   </a>
                 </td>
               </tr>
             </table>
-            <div style="font-size:12px; color:#94a3b8; margin-top:12px;">
+            <div style="font-size:12px; color:#9aa5a2; margin-top:12px;">
               El enlace se activa a la hora de la cita.
             </div>
           </td>
@@ -82,22 +82,22 @@
         <!-- Recomendaciones -->
         <tr>
           <td style="padding:20px 32px 8px;">
-            <div style="font-size:13px; font-weight:700; color:#0f172a; margin-bottom:8px;">Antes de la cita, ten a mano:</div>
-            <table role="presentation" cellpadding="0" cellspacing="0" style="font-size:13.5px; color:#334155; line-height:1.9;">
+            <div style="font-family:'Roboto Mono','Consolas',monospace; font-size:11px; text-transform:uppercase; letter-spacing:.08em; color:#4d5757; font-weight:500; margin-bottom:8px;">Antes de la cita, ten a mano:</div>
+            <table role="presentation" cellpadding="0" cellspacing="0" style="font-size:13.5px; color:#4d5757; line-height:1.9;">
               <tr>
-                <td style="padding-right:8px; color:#0f766e;">&#10003;</td>
+                <td style="padding-right:8px; color:#0F747D;">&#10003;</td>
                 <td>Tu documento de identidad.</td>
               </tr>
               <tr>
-                <td style="padding-right:8px; color:#0f766e;">&#10003;</td>
+                <td style="padding-right:8px; color:#0F747D;">&#10003;</td>
                 <td>La lista de medicamentos que tomas actualmente.</td>
               </tr>
               <tr>
-                <td style="padding-right:8px; color:#0f766e;">&#10003;</td>
+                <td style="padding-right:8px; color:#0F747D;">&#10003;</td>
                 <td>Tus preguntas o síntomas del último tiempo, anotados.</td>
               </tr>
               <tr>
-                <td style="padding-right:8px; color:#0f766e;">&#10003;</td>
+                <td style="padding-right:8px; color:#0F747D;">&#10003;</td>
                 <td>Prueba el micrófono y la cámara 5 minutos antes.</td>
               </tr>
             </table>
@@ -107,7 +107,7 @@
         <!-- Aviso legal -->
         <tr>
           <td style="padding:22px 32px 10px;">
-            <div style="background-color:#fffbeb; border:1px solid #fde68a; border-radius:8px; padding:12px 16px; font-size:12.5px; color:#92400e; line-height:1.6;">
+            <div style="background-color:#fbf5e8; border:1px solid #e2cd9d; border-radius:8px; padding:12px 16px; font-size:12.5px; color:#76501e; line-height:1.6;">
               Si presentas dificultad para respirar, dolor fuerte en el pecho o cualquier síntoma grave,
               <b>no esperes a la cita</b>: acude a urgencias o llama a emergencias.
             </div>
@@ -116,7 +116,7 @@
 
         <!-- Pie -->
         <tr>
-          <td style="background-color:#f1f5f9; padding:18px 32px; font-size:11.5px; color:#94a3b8; line-height:1.7;">
+          <td style="background-color:#f7f7f5; padding:18px 32px; font-size:11.5px; color:#9aa5a2; line-height:1.7;">
             Este mensaje es confidencial y está dirigido exclusivamente a
             <b th:text="${destinatario}">paciente@correo.com</b>. Si no eres el destinatario,
             elimínalo: está prohibido copiarlo o divulgarlo.

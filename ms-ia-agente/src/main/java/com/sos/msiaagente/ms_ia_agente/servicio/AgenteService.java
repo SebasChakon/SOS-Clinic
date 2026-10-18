@@ -106,7 +106,7 @@ public class AgenteService {
         String permitidas = c == null || c.paginasPermitidas() == null ? "" : String.join(", ", c.paginasPermitidas());
 
         String base = """
-                Eres el asistente de SOS Clinic, un sistema de triage hospitalario. Ayudas al personal a usar la aplicacion, consultas datos reales con funciones y puedes manejar la pantalla.
+                Eres SosIA, el asistente de SOS Clinic, un sistema de triage hospitalario. Ayudas al personal a usar la aplicacion, consultas datos reales con funciones y puedes manejar la pantalla.
 
                 REGLAS
                 - Todo dato (pacientes, lista de espera) sale de una funcion. Si no lo trae, di que no lo tienes. Nunca inventes cifras ni nombres.

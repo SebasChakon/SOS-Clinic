@@ -100,7 +100,8 @@ Cada módulo Maven organiza normalmente su código en `src/main/java` así:
 | `infra/docker-compose.yml` | Contenedores `postgres` (PostgreSQL 16) y `pgadmin`, puertos, volumen y montaje del script inicial. |
 | `infra/schema-postgres.sql` | Esquema, perfiles base, actividad CRUE y asignación inicial a todos los perfiles. Solo se ejecuta automáticamente al crear un volumen vacío. |
 | `infra/activar-enfermedades-crue.sql` | Registra la actividad CRUE y la asigna idempotentemente a todos los perfiles de una base existente. |
-| `frontend/index.html` | Login y formulario de verificación 2FA. |
+| `frontend/index.html` | Landing: presentación animada del proyecto, con el video y el acceso. |
+| `frontend/login.html` | Login y formulario de verificación 2FA. |
 | `frontend/pacientes.html` | Registro/listado de pacientes y entrada al flujo según actividades asignadas. |
 | `frontend/triage-nuevo.html` | Búsqueda por cédula y registro de llegada con categoría y ubicación. |
 | `frontend/enfermedades-crue.html` | Visualizador Power BI de enfermedades atendidas por el CRUE de Bogotá. |
@@ -227,7 +228,7 @@ Para registrar `dashboard_analitica` y asignarla al perfil `coordinacion`, ejecu
 
 ### 5. Abrir el frontend
 
-El script de Windows abre `frontend/index.html`; también puedes abrirlo directamente. La API apunta a `http://localhost:8080`, y el navegador guarda token y datos básicos de sesión en `sessionStorage`. Si el navegador bloquea las peticiones por CORS al abrir el archivo directamente, sirve `frontend/` desde un servidor estático local y permite ese origen en la configuración CORS del gateway.
+El script de Windows sirve `frontend/` en `http://localhost:5500` con Python y abre la landing (`index.html`); si Python no está disponible, abre los archivos directamente (en ese caso el video de la landing muestra una miniatura con enlace a YouTube, porque el reproductor incrustado exige un referrer HTTP). La API apunta a `http://localhost:8080`, y el navegador guarda token y datos básicos de sesión en `sessionStorage`. Si el navegador bloquea las peticiones por CORS al abrir el archivo directamente, sirve `frontend/` desde un servidor estático local y permite ese origen en la configuración CORS del gateway.
 
 ## Flujo de trabajo normal
 

@@ -38,9 +38,9 @@ function haySesion() {
   return obtenerToken() !== null;
 }
 
-function cerrarSesion() {
+function cerrarSesion(destino = 'index.html') {
   sessionStorage.clear();
-  window.location.href = 'index.html';
+  window.location.href = destino;
 }
 
 /**
@@ -55,14 +55,14 @@ function primerDestinoValido(actividades) {
 
 /**
  * Llama esto al cargar cualquier vista que NO sea el login.
- * Redirige a index.html si no hay sesion, o a la pantalla correcta
+ * Redirige a login.html si no hay sesion, o a la pantalla correcta
  * si el usuario no tiene permiso para ver esta pagina.
  */
 function exigirSesion() {
   const sesion = obtenerSesion();
 
   if (!sesion) {
-    window.location.href = 'index.html';
+    window.location.href = 'login.html';
     return;
   }
 
@@ -72,7 +72,7 @@ function exigirSesion() {
   const tienePermiso = sesion.actividades.some((a) => a.enlace === paginaActual);
 
   if (!tienePermiso) {
-    if (paginaActual === 'index.html' || paginaActual === '') return; // evita loop con el login
+    if (paginaActual === 'login.html' || paginaActual === '') return; // evita loop con el login
     const destino = primerDestinoValido(sesion.actividades);
     if (destino) {
       window.location.href = destino;
@@ -106,7 +106,7 @@ async function llamarApi(ruta, opciones = {}) {
   if (respuesta.status === 401) {
     if (token) {
       // Ya teniamos una sesion activa y el token dejo de ser valido: si expira de verdad
-      cerrarSesion();
+      cerrarSesion('login.html');
       throw new Error('Sesion expirada, vuelve a iniciar sesion');
     }
     // No habia token (ej. intento de login fallido): dejamos que el flujo normal de abajo

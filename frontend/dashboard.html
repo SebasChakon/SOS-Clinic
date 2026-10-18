@@ -5,29 +5,30 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>SOS · Analítica</title>
 <link rel="stylesheet" href="assets/estilos.css">
+<script src="assets/movimiento.js"></script>
 <style>
   :root {
-    --analitica-tinta: #152a35;
-    --analitica-verde: #21846f;
-    --analitica-ambar: #d58a2b;
-    --analitica-coral: #c74e40;
-    --analitica-azul: #3978a5;
+    --analitica-tinta: #222f30;
+    --analitica-verde: #0F747D;
+    --analitica-ambar: #a8792f;
+    --analitica-coral: #b3352a;
+    --analitica-azul: #4a7a96;
   }
   .contenido { max-width: 1380px; }
   .dashboard-cabecera { display:flex; justify-content:space-between; align-items:flex-end; gap:24px; margin-bottom:20px; }
-  .dashboard-cabecera h1 { font-size:28px; color:var(--analitica-tinta); }
+  .dashboard-cabecera h1 { color:var(--analitica-tinta); }
   .dashboard-cabecera .sub { margin:0; }
-  .sello-sintetico { display:inline-flex; align-items:center; gap:8px; padding:8px 11px; border:1px solid #e7c99e; background:#fff6e9; color:#76501e; font-size:12px; font-weight:700; white-space:nowrap; }
+  .sello-sintetico { display:inline-flex; align-items:center; gap:8px; padding:7px 12px; border:1px solid var(--liquen); border-radius:9999px; background:var(--papel); color:var(--texto-suave); font-family:var(--mono); font-size:11px; font-weight:500; letter-spacing:0.04em; text-transform:uppercase; white-space:nowrap; }
   .sello-sintetico::before { content:""; width:8px; height:8px; border-radius:50%; background:var(--analitica-ambar); }
   .filtros-dashboard { display:grid; grid-template-columns:repeat(4, minmax(130px, 1fr)) auto; gap:14px; align-items:end; padding:18px 0; margin-bottom:18px; border-top:1px solid var(--gris-linea); border-bottom:1px solid var(--gris-linea); }
   .filtros-dashboard .campo { margin:0; }
   .filtros-dashboard button { min-height:42px; white-space:nowrap; }
-  .nota-lectura { display:flex; align-items:flex-start; gap:10px; padding:12px 14px; margin-bottom:18px; border-left:3px solid var(--analitica-azul); background:#edf5fa; color:#365163; font-size:13px; line-height:1.5; }
+  .nota-lectura { display:flex; align-items:flex-start; gap:10px; padding:12px 14px; margin-bottom:18px; border:1px solid var(--liquen); border-left:3px solid var(--acento); border-radius:var(--radio-boton); background:var(--papel); color:var(--grafito); font-size:13px; line-height:1.5; }
   .kpis-dashboard { display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:12px; margin-bottom:18px; }
-  .kpi-dashboard { min-height:118px; padding:18px 20px; border:1px solid var(--gris-linea); border-top:3px solid var(--analitica-verde); background:#fff; }
+  .kpi-dashboard { min-height:118px; padding:18px 20px; border:1px solid var(--gris-linea); border-top:3px solid var(--analitica-verde); border-radius:var(--radio-tarjeta); background:#fff; }
   .kpi-dashboard:nth-child(2) { border-top-color:var(--analitica-coral); }
-  .kpi-etiqueta { display:block; color:var(--texto-suave); font-size:12px; font-weight:600; }
-  .kpi-valor { display:block; margin-top:9px; color:var(--analitica-tinta); font-size:30px; font-weight:700; font-variant-numeric:tabular-nums; }
+  .kpi-etiqueta { display:block; color:var(--texto-suave); font-family:var(--mono); font-size:10.5px; font-weight:500; text-transform:uppercase; letter-spacing:0.06em; }
+  .kpi-valor { display:block; margin-top:9px; color:var(--analitica-tinta); font-size:30px; font-weight:500; letter-spacing:-0.02em; font-variant-numeric:tabular-nums; }
   .grid-graficos { display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:14px 18px; }
   .panel-grafico { min-width:0; padding:16px 0 10px; border-top:1px solid var(--gris-linea); }
   .panel-grafico h2 { margin:0 0 4px; color:var(--analitica-tinta); font-size:17px; }
@@ -62,7 +63,7 @@
   <div class="marca"><strong>SOS</strong> · Sistema de Triage Inteligente</div>
   <nav id="navPrincipal" aria-label="Navegación principal"></nav>
   <div style="display:flex; align-items:center; gap:14px;">
-    <span id="infoUsuario" style="font-size:13px; color:#b9c8d0;"></span>
+    <span id="infoUsuario" class="usuario-info"></span>
     <button class="salir" onclick="cerrarSesion()">Salir</button>
   </div>
 </header>
@@ -152,7 +153,7 @@
   const formatoNumero = new Intl.NumberFormat('es-CO', { maximumFractionDigits: 0 });
   const formatoDecimal = new Intl.NumberFormat('es-CO', { maximumFractionDigits: 1 });
   const charts = {};
-  const paleta = ['#21846f', '#d58a2b', '#c74e40', '#3978a5', '#7c6c9b'];
+  const paleta = ['#0F747D', '#a8792f', '#b3352a', '#4a7a96', '#7c6c9b'];
 
   function fechaLocal(fecha) {
     const anio = fecha.getFullYear();
@@ -173,13 +174,14 @@
       maintainAspectRatio: false,
       devicePixelRatio: Math.max(window.devicePixelRatio || 1, 2),
       animation: { duration: 350 },
+      font: { family: "'Inter Tight', ui-sans-serif, system-ui, sans-serif" },
       plugins: {
-        legend: { display: false, labels: { color: '#33454d', font: { size: 13 } } },
+        legend: { display: false, labels: { color: '#4d5757', font: { size: 13 } } },
         tooltip: { titleFont: { size: 13 }, bodyFont: { size: 13 } }
       },
       scales: {
-        x: { grid: { display: false }, ticks: { color: '#46575e', font: { size: 12 }, maxRotation: 0 } },
-        y: { beginAtZero: true, grid: { color: '#dce4e6' }, ticks: { color: '#46575e', font: { size: 12 }, precision: 0 } }
+        x: { grid: { display: false }, ticks: { color: '#4d5757', font: { family: "'Roboto Mono', monospace", size: 11 }, maxRotation: 0 } },
+        y: { beginAtZero: true, grid: { color: '#e7e8e1' }, ticks: { color: '#4d5757', font: { family: "'Roboto Mono', monospace", size: 11 }, precision: 0 } }
       }
     };
   }
@@ -240,8 +242,8 @@
         return registro ? registro.total : 0;
       });
       actualizarGrafico('graficoHora', 'line', Array.from({ length: 24 }, (_, hora) => `${String(hora).padStart(2, '0')}:00`), [{
-        label: 'Llegadas', data: porHora, borderColor: '#21846f', backgroundColor: 'rgba(33,132,111,.12)',
-        borderWidth: 3, fill: true, tension: .28, pointRadius: 2.5, pointHoverRadius: 5
+        label: 'Llegadas', data: porHora, borderColor: '#0F747D', backgroundColor: 'rgba(15,116,125,.12)',
+        borderWidth: 2, fill: true, tension: .28, pointRadius: 2.5, pointHoverRadius: 5
       }]);
       actualizarGrafico('graficoPrioridad', 'bar', llegadas.porPrioridad.map(item => item.etiqueta), [{
         label: 'Llegadas', data: llegadas.porPrioridad.map(item => item.total),
@@ -249,13 +251,13 @@
       }]);
       actualizarGrafico('graficoLocalidad', 'bar', llegadas.porLocalidad.map(item => item.etiqueta), [{
         label: 'Llegadas', data: llegadas.porLocalidad.map(item => item.total),
-        backgroundColor: '#3978a5', borderRadius: 3
+        backgroundColor: '#4a7a96', borderRadius: 3
       }]);
       actualizarGrafico('graficoCapacidad', 'bar', capacidad.map(item => item.turno), [
-        { label: 'Llegadas promedio/día', data: capacidad.map(item => item.llegadasPromedio), backgroundColor: '#c74e40', borderRadius: 3 },
-        { label: 'Personal promedio', data: capacidad.map(item => item.personalPromedio), backgroundColor: '#21846f', borderRadius: 3 },
-        { label: 'Puestos de triage', data: capacidad.map(item => item.puestosTriagePromedio), backgroundColor: '#d58a2b', borderRadius: 3 },
-        { label: 'Camas disponibles', data: capacidad.map(item => item.camasDisponiblesPromedio), backgroundColor: '#3978a5', borderRadius: 3 }
+        { label: 'Llegadas promedio/día', data: capacidad.map(item => item.llegadasPromedio), backgroundColor: '#b3352a', borderRadius: 3 },
+        { label: 'Personal promedio', data: capacidad.map(item => item.personalPromedio), backgroundColor: '#0F747D', borderRadius: 3 },
+        { label: 'Puestos de triage', data: capacidad.map(item => item.puestosTriagePromedio), backgroundColor: '#a8792f', borderRadius: 3 },
+        { label: 'Camas disponibles', data: capacidad.map(item => item.camasDisponiblesPromedio), backgroundColor: '#4a7a96', borderRadius: 3 }
       ]);
       charts.graficoCapacidad.options.plugins.legend.display = true;
       charts.graficoCapacidad.update();

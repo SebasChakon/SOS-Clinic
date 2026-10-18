@@ -5,18 +5,20 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>SOS · Administración</title>
 <link rel="stylesheet" href="assets/estilos.css">
+<script src="assets/movimiento.js"></script>
 <style>
-  .tabs { display: flex; gap: 4px; margin-bottom: 20px; border-bottom: 1px solid var(--gris-linea); flex-wrap: wrap; }
+  .tabs { display: flex; gap: 8px; margin-bottom: 20px; flex-wrap: wrap; }
   .tabs button {
-    background: none; border: none; padding: 10px 16px; font-size: 14px;
-    color: var(--texto-suave); cursor: pointer; border-bottom: 2px solid transparent;
+    background: none; padding: 8px 14px; letter-spacing: 0.03em;
+    color: var(--texto-suave); cursor: pointer; border: 1px solid var(--liquen); border-radius: var(--radio-nav);
   }
-  .tabs button.activo { color: var(--teal-hover); border-bottom-color: var(--teal); font-weight: 600; }
+  .tabs button:hover { border-color: var(--acento); color: var(--acento-hover); }
+  .tabs button.activo { background: var(--acento); border-color: var(--acento); color: #ffffff; font-weight: 500; }
   .panel { display: none; }
   .panel.activo { display: block; }
   .grid-admin { display: grid; grid-template-columns: 320px 1fr; gap: 24px; align-items: start; }
-  .fila-acciones button { padding: 5px 9px; font-size: 12px; margin-right: 4px; }
-  .estado-badge { padding: 2px 8px; border-radius: 999px; font-size: 11.5px; font-weight: 600; }
+  .fila-acciones button { padding: 7px 10px; font-size: 10.5px; margin-right: 4px; }
+  .estado-badge { padding: 3px 10px; border-radius: 9999px; font-size: 11.5px; font-weight: 500; }
   .estado-activo { background: var(--verde-fondo); color: var(--teal-hover); }
   .estado-inactivo { background: var(--rojo-fondo); color: var(--rojo-alerta); }
   @media (max-width: 900px) { .grid-admin { grid-template-columns: 1fr; } }
@@ -30,7 +32,7 @@
   <div class="marca"><strong>SOS</strong> · Sistema de Triage Inteligente</div>
   <nav id="navPrincipal"></nav>
   <div style="display:flex; align-items:center; gap:14px;">
-    <span id="infoUsuario" style="font-size:13px; color:#b9c8d0;"></span>
+    <span id="infoUsuario" class="usuario-info"></span>
     <button class="salir" onclick="cerrarSesion()">Salir</button>
   </div>
 </div>

@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>SOS · Enfermedades CRUE</title>
 <link rel="stylesheet" href="assets/estilos.css">
+<script src="assets/movimiento.js"></script>
 <style>
   .contenido-crue {
     max-width: 1600px;
@@ -18,8 +19,16 @@
   }
 
   .crue-acciones a {
-    color: var(--azul-medio);
-    font-size: 14px;
+    color: var(--acento);
+    font-family: var(--mono);
+    font-size: 12.5px;
+    text-decoration: none;
+    border-bottom: 1px solid var(--liquen);
+    padding-bottom: 3px;
+  }
+
+  .crue-acciones a:hover {
+    border-bottom-color: var(--acento);
   }
 
   .crue-marco {
@@ -28,6 +37,7 @@
     min-height: 560px;
     overflow: hidden;
     border: 1px solid var(--gris-linea);
+    border-radius: var(--radio-tarjeta);
     background: #fff;
   }
 
@@ -45,7 +55,8 @@
     place-items: center;
     background: #fff;
     color: var(--texto-suave);
-    font-size: 14px;
+    font-family: var(--mono);
+    font-size: 12.5px;
     pointer-events: none;
   }
 
@@ -68,7 +79,7 @@
   <div class="marca"><strong>SOS</strong> · Sistema de Triage Inteligente</div>
   <nav id="navPrincipal"></nav>
   <div style="display:flex; align-items:center; gap:14px;">
-    <span id="infoUsuario" style="font-size:13px; color:#b9c8d0;"></span>
+    <span id="infoUsuario" class="usuario-info"></span>
     <button class="salir" onclick="cerrarSesion()">Salir</button>
   </div>
 </div>

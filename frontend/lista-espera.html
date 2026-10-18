@@ -5,12 +5,13 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>SOS · Lista de espera</title>
 <link rel="stylesheet" href="assets/estilos.css">
+<script src="assets/movimiento.js"></script>
 <style>
   .barra-lista { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
-  .barra-lista .indicador-refresco { font-size: 12px; color: var(--texto-suave); }
+  .barra-lista .indicador-refresco { font-family: var(--mono); font-size: 11.5px; color: var(--texto-suave); }
   .acciones-fila { display: flex; gap: 8px; }
-  .acciones-fila button, .acciones-fila a { padding: 6px 10px; font-size: 12.5px; }
-  .paciente-desconocido { color: var(--texto-suave); font-style: italic; }
+  .acciones-fila button, .acciones-fila a { padding: 7px 11px; font-size: 10.5px; }
+  .paciente-desconocido { color: var(--texto-suave); font-family: var(--mono); font-size: 13px; }
 </style>
 </head>
 
@@ -21,7 +22,7 @@
   <div class="marca"><strong>SOS</strong> · Sistema de Triage Inteligente</div>
   <nav id="navPrincipal"></nav>
   <div style="display:flex; align-items:center; gap:14px;">
-    <span id="infoUsuario" style="font-size:13px; color:#b9c8d0;"></span>
+    <span id="infoUsuario" class="usuario-info"></span>
     <button class="salir" onclick="cerrarSesion()">Salir</button>
   </div>
 </div>
