@@ -1,0 +1,1018 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SOS Clinic · Presentación del anteproyecto</title>
+<link rel="stylesheet" href="assets/estilos.css">
+<script src="assets/movimiento.js"></script>
+<style>
+  /* =====================================================================
+     SOS Clinic · Presentación del anteproyecto
+     Escenario fijo 1920×1080 escalado al viewport (no se deforma).
+     Herramientas:  ← → espacio · clic avanza · Mayús+clic retrocede ·
+     rueda · F pantalla completa · Inicio/Fin.
+     ===================================================================== */
+
+  html, body { height: 100%; }
+  body.cuerpo-deck { overflow: hidden; background: #0b1213; }
+
+  /* ------------------------------------------------------------------
+     Escenario
+     ------------------------------------------------------------------ */
+  #escenario {
+    position: absolute; left: 50%; top: 50%;
+    width: 1920px; height: 1080px;
+    transform: translate(-50%, -50%);
+    transform-origin: center;
+    overflow: hidden;
+    background: var(--tinta);
+    color: var(--hueso);
+    --cromo-txt: rgba(247, 247, 245, .5);
+    --cromo-linea: rgba(247, 247, 245, .14);
+    --cromo-fuerte: var(--hueso);
+    --cromo-acento: var(--acento-claro);
+  }
+  #escenario[data-tema="claro"] {
+    --cromo-txt: rgba(34, 47, 48, .55);
+    --cromo-linea: rgba(34, 47, 48, .16);
+    --cromo-fuerte: var(--tinta);
+    --cromo-acento: var(--acento);
+  }
+
+  /* Barra de progreso de la presentación */
+  #barraDeck {
+    position: absolute; top: 0; left: 0; width: 100%; height: 3px; z-index: 50;
+    background: var(--acento-claro); transform: scaleX(0); transform-origin: left center;
+    pointer-events: none;
+    transition: transform .45s ease, background .4s ease;
+  }
+  #escenario[data-tema="claro"] #barraDeck { background: var(--acento); }
+
+  /* ------------------------------------------------------------------
+     Cromo (marcos superior e inferior)
+     ------------------------------------------------------------------ */
+  .cromo {
+    position: absolute; left: 0; right: 0; z-index: 40;
+    height: 78px; padding: 0 64px;
+    display: flex; align-items: center; justify-content: space-between; gap: 24px;
+    font-family: var(--mono); font-size: 12.5px; letter-spacing: .08em; text-transform: uppercase;
+    color: var(--cromo-txt);
+    transition: color .4s ease, border-color .4s ease;
+  }
+  .cromo-sup { top: 0; border-bottom: 1px solid var(--cromo-linea); }
+  .cromo-inf { bottom: 0; border-top: 1px solid var(--cromo-linea); }
+  .cromo b { color: var(--cromo-fuerte); font-weight: 500; letter-spacing: .1em; }
+  .cromo .suave { color: var(--cromo-txt); }
+  .cromo-derecha { display: flex; align-items: center; gap: 18px; }
+  .cromo-centro { display: flex; align-items: center; gap: 8px; }
+
+  .punto-deck {
+    width: 8px; height: 8px; padding: 0; border: 0; border-radius: 999px;
+    background: var(--cromo-txt); opacity: .5; cursor: pointer;
+    transition: width .3s ease, opacity .3s ease, background .3s ease;
+  }
+  .punto-deck:hover { opacity: .9; }
+  .punto-deck.activo { width: 26px; opacity: 1; background: var(--cromo-acento); }
+
+  .boton-deck {
+    width: 36px; height: 30px; display: grid; place-items: center;
+    background: transparent; border: 1px solid var(--cromo-linea); border-radius: 7px;
+    color: var(--cromo-txt); font-family: var(--mono); font-size: 15px; line-height: 1; cursor: pointer;
+    transition: color .25s ease, border-color .25s ease;
+  }
+  .boton-deck:hover { color: var(--cromo-fuerte); border-color: var(--cromo-acento); }
+  .contador-deck { font-family: var(--mono); font-size: 13px; letter-spacing: .14em; color: var(--cromo-fuerte); }
+
+  /* ------------------------------------------------------------------
+     Diapositivas
+     ------------------------------------------------------------------ */
+  .diapo {
+    position: absolute; inset: 0; z-index: 10;
+    padding: 142px 96px 118px;
+    display: flex; flex-direction: column; justify-content: center;
+    opacity: 0; visibility: hidden;
+    transform: translateY(16px);
+    transition: opacity .55s ease, transform .55s ease;
+  }
+  .diapo.activa { opacity: 1; visibility: visible; transform: none; }
+  .diapo > * { position: relative; z-index: 1; }
+
+  .diapo.oscura {
+    background: var(--tinta); color: var(--hueso);
+    --txt: var(--hueso); --txt2: rgba(247, 247, 245, .66);
+    --linea: rgba(247, 247, 245, .14); --super: rgba(247, 247, 245, .035);
+    --chip-bg: rgba(247, 247, 245, .05); --acentoT: var(--acento-claro);
+  }
+  .diapo.clara {
+    background: var(--hueso); color: var(--tinta);
+    --txt: var(--tinta); --txt2: var(--grafito);
+    --linea: rgba(34, 47, 48, .14); --super: var(--papel);
+    --chip-bg: var(--papel); --acentoT: var(--acento);
+  }
+  .diapo.oscura::before {
+    content: ""; position: absolute; width: 900px; height: 900px; border-radius: 50%;
+    top: -470px; right: -250px; pointer-events: none;
+    background: radial-gradient(circle, rgba(15, 116, 125, .38), transparent 62%);
+    animation: derivaDeck 17s ease-in-out infinite alternate;
+  }
+  .diapo.oscura::after {
+    content: ""; position: absolute; inset: 0; pointer-events: none;
+    background-image:
+      linear-gradient(rgba(247, 247, 245, .04) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(247, 247, 245, .04) 1px, transparent 1px);
+    background-size: 240px 240px;
+  }
+  .diapo.clara::before {
+    content: ""; position: absolute; width: 820px; height: 820px; border-radius: 50%;
+    bottom: -460px; left: -240px; pointer-events: none;
+    background: radial-gradient(circle, rgba(15, 116, 125, .09), transparent 62%);
+  }
+  @keyframes derivaDeck { from { transform: translate3d(0, 0, 0); } to { transform: translate3d(-80px, 70px, 0); } }
+
+  /* Entradas escalonadas dentro de la diapositiva activa */
+  [data-rev] {
+    opacity: 0; transform: translateY(24px);
+    transition: opacity .65s cubic-bezier(.2, .7, .2, 1) var(--d, 0s), transform .65s cubic-bezier(.2, .7, .2, 1) var(--d, 0s);
+  }
+  .diapo.activa [data-rev] { opacity: 1; transform: none; }
+
+  /* ------------------------------------------------------------------
+     Piezas comunes
+     ------------------------------------------------------------------ */
+  .de-cabecera { margin-bottom: 48px; }
+  .de-etiqueta {
+    display: flex; align-items: center; gap: 16px; margin: 0 0 24px;
+    font-family: var(--mono); font-size: 14px; letter-spacing: .18em; text-transform: uppercase;
+    color: var(--acentoT);
+  }
+  .de-etiqueta::before { content: ""; width: 36px; height: 1px; background: currentColor; opacity: .8; }
+
+  .de-titulo {
+    margin: 0; max-width: 1560px;
+    font-size: 64px; line-height: 1.05; letter-spacing: -0.028em; font-weight: 500; color: var(--txt);
+  }
+  .de-titulo em { font-style: normal; color: var(--acentoT); }
+  .de-sub { margin: 24px 0 0; max-width: 1120px; font-size: 20px; line-height: 1.55; color: var(--txt2); }
+
+  .rejilla { display: grid; gap: 26px; }
+  .rejilla-2 { grid-template-columns: repeat(2, 1fr); }
+  .rejilla-3 { grid-template-columns: repeat(3, 1fr); }
+
+  .de-tarjeta {
+    border: 1px solid var(--linea); border-radius: 20px; background: var(--super);
+    padding: 32px 34px 30px;
+  }
+  .de-tarjeta h3 { margin: 0 0 12px; font-size: 24px; font-weight: 500; letter-spacing: -0.015em; color: var(--txt); }
+  .de-tarjeta p { margin: 0; font-size: 16.5px; line-height: 1.58; color: var(--txt2); }
+
+  .de-numero { display: block; margin-bottom: 14px; font-family: var(--mono); font-size: 13px; letter-spacing: .16em; color: var(--acentoT); }
+
+  .chips { display: flex; flex-wrap: wrap; gap: 10px; }
+  .de-chip {
+    display: inline-flex; align-items: center;
+    font-family: var(--mono); font-size: 12.5px; letter-spacing: .05em;
+    color: var(--txt2); border: 1px solid var(--linea); border-radius: 999px;
+    padding: 7px 14px; background: var(--chip-bg);
+  }
+  .mini-etiqueta {
+    font-family: var(--mono); font-size: 12px; letter-spacing: .14em; text-transform: uppercase; color: var(--acentoT);
+  }
+
+  .punto-vivo {
+    width: 9px; height: 9px; border-radius: 50%; background: var(--acento-claro); flex: none;
+    animation: parpadeoDeck 1.7s ease-in-out infinite;
+  }
+  @keyframes parpadeoDeck { 0%, 100% { opacity: 1; } 50% { opacity: .2; } }
+  .comillas { color: var(--acentoT); }
+
+  /* ------------------------------------------------------------------
+     Portada
+     ------------------------------------------------------------------ */
+  .p-marca {
+    margin: 0; font-size: 210px; line-height: .92; letter-spacing: -0.05em;
+    font-weight: 600; color: var(--hueso);
+  }
+  .p-marca .fantasma { color: transparent; -webkit-text-stroke: 2.5px var(--acento-claro); }
+  .p-sub {
+    margin: 34px 0 0; max-width: 1280px;
+    font-size: 33px; line-height: 1.35; letter-spacing: -0.015em; font-weight: 400;
+    color: rgba(247, 247, 245, .85);
+  }
+  .p-sub em { font-style: normal; color: var(--acento-claro); }
+  .p-lema {
+    display: flex; align-items: center; gap: 12px;
+    margin: 30px 0 0; font-family: var(--mono); font-size: 15px; letter-spacing: .02em; color: var(--hueso);
+  }
+  .p-lema .comillas { color: var(--acento-claro); }
+  .p-creditos {
+    display: grid; grid-template-columns: 1.1fr 1fr; gap: 60px;
+    margin-top: 58px; padding-top: 26px; max-width: 1280px;
+    border-top: 1px solid rgba(247, 247, 245, .14);
+  }
+  .p-creditos h4 {
+    margin: 0 0 10px; font-family: var(--mono); font-size: 12px; font-weight: 500;
+    letter-spacing: .16em; text-transform: uppercase; color: var(--acento-claro);
+  }
+  .p-creditos p { margin: 0; font-size: 16px; line-height: 1.65; color: rgba(247, 247, 245, .72); }
+
+  /* ------------------------------------------------------------------
+     Contexto (índice de problema)
+     ------------------------------------------------------------------ */
+  .pie-slide {
+    display: flex; align-items: center; gap: 14px; margin-top: 42px;
+    font-family: var(--mono); font-size: 13px; letter-spacing: .04em; color: var(--txt2);
+  }
+  .pie-slide::before {
+    content: ""; width: 9px; height: 9px; border-radius: 50%; flex: none;
+    background: var(--acentoT); opacity: .8;
+  }
+
+  /* ------------------------------------------------------------------
+     Evidencia (listas con fuente)
+     ------------------------------------------------------------------ */
+  .evidencia { list-style: none; margin: 0; padding: 0; }
+  .evidencia li { padding: 20px 0; }
+  .evidencia li + li { border-top: 1px solid var(--linea); }
+  .evidencia li:first-child { padding-top: 6px; }
+  .evidencia p { margin: 0; font-size: 16.5px; line-height: 1.5; color: var(--txt); }
+  .fuente {
+    display: block; margin-top: 8px;
+    font-family: var(--mono); font-size: 12px; letter-spacing: .06em; text-transform: uppercase; color: var(--acentoT);
+  }
+
+  /* ------------------------------------------------------------------
+     Planteamiento
+     ------------------------------------------------------------------ */
+  .de-cita {
+    margin: 0 0 36px; max-width: 1580px;
+    font-size: 42px; line-height: 1.28; letter-spacing: -0.02em; font-weight: 400; color: var(--txt);
+  }
+  .de-cita em { font-style: normal; color: var(--acentoT); }
+  .objetivo { max-width: 1580px; padding: 30px 36px; }
+  .objetivo p { margin: 10px 0 0; font-size: 19px; line-height: 1.6; color: var(--txt); }
+  .objetivo p b { font-weight: 500; color: var(--acentoT); }
+  .materias { margin-top: 30px; }
+  .materia { border: 1px solid var(--linea); border-radius: 16px; background: var(--super); padding: 22px 26px; }
+  .materia p { margin: 10px 0 0; font-size: 15.5px; line-height: 1.5; color: var(--txt2); }
+
+  /* ------------------------------------------------------------------
+     Objetivos
+     ------------------------------------------------------------------ */
+  .de-objetivos { list-style: none; margin: 0; padding: 0; }
+  .de-objetivos li {
+    display: grid; grid-template-columns: 86px 1fr auto; gap: 34px; align-items: center;
+    padding: 27px 0; border-top: 1px solid var(--linea);
+  }
+  .de-objetivos li:last-child { border-bottom: 1px solid var(--linea); }
+  .obj-num { font-family: var(--mono); font-size: 20px; letter-spacing: .08em; color: var(--acentoT); }
+  .obj-texto h3 { margin: 0 0 7px; font-size: 23px; font-weight: 500; letter-spacing: -0.015em; color: var(--txt); }
+  .obj-texto p { margin: 0; max-width: 1080px; font-size: 16.5px; line-height: 1.5; color: var(--txt2); }
+
+  /* ------------------------------------------------------------------
+     Listas dentro / fuera de alcance
+     ------------------------------------------------------------------ */
+  .de-lista { list-style: none; margin: 18px 0 0; padding: 0; display: flex; flex-direction: column; gap: 14px; }
+  .de-lista li { display: flex; gap: 14px; font-size: 16.5px; line-height: 1.45; color: var(--txt); }
+  .de-lista li::before { content: "+"; flex: none; width: 18px; font-family: var(--mono); font-size: 16px; color: var(--acentoT); }
+  .de-lista.fuera li { color: var(--txt2); }
+  .de-lista.fuera li::before { content: "−"; color: var(--txt2); }
+
+  /* ------------------------------------------------------------------
+     Requisitos
+     ------------------------------------------------------------------ */
+  .req { display: grid; grid-template-columns: 330px 1fr; gap: 30px; align-items: center; padding: 25px 34px; }
+  .req + .req { margin-top: 18px; }
+  .req h3 { margin: 0; font-size: 21px; }
+  .fila-roles { display: flex; align-items: center; gap: 16px; margin-top: 24px; }
+
+  /* ------------------------------------------------------------------
+     Arquitectura
+     ------------------------------------------------------------------ */
+  .arqui { display: flex; flex-direction: column; }
+  .arqui-capa {
+    display: grid; grid-template-columns: 300px 1fr; gap: 28px; align-items: center;
+    border: 1px solid var(--linea); border-radius: 18px; background: var(--super);
+    padding: 20px 32px;
+  }
+  .arqui-capa strong {
+    font-family: var(--mono); font-size: 14px; font-weight: 500; letter-spacing: .12em; text-transform: uppercase;
+    color: var(--acentoT);
+  }
+  .arqui-capa p { margin: 0; font-size: 16px; line-height: 1.5; color: var(--txt2); }
+  .arqui-flecha {
+    margin: -4px 0; padding: 10px 0; text-align: center;
+    font-family: var(--mono); font-size: 14px; letter-spacing: .1em; color: var(--acentoT);
+  }
+  .arqui-transversal {
+    display: flex; align-items: center; gap: 26px; margin-top: 16px;
+    border: 1px dashed var(--linea); border-radius: 18px; padding: 15px 32px;
+    font-family: var(--mono); font-size: 13px; letter-spacing: .06em; text-transform: uppercase; color: var(--txt2);
+  }
+  .arqui-transversal b { font-weight: 500; color: var(--txt); }
+
+  /* ------------------------------------------------------------------
+     Tecnologías
+     ------------------------------------------------------------------ */
+  .tech-tag { display: block; margin-bottom: 12px; font-family: var(--mono); font-size: 12px; letter-spacing: .16em; text-transform: uppercase; }
+  .de-mini { list-style: none; margin: 14px 0 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+  .de-mini li { display: flex; gap: 10px; font-size: 15px; line-height: 1.45; color: var(--txt2); }
+  .de-mini li::before { content: "—"; flex: none; font-family: var(--mono); font-size: 12px; color: var(--acentoT); }
+
+  /* ------------------------------------------------------------------
+     Seguridad (STRIDE · DREAD · OWASP)
+     ------------------------------------------------------------------ */
+  .stride { list-style: none; margin: 16px 0 0; padding: 0; display: flex; flex-direction: column; }
+  .stride li { display: grid; grid-template-columns: 250px 1fr; gap: 20px; align-items: baseline; padding: 13px 0; }
+  .stride li + li { border-top: 1px solid var(--linea); }
+  .stride b { font-size: 15.5px; font-weight: 500; color: var(--txt); }
+  .stride span { font-size: 15px; line-height: 1.45; color: var(--txt2); }
+
+  .dread { display: flex; flex-direction: column; gap: 15px; margin-top: 18px; }
+  .dread-fila { display: grid; grid-template-columns: 258px 1fr 48px 86px; gap: 16px; align-items: center; }
+  .dread-nombre { font-size: 15px; color: var(--txt); }
+  .dread-track { height: 8px; border-radius: 999px; background: var(--linea); overflow: hidden; }
+  .dread-fill { height: 100%; border-radius: 999px; }
+  .dread-fill.alto { background: linear-gradient(90deg, #d9762a, #b3352a); }
+  .dread-fill.medio { background: linear-gradient(90deg, var(--acento), var(--acento-claro)); }
+  .dread-fill.bajo { background: #5b6b70; }
+  .dread-puntos { font-family: var(--mono); font-size: 17px; text-align: right; color: var(--txt); }
+  .nivel {
+    font-family: var(--mono); font-size: 11.5px; letter-spacing: .08em; text-transform: uppercase;
+    text-align: center; padding: 4px 10px; border-radius: 999px; border: 1px solid var(--linea); color: var(--txt2);
+  }
+  .nivel-alto { color: #eec9c2; border-color: rgba(179, 53, 42, .6); background: rgba(179, 53, 42, .25); }
+  .nivel-medio { color: #f2d6b8; border-color: rgba(217, 118, 42, .55); background: rgba(217, 118, 42, .2); }
+  .nota-dread {
+    margin: 22px 0 0; padding-top: 18px; border-top: 1px solid var(--linea);
+    font-size: 15px; line-height: 1.55; color: var(--txt2);
+  }
+  .nota-dread b { font-weight: 500; color: var(--txt); }
+  .bloque-owasp { margin-top: 26px; }
+  .bloque-owasp .mini-etiqueta { display: block; margin-bottom: 12px; }
+
+  /* ------------------------------------------------------------------
+     Ruta (cronograma)
+     ------------------------------------------------------------------ */
+  .ruta { position: relative; display: grid; grid-template-columns: repeat(4, 1fr); gap: 28px; }
+  .ruta::before { content: ""; position: absolute; left: 0; right: 0; top: 46px; height: 1px; background: var(--linea); }
+  .ruta-paso { position: relative; padding-top: 78px; }
+  .ruta-mes {
+    position: absolute; top: 0; left: 0; height: 46px; display: flex; align-items: center;
+    margin: 0; font-family: var(--mono); font-size: 12.5px; letter-spacing: .14em; text-transform: uppercase; color: var(--acentoT);
+  }
+  .ruta-nodo {
+    position: absolute; top: 38px; left: 0; width: 17px; height: 17px; border-radius: 50%;
+    border: 2px solid var(--acentoT); background: var(--hueso);
+  }
+  .ruta-paso h3 { margin: 0 0 8px; font-size: 21px; font-weight: 500; letter-spacing: -0.015em; color: var(--txt); }
+  .ruta-paso p { margin: 0; font-size: 15.5px; line-height: 1.5; color: var(--txt2); }
+  .ruta-nota {
+    margin: 46px 0 0; padding-top: 24px; max-width: 1560px;
+    border-top: 1px solid var(--linea); font-size: 15.5px; line-height: 1.6; color: var(--txt2);
+  }
+  .ruta-nota b { font-weight: 500; color: var(--txt); }
+
+  /* ------------------------------------------------------------------
+     Cierre
+     ------------------------------------------------------------------ */
+  .marca-deck {
+    position: absolute; left: 50%; bottom: -0.18em; z-index: 0;
+    font-size: 300px; font-weight: 600; letter-spacing: -0.05em; line-height: 1;
+    color: transparent; -webkit-text-stroke: 1.5px rgba(247, 247, 245, .07);
+    white-space: nowrap; pointer-events: none; user-select: none;
+    animation: derivaMarcaDeck 22s ease-in-out infinite alternate;
+  }
+  @keyframes derivaMarcaDeck {
+    from { transform: translateX(-50%) translateX(0); }
+    to   { transform: translateX(-50%) translateX(-46px); }
+  }
+  .c-gracias { margin: 0; font-size: 172px; line-height: .95; letter-spacing: -0.045em; font-weight: 600; color: var(--hueso); }
+  .c-pregunta { margin: 24px 0 0; font-size: 26px; font-weight: 400; color: rgba(247, 247, 245, .75); }
+  .c-creditos {
+    margin: 54px 0 0; font-family: var(--mono); font-size: 13px; line-height: 1.9;
+    letter-spacing: .05em; color: rgba(247, 247, 245, .5);
+  }
+</style>
+</head>
+<body class="cuerpo-deck">
+
+<div id="escenario" data-tema="oscuro">
+  <div id="barraDeck"></div>
+
+  <!-- Cromo superior -->
+  <header class="cromo cromo-sup">
+    <span><b>SOS CLINIC</b> <span class="suave">· Anteproyecto 2026</span></span>
+    <span class="suave">Triage inteligente · Urgencias de adultos</span>
+  </header>
+
+  <!-- ============================================================
+       01 · Portada
+       ============================================================ -->
+  <section class="diapo oscura portada activa" data-tema="oscuro" data-nombre="Portada" aria-hidden="false">
+    <p class="de-etiqueta" data-rev>Anteproyecto de grado · Universidad de San Buenaventura · Bogotá, 2026</p>
+    <h1 class="p-marca" data-rev style="--d:.1s">SOS <span class="fantasma">CLINIC</span></h1>
+    <p class="p-sub" data-rev style="--d:.2s">Triage inteligente de pacientes adultos en el servicio de urgencias mediante <em>Big Data</em> y <em>seguridad computacional</em>.</p>
+    <p class="p-lema" data-rev style="--d:.3s"><span class="punto-vivo"></span><span class="comillas">«</span>A service made by the people for the people<span class="comillas">»</span></p>
+    <div class="p-creditos" data-rev style="--d:.4s">
+      <div>
+        <h4>Autores</h4>
+        <p>Oscar Jesús Castellanos López<br>Sebastián Chacón Mantilla<br>Santiago Andrés Ramírez Cubillos</p>
+      </div>
+      <div>
+        <h4>Asesores</h4>
+        <p>José Eduardo Patiño Santafé, MSc en Seguridad Informática<br>Jairo Armando Salcedo Aranda, MSc en Computación e Inteligencia Artificial</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================
+       02 · Contexto previo
+       ============================================================ -->
+  <section class="diapo oscura" data-tema="oscuro" data-nombre="Contexto" aria-hidden="true">
+    <div class="de-cabecera">
+      <p class="de-etiqueta" data-rev>01 — Contexto previo</p>
+      <h2 class="de-titulo" data-rev style="--d:.08s">En urgencias, el tiempo <em>define el desenlace</em>.</h2>
+      <p class="de-sub" data-rev style="--d:.16s">El triage ordena la atención según la gravedad de cada caso. Hoy, su aplicación enfrenta tres brechas:</p>
+    </div>
+    <div class="rejilla rejilla-3">
+      <div class="de-tarjeta" data-rev style="--d:.22s">
+        <span class="de-numero">01 · PRIORIZACIÓN VARIABLE</span>
+        <h3>Dos evaluadores, dos clasificaciones</h3>
+        <p>La decisión depende del criterio individual, bajo presión de tiempo y sin el histórico de la institución como referencia: dos evaluadores pueden clasificar el mismo caso de forma distinta.</p>
+      </div>
+      <div class="de-tarjeta" data-rev style="--d:.3s">
+        <span class="de-numero">02 · INFORMACIÓN AISLADA</span>
+        <h3>La fila de espera vive aparte</h3>
+        <p>Los sistemas de turnos operan separados de la historia clínica y de los signos vitales: no existe un histórico estructurado para anticipar picos de demanda ni patrones de riesgo.</p>
+      </div>
+      <div class="de-tarjeta" data-rev style="--d:.38s">
+        <span class="de-numero">03 · DATOS EXPUESTOS</span>
+        <h3>Información sensible sin control</h3>
+        <p>Pantallas compartidas y registros de fácil acceso, sin control por rol, sin cifrado y sin auditoría: la información clínica queda expuesta y el cumplimiento normativo, en riesgo.</p>
+      </div>
+    </div>
+    <p class="pie-slide" data-rev style="--d:.46s">El triage es obligatorio en Colombia (Resolución 5596 de 2015): garantizar su aplicación consistente y segura es el reto del proyecto.</p>
+  </section>
+
+  <!-- ============================================================
+       03 · Estado del arte y normativa
+       ============================================================ -->
+  <section class="diapo clara" data-tema="claro" data-nombre="Evidencia" aria-hidden="true">
+    <div class="de-cabecera">
+      <p class="de-etiqueta" data-rev>02 — Estado del arte y normativa</p>
+      <h2 class="de-titulo" data-rev style="--d:.08s">La evidencia y la norma <em>respaldan la propuesta</em>.</h2>
+    </div>
+    <div class="rejilla rejilla-2">
+      <div class="de-tarjeta" data-rev style="--d:.16s">
+        <h3>Lo que muestra la evidencia</h3>
+        <ul class="evidencia">
+          <li>
+            <p>El análisis de más de 180.000 registros de triage en Bogotá encontró que la categoría asignada se asocia con la edad, el sexo, el día y el horario de consulta.</p>
+            <span class="fuente">Rodríguez-Páez, Jiménez-Barbosa y Palencia-Sánchez · 2018</span>
+          </li>
+          <li>
+            <p>Los sistemas de triage basados en aprendizaje profundo superaron a las escalas tradicionales al predecir desenlaces críticos.</p>
+            <span class="fuente">Kwon et al. · 2018</span>
+          </li>
+          <li>
+            <p>El soporte a la decisión clínica con inteligencia artificial reduce la variabilidad entre evaluadores; el reto está en la calidad de los datos históricos.</p>
+            <span class="fuente">Fernandes et al. · 2020</span>
+          </li>
+          <li>
+            <p>La mayoría de los modelos usan variables que ya se recolectan a diario: signos vitales, motivo de consulta y edad.</p>
+            <span class="fuente">Sánchez-Salmerón et al. · 2022</span>
+          </li>
+        </ul>
+      </div>
+      <div class="de-tarjeta" data-rev style="--d:.26s">
+        <h3>Lo que exige la norma y el riesgo</h3>
+        <ul class="evidencia">
+          <li>
+            <p>Criterios técnicos del sistema de clasificación de pacientes en urgencias: cinco categorías de mayor a menor riesgo y registro obligatorio de la información.</p>
+            <span class="fuente">Resolución 5596 de 2015</span>
+          </li>
+          <li>
+            <p>Estándares de habilitación del servicio de urgencias, incluida su infraestructura tecnológica de soporte.</p>
+            <span class="fuente">Resolución 3100 de 2019</span>
+          </li>
+          <li>
+            <p>Protección de datos personales: los datos de salud son sensibles y exigen consentimiento y medidas reforzadas.</p>
+            <span class="fuente">Ley 1581 de 2012 · Decreto 1377 de 2013</span>
+          </li>
+          <li>
+            <p>Metodología de gestión de riesgos: identificación de activos, valoración de amenazas y selección de controles.</p>
+            <span class="fuente">ISO/IEC 27005 · OWASP Top 10</span>
+          </li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================
+       04 · Planteamiento
+       ============================================================ -->
+  <section class="diapo oscura" data-tema="oscuro" data-nombre="Propuesta" aria-hidden="true">
+    <p class="de-etiqueta" data-rev>03 — Planteamiento</p>
+    <p class="de-cita" data-rev style="--d:.08s"><span class="comillas">«</span>¿Cómo diseñar una plataforma web que, mediante analítica de Big Data, apoye la priorización de pacientes adultos en el servicio de urgencias, <em>garantizando la seguridad computacional</em> de los datos clínicos?<span class="comillas">»</span></p>
+    <div class="de-tarjeta objetivo" data-rev style="--d:.2s">
+      <span class="mini-etiqueta">Objetivo general</span>
+      <p>Diseñar una plataforma web de apoyo al triage inteligente que use analítica de Big Data sobre datos históricos y en tiempo real, e incorpore controles de seguridad computacional que garanticen la <b>confidencialidad</b>, la <b>integridad</b> y la <b>disponibilidad</b> de la información clínica gestionada.</p>
+    </div>
+    <div class="rejilla rejilla-3 materias" data-rev style="--d:.34s">
+      <div class="materia">
+        <span class="mini-etiqueta">Big Data</span>
+        <p>Patrones históricos y en tiempo real para apoyar la decisión clínica.</p>
+      </div>
+      <div class="materia">
+        <span class="mini-etiqueta">Ingeniería Web</span>
+        <p>La plataforma, la API y los roles que la operan día a día.</p>
+      </div>
+      <div class="materia">
+        <span class="mini-etiqueta">Seguridad de la Información</span>
+        <p>Controles y gestión de riesgos incorporados desde el diseño.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================
+       05 · Objetivos específicos
+       ============================================================ -->
+  <section class="diapo clara" data-tema="claro" data-nombre="Objetivos" aria-hidden="true">
+    <div class="de-cabecera">
+      <p class="de-etiqueta" data-rev>04 — Objetivos específicos</p>
+      <h2 class="de-titulo" data-rev style="--d:.08s">Cuatro objetivos <em>concretos y medibles</em>.</h2>
+    </div>
+    <ol class="de-objetivos">
+      <li data-rev style="--d:.14s">
+        <span class="obj-num">01</span>
+        <div class="obj-texto">
+          <h3>Analizar el histórico de atención</h3>
+          <p>Al menos 1.000 registros simulados —signos vitales, motivo de consulta, categoría y tiempos de espera— para identificar patrones base del modelo de apoyo.</p>
+        </div>
+        <span class="de-chip">Mes 1</span>
+      </li>
+      <li data-rev style="--d:.24s">
+        <span class="obj-num">02</span>
+        <div class="obj-texto">
+          <h3>Diseñar la arquitectura web</h3>
+          <p>Frontend, backend, API y módulo de análisis de riesgos, validada con al menos un caso de uso por rol (triage, médico y coordinación).</p>
+        </div>
+        <span class="de-chip">Mes 2</span>
+      </li>
+      <li data-rev style="--d:.34s">
+        <span class="obj-num">03</span>
+        <div class="obj-texto">
+          <h3>Definir la declaración de aplicabilidad</h3>
+          <p>Controles de seguridad: autenticación, control de acceso por roles, cifrado de la información y gestión de vulnerabilidades.</p>
+        </div>
+        <span class="de-chip">Semestre</span>
+      </li>
+      <li data-rev style="--d:.44s">
+        <span class="obj-num">04</span>
+        <div class="obj-texto">
+          <h3>Validar con un piloto</h3>
+          <p>Pruebas sobre datos de prueba, midiendo la consistencia de la clasificación entre evaluadores y los controles implementados.</p>
+        </div>
+        <span class="de-chip">Entrega final</span>
+      </li>
+    </ol>
+  </section>
+
+  <!-- ============================================================
+       06 · Alcances y limitaciones
+       ============================================================ -->
+  <section class="diapo clara" data-tema="claro" data-nombre="Alcances" aria-hidden="true">
+    <div class="de-cabecera">
+      <p class="de-etiqueta" data-rev>05 — Alcances y limitaciones</p>
+      <h2 class="de-titulo" data-rev style="--d:.08s">Alcance definido: <em>triage general de adultos</em>.</h2>
+    </div>
+    <div class="rejilla rejilla-2">
+      <div class="de-tarjeta" data-rev style="--d:.16s">
+        <h3>Dentro del alcance</h3>
+        <ul class="de-lista">
+          <li>Plataforma web para el triage general de pacientes adultos sin condiciones especiales.</li>
+          <li>Roles diferenciados: triage, médico, coordinación y seguridad de la información.</li>
+          <li>Analítica sobre datos históricos y en tiempo real (simulados o públicos anonimizados).</li>
+          <li>Seguridad desde el diseño, con módulo de análisis de riesgos (ISO/IEC 27005).</li>
+          <li>Entregables: conceptualización, requisitos y el diseño de la aplicación.</li>
+        </ul>
+      </div>
+      <div class="de-tarjeta" data-rev style="--d:.26s">
+        <h3>Fuera del alcance</h3>
+        <ul class="de-lista fuera">
+          <li>Triage pediátrico, obstétrico, de salud mental y de víctimas múltiples.</li>
+          <li>Integración con HIS o historia clínica electrónica de un hospital real.</li>
+          <li>Otras áreas asistenciales: consulta externa, hospitalización y cirugía programada.</li>
+          <li>Certificación formal del SGSI: se aplica y documenta un subconjunto de controles.</li>
+          <li>El modelo no sustituye el criterio clínico: la decisión final es del profesional.</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================
+       07 · Requisitos clave
+       ============================================================ -->
+  <section class="diapo oscura" data-tema="oscuro" data-nombre="Requisitos" aria-hidden="true">
+    <div class="de-cabecera">
+      <p class="de-etiqueta" data-rev>06 — Requisitos clave</p>
+      <h2 class="de-titulo" data-rev style="--d:.08s">Requisitos desde la <em>norma, la clínica y la técnica</em>.</h2>
+    </div>
+    <div class="de-tarjeta req" data-rev style="--d:.16s">
+      <h3>Legales y contractuales</h3>
+      <div class="chips">
+        <span class="de-chip">Res. 5596 de 2015 · triage</span>
+        <span class="de-chip">Res. 3100 de 2019 · habilitación</span>
+        <span class="de-chip">Ley 1581 de 2012 · datos sensibles</span>
+        <span class="de-chip">Decreto 1377 de 2013</span>
+        <span class="de-chip">Acuerdos de confidencialidad</span>
+      </div>
+    </div>
+    <div class="de-tarjeta req" data-rev style="--d:.26s">
+      <h3>Funcionales</h3>
+      <div class="chips">
+        <span class="de-chip">Registro de ingreso + categoría</span>
+        <span class="de-chip">Sugerencia del modelo · decide el humano</span>
+        <span class="de-chip">Lista en tiempo real por prioridad</span>
+        <span class="de-chip">Módulo de análisis de riesgos</span>
+        <span class="de-chip">Auditoría de accesos y cambios</span>
+      </div>
+    </div>
+    <div class="de-tarjeta req" data-rev style="--d:.36s">
+      <h3>No funcionales y técnicos</h3>
+      <div class="chips">
+        <span class="de-chip">Disponibilidad ≥ 99 %</span>
+        <span class="de-chip">Respuesta &lt; 3 s</span>
+        <span class="de-chip">API REST · capas separadas</span>
+        <span class="de-chip">Sin instalación en los puestos</span>
+        <span class="de-chip">Escalabilidad horizontal</span>
+      </div>
+    </div>
+    <div class="fila-roles" data-rev style="--d:.46s">
+      <span class="mini-etiqueta">Roles del sistema</span>
+      <div class="chips">
+        <span class="de-chip">Triage</span>
+        <span class="de-chip">Médico</span>
+        <span class="de-chip">Coordinación</span>
+        <span class="de-chip">Seguridad</span>
+        <span class="de-chip">Administración</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================
+       08 · Arquitectura
+       ============================================================ -->
+  <section class="diapo oscura" data-tema="oscuro" data-nombre="Arquitectura" aria-hidden="true">
+    <div class="de-cabecera">
+      <p class="de-etiqueta" data-rev>07 — Arquitectura y diseño</p>
+      <h2 class="de-titulo" data-rev style="--d:.08s">Tres capas separadas, <em>seguras en lo transversal</em>.</h2>
+    </div>
+    <div class="arqui">
+      <div class="arqui-capa" data-rev style="--d:.14s">
+        <strong>Frontend · navegador</strong>
+        <p>Interfaz para los roles de triage, médico, coordinación y seguridad. Sin acceso directo a la base de datos: todo pasa por la API.</p>
+      </div>
+      <div class="arqui-flecha" data-rev style="--d:.2s">↓ HTTPS / TLS</div>
+      <div class="arqui-capa" data-rev style="--d:.26s">
+        <strong>Backend · API REST</strong>
+        <p>Valida cada solicitud, aplica el control de acceso por rol y ejecuta la lógica de priorización y de riesgos. Único componente con acceso a la base de datos.</p>
+      </div>
+      <div class="arqui-flecha" data-rev style="--d:.32s">↓</div>
+      <div class="arqui-capa" data-rev style="--d:.38s">
+        <strong>Base de datos</strong>
+        <p>Pacientes, triage, usuarios, activos y auditoría. La información sensible se almacena cifrada en reposo.</p>
+      </div>
+      <div class="arqui-transversal" data-rev style="--d:.44s">
+        <b>Transversal</b>
+        Autenticación centralizada · Cifrado en tránsito · Registro de auditoría
+      </div>
+    </div>
+    <div class="fila-roles" data-rev style="--d:.5s">
+      <span class="mini-etiqueta">Pantallas previstas</span>
+      <div class="chips">
+        <span class="de-chip">Inicio de sesión</span>
+        <span class="de-chip">Panel de triage</span>
+        <span class="de-chip">Lista de priorización</span>
+        <span class="de-chip">Panel de coordinación</span>
+        <span class="de-chip">Registro de auditoría</span>
+        <span class="de-chip">Análisis de riesgos</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================
+       09 · Tecnologías
+       ============================================================ -->
+  <section class="diapo clara" data-tema="claro" data-nombre="Tecnologías" aria-hidden="true">
+    <div class="de-cabecera">
+      <p class="de-etiqueta" data-rev>08 — Tecnologías a usar</p>
+      <h2 class="de-titulo" data-rev style="--d:.08s">Con qué se construirá <em>la plataforma</em>.</h2>
+      <p class="de-sub" data-rev style="--d:.16s">Stack pensado para operar en la infraestructura de la institución, sin instalar nada en los puestos de urgencias.</p>
+    </div>
+    <div class="rejilla rejilla-3">
+      <div class="de-tarjeta" data-rev style="--d:.2s">
+        <span class="tech-tag mini-etiqueta">Backend</span>
+        <h3>Java · Spring Boot</h3>
+        <ul class="de-mini">
+          <li>Arquitectura de microservicios: seguridad, pacientes, triage, analítica y agentes.</li>
+          <li>Spring Cloud Gateway como punto único de entrada.</li>
+          <li>Eureka para el descubrimiento de servicios.</li>
+        </ul>
+      </div>
+      <div class="de-tarjeta" data-rev style="--d:.26s">
+        <span class="tech-tag mini-etiqueta">Datos</span>
+        <h3>PostgreSQL · MySQL</h3>
+        <ul class="de-mini">
+          <li>PostgreSQL para los datos clínicos y de triage.</li>
+          <li>MySQL para los servicios de soporte.</li>
+          <li>Cifrado en reposo y respaldos periódicos.</li>
+        </ul>
+      </div>
+      <div class="de-tarjeta" data-rev style="--d:.32s">
+        <span class="tech-tag mini-etiqueta">Frontend</span>
+        <h3>HTML5 · CSS3 · JavaScript</h3>
+        <ul class="de-mini">
+          <li>Interfaz web ligera, sin frameworks ni instalación.</li>
+          <li>Compatible con los navegadores de los equipos de urgencias.</li>
+          <li>Diseño responsivo para pantallas compartidas y puestos fijos.</li>
+        </ul>
+      </div>
+      <div class="de-tarjeta" data-rev style="--d:.38s">
+        <span class="tech-tag mini-etiqueta">Inteligencia artificial</span>
+        <h3>Groq · Llama · Whisper</h3>
+        <ul class="de-mini">
+          <li>Agente SosIA: asistente conversacional del sistema.</li>
+          <li>Transcripción de voz con Whisper.</li>
+          <li>Modelo analítico de apoyo a la clasificación de triage.</li>
+        </ul>
+      </div>
+      <div class="de-tarjeta" data-rev style="--d:.44s">
+        <span class="tech-tag mini-etiqueta">Seguridad</span>
+        <h3>JWT · 2FA · RBAC</h3>
+        <ul class="de-mini">
+          <li>Sesiones con token y expiración periódica.</li>
+          <li>Verificación en dos pasos por correo electrónico.</li>
+          <li>Control de acceso por roles y registro de auditoría.</li>
+        </ul>
+      </div>
+      <div class="de-tarjeta" data-rev style="--d:.5s">
+        <span class="tech-tag mini-etiqueta">Integraciones</span>
+        <h3>SMTP · Jitsi · OpenStreetMap</h3>
+        <ul class="de-mini">
+          <li>Notificaciones por correo electrónico.</li>
+          <li>Videollamada de seguimiento con Jitsi.</li>
+          <li>Geolocalización de farmacias cercanas con OpenStreetMap.</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================
+       10 · Seguridad computacional
+       ============================================================ -->
+  <section class="diapo oscura" data-tema="oscuro" data-nombre="Seguridad" aria-hidden="true">
+    <div class="de-cabecera">
+      <p class="de-etiqueta" data-rev>09 — Seguridad computacional</p>
+      <h2 class="de-titulo" data-rev style="--d:.08s">Amenazas identificadas y <em>priorizadas antes de codificar</em>.</h2>
+    </div>
+    <div class="rejilla rejilla-2">
+      <div class="de-tarjeta" data-rev style="--d:.16s">
+        <h3>Amenazas modeladas con STRIDE</h3>
+        <ul class="stride">
+          <li><b>Suplantación</b><span>Alguien se autentica con las credenciales de otro usuario de triage.</span></li>
+          <li><b>Alteración</b><span>Un usuario sin permisos modifica una categoría ya confirmada.</span></li>
+          <li><b>Repudio</b><span>Un evaluador niega un cambio de clasificación y no hay registro que lo desmienta.</span></li>
+          <li><b>Divulgación de información</b><span>La lista de priorización queda visible sin control de acceso.</span></li>
+          <li><b>Denegación de servicio</b><span>Una caída del backend deja sin lista de priorización durante un pico de pacientes.</span></li>
+          <li><b>Elevación de privilegios</b><span>Un usuario de triage accede a funciones reservadas al módulo de riesgos.</span></li>
+        </ul>
+      </div>
+      <div class="de-tarjeta" data-rev style="--d:.26s">
+        <h3>Priorización con DREAD</h3>
+        <div class="dread">
+          <div class="dread-fila">
+            <span class="dread-nombre">Divulgación de información</span>
+            <span class="dread-track"><span class="dread-fill alto" style="width: 87%"></span></span>
+            <span class="dread-puntos">13</span>
+            <span class="nivel nivel-alto">Alto</span>
+          </div>
+          <div class="dread-fila">
+            <span class="dread-nombre">Denegación de servicio</span>
+            <span class="dread-track"><span class="dread-fill medio" style="width: 73%"></span></span>
+            <span class="dread-puntos">11</span>
+            <span class="nivel nivel-medio">Medio</span>
+          </div>
+          <div class="dread-fila">
+            <span class="dread-nombre">Repudio</span>
+            <span class="dread-track"><span class="dread-fill medio" style="width: 67%"></span></span>
+            <span class="dread-puntos">10</span>
+            <span class="nivel nivel-medio">Medio</span>
+          </div>
+          <div class="dread-fila">
+            <span class="dread-nombre">Suplantación</span>
+            <span class="dread-track"><span class="dread-fill medio" style="width: 60%"></span></span>
+            <span class="dread-puntos">9</span>
+            <span class="nivel nivel-medio">Medio</span>
+          </div>
+          <div class="dread-fila">
+            <span class="dread-nombre">Alteración</span>
+            <span class="dread-track"><span class="dread-fill medio" style="width: 60%"></span></span>
+            <span class="dread-puntos">9</span>
+            <span class="nivel nivel-medio">Medio</span>
+          </div>
+          <div class="dread-fila">
+            <span class="dread-nombre">Elevación de privilegios</span>
+            <span class="dread-track"><span class="dread-fill bajo" style="width: 40%"></span></span>
+            <span class="dread-puntos">6</span>
+            <span class="nivel">Bajo</span>
+          </div>
+        </div>
+        <p class="nota-dread"><b>Orden de construcción:</b> primero la confidencialidad de la lista de priorización, luego la disponibilidad del servicio y el registro de auditoría.</p>
+        <div class="bloque-owasp">
+          <span class="mini-etiqueta">Riesgos OWASP más relevantes</span>
+          <div class="chips">
+            <span class="de-chip">A01 · Control de acceso</span>
+            <span class="de-chip">A02 · Fallas criptográficas</span>
+            <span class="de-chip">A04 · Diseño inseguro</span>
+            <span class="de-chip">A07 · Autenticación</span>
+            <span class="de-chip">A09 · Registro y monitoreo</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================
+       11 · Metodología y ruta
+       ============================================================ -->
+  <section class="diapo clara" data-tema="claro" data-nombre="Metodología" aria-hidden="true">
+    <div class="de-cabecera">
+      <p class="de-etiqueta" data-rev>10 — Metodología y ruta</p>
+      <h2 class="de-titulo" data-rev style="--d:.08s">La ruta del proyecto <em>hacia la entrega final</em>.</h2>
+    </div>
+    <div class="ruta">
+      <div class="ruta-paso" data-rev style="--d:.14s">
+        <p class="ruta-mes">Mes 1</p>
+        <span class="ruta-nodo"></span>
+        <h3>Análisis del histórico</h3>
+        <p>Al menos 1.000 registros simulados para identificar los patrones base del modelo de apoyo.</p>
+      </div>
+      <div class="ruta-paso" data-rev style="--d:.24s">
+        <p class="ruta-mes">Mes 2</p>
+        <span class="ruta-nodo"></span>
+        <h3>Arquitectura web</h3>
+        <p>Frontend, backend, API y módulo de riesgos; validación con un caso de uso por rol.</p>
+      </div>
+      <div class="ruta-paso" data-rev style="--d:.34s">
+        <p class="ruta-mes">Semestre</p>
+        <span class="ruta-nodo"></span>
+        <h3>Declaración de aplicabilidad</h3>
+        <p>Autenticación, control por roles, cifrado y gestión de vulnerabilidades documentadas.</p>
+      </div>
+      <div class="ruta-paso" data-rev style="--d:.44s">
+        <p class="ruta-mes">Entrega final</p>
+        <span class="ruta-nodo"></span>
+        <h3>Piloto con datos de prueba</h3>
+        <p>Consistencia de la clasificación entre evaluadores y controles implementados.</p>
+      </div>
+    </div>
+    <p class="ruta-nota" data-rev style="--d:.54s"><b>Enfoque metodológico ·</b> planeación estratégica aplicada en el capítulo 1: situación problema → actores → cadenas causales → causa raíz → justificación → objetivos → alcances → estado del arte → requisitos.</p>
+  </section>
+
+  <!-- ============================================================
+       12 · Cierre
+       ============================================================ -->
+  <section class="diapo oscura cierre" data-tema="oscuro" data-nombre="Cierre" aria-hidden="true">
+    <span class="marca-deck" aria-hidden="true">SOS CLINIC</span>
+    <p class="de-etiqueta" data-rev>Fin de la presentación</p>
+    <h2 class="c-gracias" data-rev style="--d:.1s">Gracias.</h2>
+    <p class="c-pregunta" data-rev style="--d:.2s">Preguntas, comentarios y retroalimentación del anteproyecto.</p>
+    <p class="p-lema" data-rev style="--d:.3s"><span class="punto-vivo"></span><span class="comillas">«</span>A service made by the people for the people<span class="comillas">»</span></p>
+    <p class="c-creditos" data-rev style="--d:.4s">Oscar Jesús Castellanos López · Sebastián Chacón Mantilla · Santiago Andrés Ramírez Cubillos<br>Universidad de San Buenaventura · Bogotá D.C. · 2026</p>
+  </section>
+
+  <!-- Cromo inferior -->
+  <footer class="cromo cromo-inf">
+    <span class="suave">← → · espacio para navegar · F pantalla completa</span>
+    <div class="cromo-centro" id="puntosDeck" aria-label="Ir a una diapositiva"></div>
+    <div class="cromo-derecha">
+      <button type="button" class="boton-deck" id="btnAnteriorDeck" aria-label="Diapositiva anterior">‹</button>
+      <button type="button" class="boton-deck" id="btnSiguienteDeck" aria-label="Diapositiva siguiente">›</button>
+      <span class="contador-deck" id="contadorDeck">01 / 12</span>
+    </div>
+  </footer>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  var escenario = document.getElementById('escenario');
+  var diapos = Array.prototype.slice.call(document.querySelectorAll('.diapo'));
+  var barra = document.getElementById('barraDeck');
+  var contador = document.getElementById('contadorDeck');
+  var cajaPuntos = document.getElementById('puntosDeck');
+  var btnAnterior = document.getElementById('btnAnteriorDeck');
+  var btnSiguiente = document.getElementById('btnSiguienteDeck');
+  var actual = 0;
+
+  /* Puntos de navegación */
+  diapos.forEach(function (d, k) {
+    var b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'punto-deck';
+    b.setAttribute('aria-label', 'Diapositiva ' + (k + 1) + ' — ' + (d.dataset.nombre || ''));
+    b.addEventListener('click', function (e) {
+      e.stopPropagation();
+      ir(k);
+    });
+    cajaPuntos.appendChild(b);
+  });
+  var puntos = Array.prototype.slice.call(cajaPuntos.children);
+
+  function dos(n) { return (n < 10 ? '0' : '') + n; }
+
+  function ir(n, silencioso) {
+    n = Math.max(0, Math.min(diapos.length - 1, n));
+    if (!silencioso && n === actual) return;
+    diapos[actual].classList.remove('activa');
+    diapos[actual].setAttribute('aria-hidden', 'true');
+    actual = n;
+    var d = diapos[actual];
+    d.classList.add('activa');
+    d.setAttribute('aria-hidden', 'false');
+    escenario.dataset.tema = d.dataset.tema === 'claro' ? 'claro' : 'oscuro';
+    barra.style.transform = 'scaleX(' + ((actual + 1) / diapos.length) + ')';
+    contador.textContent = dos(actual + 1) + ' / ' + dos(diapos.length);
+    puntos.forEach(function (p, k) { p.classList.toggle('activo', k === actual); });
+    if (!silencioso) {
+      try { history.replaceState(null, '', '#/' + (actual + 1)); } catch (err) { }
+    }
+  }
+
+  /* Escala del escenario: siempre 1920×1080, sin deformar */
+  function ajustar() {
+    var s = Math.min(window.innerWidth / 1920, window.innerHeight / 1080);
+    escenario.style.transform = 'translate(-50%, -50%) scale(' + s + ')';
+  }
+  window.addEventListener('resize', ajustar);
+  ajustar();
+
+  /* Pantalla completa */
+  function alternarPantallaCompleta() {
+    if (!document.fullscreenElement) {
+      if (document.documentElement.requestFullscreen) document.documentElement.requestFullscreen();
+    } else if (document.exitFullscreen) {
+      document.exitFullscreen();
+    }
+  }
+
+  /* Teclado */
+  window.addEventListener('keydown', function (e) {
+    if (e.key === 'ArrowRight' || e.key === ' ' || e.key === 'PageDown' || e.key === 'Enter') {
+      e.preventDefault(); ir(actual + 1);
+    } else if (e.key === 'ArrowLeft' || e.key === 'PageUp') {
+      e.preventDefault(); ir(actual - 1);
+    } else if (e.key === 'Home') {
+      e.preventDefault(); ir(0);
+    } else if (e.key === 'End') {
+      e.preventDefault(); ir(diapos.length - 1);
+    } else if (e.key === 'f' || e.key === 'F') {
+      alternarPantallaCompleta();
+    }
+  });
+
+  /* Clic: avanza; Mayús+clic: retrocede */
+  escenario.addEventListener('click', function (e) {
+    if (e.target.closest('button') || e.target.closest('a')) return;
+    if (e.shiftKey) { ir(actual - 1); } else { ir(actual + 1); }
+  });
+
+  /* Rueda con bloqueo para no saltar dos diapositivas de golpe */
+  var bloqueoRueda = false;
+  window.addEventListener('wheel', function (e) {
+    if (bloqueoRueda || Math.abs(e.deltaY) < 10) return;
+    bloqueoRueda = true;
+    ir(actual + (e.deltaY > 0 ? 1 : -1));
+    setTimeout(function () { bloqueoRueda = false; }, 780);
+  }, { passive: true });
+
+  btnAnterior.addEventListener('click', function (e) { e.stopPropagation(); ir(actual - 1); });
+  btnSiguiente.addEventListener('click', function (e) { e.stopPropagation(); ir(actual + 1); });
+
+  /* Enlace directo: #/5 abre la quinta diapositiva */
+  var inicial = 0;
+  var m = /^#\/(\d+)/.exec(location.hash || '');
+  if (m) inicial = Math.max(0, Math.min(diapos.length - 1, parseInt(m[1], 10) - 1));
+  ir(inicial, true);
+  window.addEventListener('hashchange', function () {
+    var m2 = /^#\/(\d+)/.exec(location.hash || '');
+    if (m2) ir(parseInt(m2[1], 10) - 1);
+  });
+})();
+</script>
+
+</body>
+</html>
