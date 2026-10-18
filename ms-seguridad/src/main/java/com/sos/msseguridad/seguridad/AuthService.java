@@ -16,6 +16,9 @@ import com.sos.msseguridad.repositorio.PerfilActividadRepository;
 import com.sos.msseguridad.repositorio.PersonalRepository;
 import com.sos.msseguridad.repositorio.TurnoRepository;
 import com.sos.msseguridad.servicio.EmailService;
+import com.sos.msseguridad.servicio.TeleconsultaService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -32,6 +35,8 @@ import java.util.stream.Collectors;
 @Service
 public class AuthService {
 
+    private static final Logger log = LoggerFactory.getLogger(AuthService.class);
+
     private final PersonalRepository personalRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
@@ -39,12 +44,13 @@ public class AuthService {
     private final PerfilActividadRepository perfilActividadRepository;
     private final CodigoVerificacionRepository codigoVerificacionRepository;
     private final EmailService emailService;
+    private final TeleconsultaService teleconsultaService;
 
     public AuthService(PersonalRepository personalRepository, PasswordEncoder passwordEncoder,
                         JwtService jwtService, TurnoRepository turnoRepository,
                         PerfilActividadRepository perfilActividadRepository,
                         CodigoVerificacionRepository codigoVerificacionRepository,
-                        EmailService emailService) {
+                        EmailService emailService, TeleconsultaService teleconsultaService) {
         this.personalRepository = personalRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtService = jwtService;
@@ -52,6 +58,7 @@ public class AuthService {
         this.perfilActividadRepository = perfilActividadRepository;
         this.codigoVerificacionRepository = codigoVerificacionRepository;
         this.emailService = emailService;
+        this.teleconsultaService = teleconsultaService;
     }
 
     public LoginResponse login(LoginRequest request) {
@@ -101,18 +108,11 @@ public class AuthService {
                 "El usuario que dio de alta no tiene documento registrado");
         }
 
-        LocalDate fechaCita = LocalDate.now(ZoneId.of("America/Bogota")).plusDays(7);
-        String fechaHora = fechaCita.atTime(10, 0)
-            .format(DateTimeFormatter.ofPattern("dd/MM/yyyy 'a las' HH:mm", Locale.forLanguageTag("es-CO")))
-            + " (hora Colombia)";
-        String documento = personal.getCedula().replaceAll("[^A-Za-z0-9_-]", "");
-        String enlace = "https://meet.jit.si/" + documento + "SOS";
-        String cuerpo = "Se confirmó la cita de teleconsulta para el paciente " + nombrePaciente + ".\n\n"
-            + "Fecha y hora: " + fechaHora + "\n"
-            + "Enlace: " + enlace + "\n";
+        TeleconsultaService.CitaTeleconsulta cita = teleconsultaService.generarCita(personal.getCedula());
+        teleconsultaService.confirmarPorCorreo(personal, nombrePaciente, cita);
 
-        emailService.enviar(personal.getEmail(), "Confirmación de teleconsulta SOS", cuerpo);
-        return new TeleconsultaResponse(fechaHora, enlace);
+        return new TeleconsultaResponse(cita.fechaHora(), cita.enlace(),
+                cita.inicio().toString(), cita.fin().toString());
         }
 
     private Personal validarCredencialesYTurno(String usuario, String clave) {
@@ -147,8 +147,23 @@ public class AuthService {
         cv.setUsado(false);
         codigoVerificacionRepository.save(cv);
 
-        emailService.enviar(personal.getEmail(), "Codigo de verificacion SOS",
-                "Tu codigo de acceso es: " + codigoGenerado + "\nExpira en 5 minutos.");
+        java.util.Map<String, Object> modelo = new java.util.LinkedHashMap<>();
+        modelo.put("nombre", personal.getNombre() + " " + personal.getApellido());
+        modelo.put("codigo", codigoGenerado);
+        modelo.put("destinatario", personal.getEmail());
+
+        boolean correoEnviado = false;
+        try {
+            emailService.enviarHtml(personal.getEmail(), "Tu código de verificación · SOS Clinic",
+                    emailService.renderizar("plantillas/codigo-verificacion", modelo));
+            correoEnviado = true;
+        } catch (Exception e) {
+            log.warn("No se pudo enviar el correo del código 2FA a {}: {}", personal.getEmail(), e.getMessage());
+        }
+        log.info("Código 2FA para {} — correo {}: {}",
+                personal.getUsuario(),
+                correoEnviado ? "enviado a " + personal.getEmail() : "NO enviado (revisar SMTP)",
+                correoEnviado ? "(ver bandeja de entrada)" : codigoGenerado);
     }
 
     private LoginResponse construirRespuestaConToken(Personal personal) {

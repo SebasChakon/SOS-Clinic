@@ -82,6 +82,14 @@ public class TriageService {
         RegistroTriage registro = registroTriageRepository.findById(idRegistro)
                 .orElseThrow(() -> new NoSuchElementException("Registro de triage no encontrado"));
 
+        // Guarda de idempotencia: si ya fue atendido, no se vuelve a escribir
+        // nada (el reintento de correos puede volver a llamar este metodo sin
+        // pisar fechas ni duplicar la atencion).
+        if (registro.getEstadoTriage() != null
+                && "Atendido".equalsIgnoreCase(registro.getEstadoTriage().getNombreEstado())) {
+            return registro;
+        }
+
         EstadoTriage atendido = estadoTriageRepository.findByNombreEstado("Atendido")
                 .orElseThrow(() -> new NoSuchElementException("Estado 'Atendido' no configurado"));
 

@@ -5,8 +5,15 @@
 package com.sos.mspacientes.dto;
 
 public class EnviarHistoriaRequest {
-    private String contenido; // el texto/HTML de la historia clinica, armado en el frontend
+    /** Texto armado por el frontend antiguo; se ignora si llega idRegistro. */
+    private String contenido;
+
+    /** Episodio de triage: si llega, el backend genera el PDF oficial. */
+    private Integer idRegistro;
 
     public String getContenido() { return contenido; }
     public void setContenido(String contenido) { this.contenido = contenido; }
+
+    public Integer getIdRegistro() { return idRegistro; }
+    public void setIdRegistro(Integer idRegistro) { this.idRegistro = idRegistro; }
 }

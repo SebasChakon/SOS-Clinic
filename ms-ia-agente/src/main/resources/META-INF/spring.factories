@@ -1,0 +1,1 @@
+org.springframework.boot.env.EnvironmentPostProcessor=com.sos.msiaagente.ms_ia_agente.config.EnvEnvironmentPostProcessor

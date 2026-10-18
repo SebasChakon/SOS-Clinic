@@ -64,7 +64,7 @@ Aunque conceptualmente cada microservicio tiene tablas bajo su responsabilidad, 
 | Ruta | Responsabilidad |
 |---|---|
 | `README.md` | Guía de arquitectura, configuración, operación y limitaciones. |
-| `levantar-sistema.bat` | En Windows, levanta Docker Compose, abre consolas para todos los servicios de aplicación (gateway, seguridad, pacientes, triage, analítica y agente), define credenciales por defecto de MySQL para analítica si faltan y abre el login. Usa el comando global `mvn`; requiere Maven en `PATH`. Sus pausas son fijas, no comprobaciones de disponibilidad. |
+| `levantar-sistema.bat` | En Windows, carga las credenciales del archivo `.env` (si existe) en el entorno, levanta Docker Compose, abre consolas para todos los servicios de aplicación (gateway, seguridad, pacientes, triage, analítica y agente), define credenciales por defecto de MySQL para analítica si faltan y abre el login. Usa el comando global `mvn`; requiere Maven en `PATH`. Sus pausas son fijas, no comprobaciones de disponibilidad. |
 | `infra/` | Infraestructura local PostgreSQL/pgAdmin y SQL inicial. |
 | `frontend/` | Interfaz estática que consume el gateway. |
 | `eureka-server/` | Registro y descubrimiento de servicios. |
@@ -125,6 +125,17 @@ Cada módulo Maven organiza normalmente su código en `src/main/java` así:
 El IDE no es requisito para compilar o ejecutar. El plugin de Spring para NetBeans mencionado en documentación antigua no es necesario para el flujo normal.
 
 ## Puesta en marcha
+
+### 0. Crear el archivo `.env`
+
+Las credenciales (SMTP de correo, MySQL de analítica y API key de Groq) no están en el repositorio. Copia la plantilla y pide los valores al coordinador por un canal seguro (ver [Credenciales y secretos](#credenciales-y-secretos)):
+
+```powershell
+Copy-Item .env.example .env
+notepad .env
+```
+
+`levantar-sistema.bat` lo carga automáticamente, y además cada servicio lo importa al arrancar con un pequeño cargador propio (`EnvEnvironmentPostProcessor`, que busca `.env` en el directorio del módulo y en la raíz del repo), así que **lanzar desde NetBeans o `mvn spring-boot:run` también funciona sin exportar nada**. Sin `.env` el sistema igual levanta, pero los correos fallarán (el código 2FA se muestra en la consola como respaldo) y el agente IA responderá que no está configurado.
 
 ### 1. Iniciar PostgreSQL
 
@@ -196,7 +207,7 @@ Repite en terminales separadas desde las carpetas `ms-gateway`, `ms-seguridad`, 
 
 El script abre las consolas en el orden básico, pero no valida que PostgreSQL o cada servicio estén listos; si hay demoras, revisa la salida de la consola correspondiente.
 
-`ms-analitica` corre como proceso local fuera de Docker y requiere que el MySQL sintético ya esté disponible. Prepara esa base manualmente en el paso 2; el arranque de servicios no ejecuta el generador. `levantar-sistema.bat` define `ANALITICA_DB_USERNAME` y `ANALITICA_DB_PASSWORD` en `root` solo si no están definidas; para otro usuario o clave, expórtalas antes de ejecutarlo. `ms-ia-agente` necesita `GROQ_API_KEY` para responder; sin ella el asistente indica que no está configurado.
+`ms-analitica` corre como proceso local fuera de Docker y requiere que el MySQL sintético ya esté disponible. Prepara esa base manualmente en el paso 2; el arranque de servicios no ejecuta el generador. `levantar-sistema.bat` define `ANALITICA_DB_USERNAME` y `ANALITICA_DB_PASSWORD` en `root` solo si no están definidas; para otro usuario o clave, expórtalas antes de ejecutarlo. `ms-ia-agente` necesita `GROQ_API_KEY` (definida en `.env`; `levantar-sistema.bat` la expone a las consolas) para responder; sin ella el asistente indica que no está configurado.
 
 Comprobaciones:
 
@@ -225,10 +236,51 @@ El script de Windows abre `frontend/index.html`; también puedes abrirlo directa
 3. **Llegada a triage.** El operador selecciona paciente, categoría y, opcionalmente, ubicación. El backend crea el episodio en estado `En espera` y define la hora de llegada con el reloj del servidor. La categoría no se determina automáticamente.
 4. **Priorización.** `GET /ms-triage/triage/prioridad` devuelve la lista priorizada. La prioridad numérica 1 es la más urgente; el tiempo de espera en minutos se calcula al consultar y no se mantiene como contador en segundo plano.
 5. **Atención y seguimiento.** Desde la lista se abre `seguimiento.html?idRegistro=...`. Se puede actualizar ubicación, marcar `En atencion` y guardar tomas sucesivas de signos vitales. Las tomas anteriores se conservan.
-6. **Cierre.** La interfaz exige diagnóstico y tratamiento antes del alta; `PUT /triage/{id}/atendido` recibe ambos campos (obligatorios), los persiste en `registro_triage` y cambia el estado a `Atendido`.
+6. **Cierre y notificaciones.** La interfaz exige diagnóstico, tratamiento y la dirección del paciente; el alta se completa con **una sola llamada** a `POST /ms-pacientes/pacientes/atenciones/{idRegistro}/finalizar`. El backend persiste primero el alta en `ms-triage` (si eso falla, no se envía nada) y en seguida envía las notificaciones: confirmación de teleconsulta al profesional (`ms-seguridad`), cita de teleconsulta al paciente (con archivo de calendario `.ics`) e historia clínica en PDF (más farmacias cercanas a la dirección; si no se puede ubicar, farmacias de Bogotá en general). Cada correo se evalúa por separado y la respuesta informa ✅ enviado / ⚠️ fallido / ⏭️ omitido; la pantalla ofrece un botón de reintento que llama a `reenviar-correos` sin volver a tocar el alta.
 7. **Trazabilidad.** Algunas operaciones administrativas se registran desde el backend; el frontend intenta registrar login, creación y cambios de triage. La auditoría es de mejor esfuerzo: un error al guardar el log no cancela la operación principal.
 
-Las funciones de historia clínica y teleconsulta dependen de correo SMTP. No asumas que el correo se entregó porque el cambio de estado haya concluido correctamente.
+Las funciones de historia clínica y teleconsulta dependen de correo SMTP. No asumas que el correo se entregó porque el cambio de estado haya concluido correctamente: revisa el estado por correo que devuelve la operación de alta.
+
+## Sistema de correos
+
+Los correos se construyen y envían **siempre desde el backend** (el frontend ya no arma textos ni orquesta llamadas). Los componentes se repiten en `ms-pacientes` y `ms-seguridad`, porque no existe módulo compartido:
+
+| Pieza | Ubicación | Qué hace |
+|---|---|---|
+| `EmailService` | ambos servicios | Renderiza plantillas Thymeleaf, genera texto alternativo y envía con adjuntos e imágenes embebidas (`cid:`). Tiempos de espera SMTP de 10 s. |
+| Plantillas | `src/main/resources/templates/plantillas/` | HTML con tablas y CSS en línea (compatible con Gmail/Outlook) en la paleta teal de la app: cita de paciente, confirmación al profesional, resumen de historia clínica, código 2FA y PDF. |
+| `HistoriaClinicaService` + `PdfService` | `ms-pacientes` | Consolidan paciente, episodio y signos vitales; generan el PDF con OpenHTMLtoPDF y las tipografías DejaVu embebidas en `resources/fonts/`. |
+| `NotificacionesService` | `ms-pacientes` | Punto único de envío de cita e historia (lo usan el endpoint heredado y el orquestador). |
+| `AtencionService` | `ms-pacientes` | Orquesta alta + correos con aislamiento de errores por correo. |
+| `FarmaciasService` | `ms-pacientes` | Overpass API de OpenStreetMap (radio 3 km, 5 más cercanas) geocodificando la dirección del paciente con Nominatim; si la dirección falta o no se puede ubicar, usa el centro de Bogotá (radio 12 km) como respaldo. Mapa PNG compuesto a partir de los tiles de OSM. Cadena de fuentes: instancia principal de Overpass → `overpass.kumi.systems` → búsqueda por categoría en Nominatim, para que el correo salga con farmacias aunque las instancias públicas de Overpass estén caídas. Sin API key. |
+| `TeleconsultaService` + `IcsService` | `ms-seguridad` | Cita determinista (+7 días, 10:00 `America/Bogota`, 30 min, sala Jitsi) y archivo `.ics` (RFC 5545) adjunto para ambos correos. |
+
+Endpoints nuevos en `ms-pacientes`:
+
+- `POST /pacientes/atenciones/{idRegistro}/finalizar` — alta + notificaciones en una sola llamada (recibe `diagnosticoFinal`, `tratamiento` y opcionalmente `latitud`, `longitud`, `direccion`).
+- `POST /pacientes/atenciones/{idRegistro}/reenviar-correos` — reintento de notificaciones de un episodio ya `Atendido` (el alta no se vuelve a tocar; `TriageService.darDeAlta` tiene guard de idempotencia).
+- `GET /pacientes/historias/{idRegistro}/pdf` — descarga del PDF oficial de la historia clínica (botón en `seguimiento.html`).
+
+Los endpoints antiguos (`enviar-historia`, `enviar-cita-teleconsulta`, `PUT .../atendido`) se mantienen por compatibilidad.
+
+### Probar los correos sin enviar mensajes reales
+
+Para desarrollo usa **Mailpit**, que captura todo el SMTP en un contenedor y lo muestra en un navegador:
+
+```bash
+docker run -d --name mailpit -p 1025:1025 -p 8025:8025 axllent/mailpit
+```
+
+Luego exporta el SMTP de prueba antes de arrancar los servicios (o agrégalas a `.env`):
+
+```bat
+set MAIL_SMTP_HOST=localhost
+set MAIL_SMTP_PORT=1025
+set MAIL_USERNAME=
+set MAIL_PASSWORD=
+```
+
+Abre `http://localhost:8025` para ver cada correo con sus adjuntos (PDF e `.ics`). Recuerda volver a las variables reales para enviar de verdad.
 
 ## Perfiles, actividades y turnos
 
@@ -311,8 +363,11 @@ Las operaciones administrativas de `ms-seguridad` requieren token, pero actualme
 | `GET` | `/ms-pacientes/pacientes/buscar?q={texto}` | Hasta diez coincidencias parciales de cédula. |
 | `POST` | `/ms-pacientes/pacientes/signos-vitales` | Guarda una toma de signos vitales. |
 | `GET` | `/ms-pacientes/pacientes/signos-vitales/registro/{idRegistro}` | Lista tomas del episodio. |
-| `POST` | `/ms-pacientes/pacientes/{id}/enviar-historia` | Envía contenido por correo si el paciente tiene email. |
-| `POST` | `/ms-pacientes/pacientes/{id}/enviar-cita-teleconsulta` | Envía fecha/enlace recibidos en la solicitud. |
+| `POST` | `/ms-pacientes/pacientes/{id}/enviar-historia` | Envía contenido por correo si el paciente tiene email. Con `idRegistro` en el cuerpo genera y adjunta el PDF oficial. |
+| `POST` | `/ms-pacientes/pacientes/{id}/enviar-cita-teleconsulta` | Envía fecha/enlace recibidos en la solicitud (con `.ics` si llegan fechas ISO). |
+| `POST` | `/ms-pacientes/pacientes/atenciones/{idRegistro}/finalizar` | Alta completa en una llamada: persiste diagnóstico/tratamiento en triage y envía teleconsulta + historia en PDF, devolviendo estado por correo. |
+| `POST` | `/ms-pacientes/pacientes/atenciones/{idRegistro}/reenviar-correos` | Reintenta las notificaciones de un episodio ya `Atendido`, sin repetir el alta. |
+| `GET` | `/ms-pacientes/pacientes/historias/{idRegistro}/pdf` | Descarga el PDF de la historia clínica del episodio. |
 
 ### Triage
 
@@ -368,9 +423,9 @@ Añadir `-v` borra el volumen, por lo que debe hacerse solo de forma intencional
 
 1. **SQL y entidades JPA no están sincronizados.** `schema-postgres.sql` define diez tablas, pero las entidades actuales también esperan `turno`, `codigo_verificacion` y columnas como `personal.requiere_2fa`, `paciente.email`, `registro_triage.diagnostico_final` y `registro_triage.tratamiento`. Con `ddl-auto=validate`, una base creada solo con ese SQL puede impedir el arranque de los servicios afectados. Actualiza el esquema mediante una migración controlada; no uses `ddl-auto=update` como sustituto de una migración revisada.
 2. **Faltan datos iniciales de acceso.** No se inserta usuario ni turnos. El esquema inicial registra la actividad CRUE y la asigna a todos los perfiles base; en una base existente, ejecuta `infra/activar-enfermedades-crue.sql` una vez porque los scripts de inicialización no corren de nuevo sobre volúmenes existentes.
-3. **Historia clínica y teleconsulta por correo.** El alta ya persiste diagnóstico y tratamiento en `registro_triage`, pero los correos dependen de SMTP y se registran como mejor esfuerzo: no asumas que la historia clínica llegó porque el alta concluya.
+3. **Historia clínica y teleconsulta por correo.** El alta se hace en una sola llamada desde el backend, que persiste diagnóstico y tratamiento en `registro_triage` **antes** de notificar y devuelve el estado de cada correo por separado. Los envíos siguen siendo de mejor esfuerzo dependientes de SMTP: revisa el estado devuelto y usa el botón de reintento en lugar de asumir que la historia clínica llegó porque el alta concluyó. Si el PDF o el mapa de farmacias fallan, el correo se envía igual sin ese elemento.
 4. **Autorización por rol incompleta.** JWT se valida dentro de `ms-seguridad`, pero las APIs de pacientes y triage no instalan ese filtro; el gateway tampoco valida token globalmente. Las rutas administrativas solo requieren autenticación, no un rol específico.
-5. **Secretos locales en configuración.** Hay secretos JWT y SMTP en archivos de propiedades versionados. Deben considerarse expuestos: rótalos, retíralos del repositorio y léelos desde variables de entorno o un gestor de secretos. No los uses en producción.
+5. **Secretos fuera del repositorio.** El SMTP y la API key de Groq se leen desde el archivo `.env` (ignorado por git) o variables de entorno; `application.properties` solo conserva `${MAIL_USERNAME}` y similares. La clave JWT por defecto de `ms-seguridad` sigue versionada y debe considerarse expuesta: rótala y ponla en `.env`. Revisa el historial de git (los secretos antiguos ya estaban publicados) y sigue la sección «Credenciales y secretos» para rotarlos. No los uses en producción.
 6. **Configuración de desarrollo sin endurecer.** PostgreSQL y pgAdmin publican puertos locales con credenciales de desarrollo; CORS debe limitarse al origen real del frontend. El repositorio no contiene un despliegue productivo completo para Azure.
 7. **Auditoría de mejor esfuerzo.** Parte de los eventos se solicita desde JavaScript y los errores de auditoría se silencian. No es una bitácora inmutable ni registra automáticamente todos los accesos a datos clínicos.
 8. **Analítica y agente IA en modo prototipo.** `ms-analitica` consulta una base MySQL sintética y `ms-ia-agente` usa la API de Groq para chat y voz; siguen sin existir módulos de Big Data, ISO 27005/STRIDE/DREAD o recomendaciones clínicas automáticas.
@@ -405,6 +460,42 @@ La actividad está asignada a uno o más perfiles (tabla `perfil_actividad`). La
 **Cambiaste SQL pero la base conserva el esquema anterior**
 El volumen conserva su estado. Aplica una migración explícita o, si los datos son descartables, elimina el volumen conscientemente. `docker compose down -v` es destructivo.
 
-## API KEY IA
-setx GROQ_API_KEY "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"
+## Credenciales y secretos
+
+**Regla de oro: nada de secretos en git.** Todo lo sensible se lee de variables de entorno; el archivo `.env` (en la raíz, ignorado por git) es solo el almacén local de desarrollo. `.env.example` documenta las variables esperadas sin valores reales.
+
+### Cómo configurarlo
+
+```bat
+copy .env.example .env
+notepad .env
+```
+
+Completa `MAIL_USERNAME`, `MAIL_PASSWORD` (contraseña de aplicación de Gmail, no la clave normal), `ANALITICA_DB_*` y `GROQ_API_KEY`. `levantar-sistema.bat` carga `.env` automáticamente antes de abrir las consolas de cada servicio; si lo corres a mano, exporta las variables antes de arrancar.
+
+### Cómo compartir las credenciales con el equipo (sin exponerlas)
+
+1. **Gestor de contraseñas (recomendado):** crea una entrada compartida del proyecto (Bitwarden, 1Password, KeePassXC con archivo compartido, o el gestor de tu universidad) y añade allí el `.env` completo. Cada compañero copia de ahí a su `.env` local.
+2. **Canal privado como alternativa:** envía el contenido por mensaje directo (nunca por grupos de WhatsApp/Telegram, Issues, Pull Requests, commits ni correos a listas). Borra el mensaje cuando el compañero ya tenga su copia.
+3. **Nunca** pegues credenciales en: código, `application.properties` versionado, README, capturas de pantalla de la demo, documentos de la tarea ni respuestas del chat del curso.
+
+### Rotación: si una credencial ya se filtra, cámbiala
+
+Las credenciales antiguas de este proyecto **ya están en el historial de git** (una contraseña de aplicación de Gmail y una API key de Groq), así que deben considerarse comprometidas aunque las borres del código actual:
+
+- **Gmail:** en [Cuenta de Google → Seguridad → Contraseñas de aplicaciones](https://myaccount.google.com/apppasswords), revoca la contraseña `yynivaijhnpibuqk` y genera una nueva. Actualiza `MAIL_PASSWORD` en tu `.env`.
+- **Groq:** en [console.groq.com/keys](https://console.groq.com/keys), elimina la key `gsk_jWC...` y crea otra; actualiza `GROQ_API_KEY` en tu `.env`. La clave vieja sigue siendo válida hasta que la revokes: borrarla del README no la desactiva.
+- **Clave JWT de `ms-seguridad`:** si el repositorio es público o se hizo fork, cambia `app.jwt.secret` por una cadena larga aleatoria propia en tu `.env` (todas las sesiones activas se invalidan).
+
+### Comprobación y prevención
+
+```bat
+git log -p | findstr /i "gsk_ yynivaijhnpibuqk"
+```
+
+Si algo aparece fuera de `.env`, la credencial estuvo versionada: rótala. Para evitar repeticiones, instala [gitleaks](https://github.com/gitleaks/gitleaks) como hook:
+
+```bat
+gitleaks protect --staged
+```
 

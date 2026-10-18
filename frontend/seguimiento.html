@@ -24,6 +24,17 @@
   .seccion-alta { border-top: 1px solid var(--gris-linea); margin-top: 20px; padding-top: 20px; }
   .resumen-alta { background: var(--gris-fondo); padding: 12px 14px; border-radius: 6px; font-size: 13.5px; margin-bottom: 12px; }
   .resumen-alta strong { display: block; margin-bottom: 4px; }
+  .ayuda { font-size: 12px; color: var(--texto-suave); margin-top: 6px; }
+  .resultado-alta { border: 1px solid var(--verde-borde); background: var(--verde-fondo); border-radius: 8px; padding: 16px 18px; margin-top: 16px; }
+  .resultado-alta.con-fallos { border-color: #fcd34d; background: #fffbeb; }
+  .resultado-alta .titulo-resultado { font-weight: 700; margin-bottom: 10px; }
+  .lista-correos { list-style: none; padding: 0; margin: 0 0 12px; display: flex; flex-direction: column; gap: 8px; font-size: 13.5px; }
+  .lista-correos li { display: flex; gap: 8px; align-items: flex-start; background: rgba(255,255,255,.75); padding: 8px 10px; border-radius: 6px; }
+  .estado-correo { font-size: 11px; text-transform: uppercase; letter-spacing: .03em; color: var(--texto-suave); margin-left: 6px; }
+  .detalle-correo { font-size: 12.5px; color: var(--texto-suave); margin-top: 2px; }
+  .acciones-resultado { display: flex; gap: 10px; flex-wrap: wrap; }
+  .cita-generada { font-size: 13px; margin-bottom: 10px; }
+  .cita-generada a { color: var(--teal-hover); }
 </style>
 </head>
 
@@ -94,8 +105,16 @@
             <label for="tratamiento">Tratamiento / instrucciones en casa / cuándo volver</label>
             <textarea id="tratamiento" rows="3" required></textarea>
           </div>
-          <button type="submit" id="btnDarAlta" class="boton-primario boton-full">Dar de alta y enviar historia clínica</button>
+          <div class="campo">
+            <label for="direccionPaciente">Dirección del paciente (obligatoria, para las farmacias cercanas)</label>
+            <input type="text" id="direccionPaciente" required
+                   placeholder="Calle 10 # 45-67, barrio, Bogotá"
+                   autocomplete="street-address">
+            <p class="ayuda">Con esta dirección se buscan farmacias cercanas para el correo del paciente. Si no se puede ubicar, el correo incluirá farmacias de Bogotá en general.</p>
+          </div>
+          <button type="submit" id="btnDarAlta" class="boton-primario boton-full">Dar de alta y enviar correos</button>
           <div class="mensaje" id="mensajeAlta"></div>
+          <div id="resultadoAlta"></div>
         </form>
       </div>
 
@@ -178,6 +197,7 @@
         <div class="estado-cerrado">
           Este episodio ya fue cerrado (paciente atendido). El historial queda disponible para consulta.
         </div>`;
+      contenedor.innerHTML = `<button class="boton-secundario" onclick="descargarPdfHistoria()">Descargar historia clínica (PDF)</button>`;
       document.getElementById('btnGuardarSignos').disabled = true;
     }
   }
@@ -202,81 +222,123 @@
     }
   }
 
+  /* ------------------------------------------------------------------
+     Direccion del paciente: la unica fuente de ubicacion para las
+     farmacias cercanas del correo (sin geolocalizacion del navegador).
+     ------------------------------------------------------------------ */
+  function leerDireccionPaciente() {
+    return document.getElementById('direccionPaciente').value.trim();
+  }
+
+  /* ------------------------------------------------------------------
+     Alta completa: UNA sola llamada al backend. El backend persiste el
+     alta en ms-triage y luego envia cada correo aislando los errores,
+     devolviendo estado por correo para poder reintentar.
+     ------------------------------------------------------------------ */
   document.getElementById('formAlta').addEventListener('submit', async (evento) => {
     evento.preventDefault();
     limpiarMensaje('mensajeAlta');
+    document.getElementById('resultadoAlta').innerHTML = '';
 
     const diagnostico = document.getElementById('diagnosticoFinal').value.trim();
     const tratamiento = document.getElementById('tratamiento').value.trim();
 
     const boton = document.getElementById('btnDarAlta');
     boton.disabled = true;
-    boton.textContent = 'Procesando...';
+    boton.textContent = 'Dando de alta y enviando correos...';
 
     try {
-      await marcarAtendido(idRegistro, diagnostico, tratamiento);
+      const resultado = await finalizarAtencion(idRegistro, {
+        diagnosticoFinal: diagnostico,
+        tratamiento,
+        direccion: leerDireccionPaciente()
+      });
       await cargarEncabezado();
-      let mensajeCita = 'Se enviaron al paciente y al profesional los datos de la teleconsulta.';
-      let tipoMensaje = 'exito';
-
-      try {
-        const nombreCompleto = `${pacienteActual.nombre} ${pacienteActual.apellido}`;
-        const cita = await programarTeleconsulta(nombreCompleto);
-        await enviarCitaTeleconsulta(pacienteActual.idPaciente, cita);
-      } catch (errorCorreo) {
-        mensajeCita = `El alta se completó, pero no se pudieron enviar los correos de teleconsulta: ${errorCorreo.message}`;
-        tipoMensaje = 'error';
-      }
-
-      await generarYEnviarHistoriaClinica(diagnostico, tratamiento);
-      mostrarMensaje('mensajeAlta', `Paciente dado de alta. ${mensajeCita} Historia clínica descargada y enviada por correo (si tenía email registrado).`, tipoMensaje);
+      mostrarMensaje('mensajeAlta', 'Paciente dado de alta. Estado de cada correo abajo.', 'exito');
+      pintarResultadosAlta(resultado, false);
     } catch (error) {
       mostrarMensaje('mensajeAlta', error.message, 'error');
     } finally {
       boton.disabled = false;
-      boton.textContent = 'Dar de alta y enviar historia clínica';
+      boton.textContent = 'Dar de alta y enviar correos';
     }
   });
 
-  async function generarYEnviarHistoriaClinica(diagnostico, tratamiento) {
-    const signos = await listarSignosVitalesPorRegistro(idRegistro);
-    const contenido = construirTextoHistoria(pacienteActual, registroActual, signos, diagnostico, tratamiento);
+  const ETIQUETAS_CORREO = {
+    'teleconsulta-profesional': 'Confirmación de teleconsulta · profesional',
+    'cita-paciente': 'Cita de teleconsulta · paciente',
+    'historia-pdf': 'Historia clínica en PDF · paciente'
+  };
 
-    const blob = new Blob([contenido], { type: 'text/plain;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const enlace = document.createElement('a');
-    enlace.href = url;
-    enlace.download = `historia_clinica_${pacienteActual.cedula}.txt`;
-    enlace.click();
-    URL.revokeObjectURL(url);
+  function escaparHtml(texto) {
+    return String(texto).replace(/[&<>"']/g, (c) => ({
+      '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+    }[c]));
+  }
 
-    if (pacienteActual.email) {
-      try {
-        await enviarHistoriaClinica(pacienteActual.idPaciente, contenido);
-      } catch (error) {
-        console.error('No se pudo enviar el correo:', error.message);
-      }
+  function pintarResultadosAlta(resultado, esReintento) {
+    const contenedor = document.getElementById('resultadoAlta');
+    const iconos = { ENVIADO: '✅', FALLIDO: '⚠️', OMITIDO: '⏭️' };
+    const correos = resultado.correos || [];
+    const fallidos = correos.filter((c) => c.estado === 'FALLIDO');
+
+    const lista = correos.map((c) => `
+      <li>
+        <span>${iconos[c.estado] || '•'}</span>
+        <div>
+          <b>${ETIQUETAS_CORREO[c.tipo] || escaparHtml(c.tipo)}</b>
+          <span class="estado-correo">${escaparHtml(c.estado.toLowerCase())}</span>
+          ${c.detalle ? `<div class="detalle-correo">${escaparHtml(c.detalle)}</div>` : ''}
+        </div>
+      </li>`).join('');
+
+    const cita = resultado.citaFechaHora ? `
+      <div class="cita-generada">
+        📅 Cita de teleconsulta: <b>${escaparHtml(resultado.citaFechaHora)}</b>
+        ${resultado.citaEnlace ? ` · <a href="${escaparHtml(resultado.citaEnlace)}" target="_blank" rel="noopener">abrir videollamada</a>` : ''}
+      </div>` : '';
+
+    contenedor.innerHTML = `
+      <div class="resultado-alta ${fallidos.length ? 'con-fallos' : 'todo-ok'}">
+        <div class="titulo-resultado">${fallidos.length ? '⚠️ Alta guardada con incidencias de envío' : '✅ Alta completada'}${esReintento ? ' (correos reintentados)' : ''}</div>
+        ${cita}
+        <ul class="lista-correos">${lista}</ul>
+        <div class="acciones-resultado">
+          ${fallidos.length ? '<button type="button" id="btnReintentar" class="boton-secundario" onclick="reintentarCorreos()">Reintentar envío de correos</button>' : ''}
+          <button type="button" class="boton-secundario" onclick="descargarPdfHistoria()">Descargar historia clínica (PDF)</button>
+        </div>
+      </div>`;
+
+    if (esReintento) {
+      mostrarMensaje('mensajeAlta',
+        fallidos.length
+          ? `El alta está guardada, pero ${fallidos.length} correo(s) siguen sin enviarse.`
+          : 'Correos reenviados correctamente.',
+        fallidos.length ? 'error' : 'exito');
     }
   }
 
-  function construirTextoHistoria(paciente, registro, signos, diagnostico, tratamiento) {
-    let texto = `HISTORIA CLINICA - SOS SISTEMA DE TRIAGE\n==========================================\n\n`;
-    texto += `Paciente: ${paciente.nombre} ${paciente.apellido}\nCedula: ${paciente.cedula}\nFecha de nacimiento: ${paciente.fechaNacimiento}\n\n`;
-    texto += `Categoria de triage: ${registro.categoriaTriage.nombreCategoria}\nUbicacion final: ${registro.ubicacion || '-'}\n`;
-    texto += `Llegada: ${formatearFecha(registro.fechaHoraLlegada)}\nFecha de alta: ${new Date().toLocaleString('es-CO')}\n\n`;
-    texto += `DIAGNOSTICO FINAL\n------------------\n${diagnostico}\n\n`;
-    texto += `TRATAMIENTO E INSTRUCCIONES\n----------------------------\n${tratamiento}\n\n`;
-    texto += `HISTORIAL DE SIGNOS VITALES (${signos.length} tomas)\n------------------------------------------\n`;
+  async function reintentarCorreos() {
+    const boton = document.getElementById('btnReintentar');
+    if (boton) { boton.disabled = true; boton.textContent = 'Reenviando...'; }
+    try {
+      const resultado = await reenviarCorreosAtencion(idRegistro, {
+        direccion: leerDireccionPaciente()
+      });
+      pintarResultadosAlta(resultado, true);
+    } catch (error) {
+      mostrarMensaje('mensajeAlta', error.message, 'error');
+      const reintento = document.getElementById('btnReintentar');
+      if (reintento) { reintento.disabled = false; reintento.textContent = 'Reintentar envío de correos'; }
+    }
+  }
 
-    const ordenado = [...signos].sort((a, b) => new Date(a.fechaHoraToma) - new Date(b.fechaHoraToma));
-    ordenado.forEach((toma, i) => {
-      texto += `\nToma ${i + 1} - ${formatearFecha(toma.fechaHoraToma)}\n`;
-      texto += `  FC: ${toma.frecuenciaCardiaca} lpm | Presion: ${toma.presionSistolica}/${toma.presionDiastolica} | Temp: ${toma.temperatura}°C | SatO2: ${toma.saturacion}% | FR: ${toma.frecuenciaRespiratoria}\n`;
-      if (toma.glucemia) texto += `  Glucemia: ${toma.glucemia}\n`;
-      if (toma.descripcionSintoma) texto += `  Motivo/sintomas: ${toma.descripcionSintoma}\n`;
-    });
-
-    return texto;
+  async function descargarPdfHistoria() {
+    try {
+      await descargarHistoriaPdf(idRegistro);
+    } catch (error) {
+      alert(error.message);
+    }
   }
 
   function pintarHistorial(lista) {

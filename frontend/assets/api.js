@@ -208,6 +208,65 @@ async function enviarCitaTeleconsulta(idPaciente, cita) {
 }
 
 /* ---------------------------------------------------------------------
+   Alta completa (una sola llamada): el backend persiste el alta en
+   ms-triage, genera la cita de teleconsulta, envia la historia clinica
+   en PDF y las farmacias cercanas, y devuelve estado por correo.
+   --------------------------------------------------------------------- */
+
+async function finalizarAtencion(idRegistro, datos) {
+  const resultado = await llamarApi(`/ms-pacientes/pacientes/atenciones/${idRegistro}/finalizar`, {
+    method: 'POST', body: JSON.stringify(datos)
+  });
+  registrarAuditoria('ACTUALIZAR', `Triage #${idRegistro} dado de alta (alta + notificaciones en backend)`);
+  return resultado;
+}
+
+async function reenviarCorreosAtencion(idRegistro, datos) {
+  return llamarApi(`/ms-pacientes/pacientes/atenciones/${idRegistro}/reenviar-correos`, {
+    method: 'POST', body: JSON.stringify(datos || {})
+  });
+}
+
+/* Descarga el PDF oficial de la historia clinica (lo genera ms-pacientes). */
+async function descargarHistoriaPdf(idRegistro) {
+  const token = obtenerToken();
+  let respuesta;
+  try {
+    respuesta = await fetch(`${BASE_URL}/ms-pacientes/pacientes/historias/${idRegistro}/pdf`, {
+      headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+    });
+  } catch (error) {
+    throw new Error('No se pudo contactar al servidor para generar el PDF.');
+  }
+
+  // El cuerpo de una respuesta solo puede leerse UNA vez.
+  if (!respuesta.ok) {
+    const textoError = await respuesta.text().catch(() => '');
+    let mensaje = 'No se pudo generar el PDF de la historia clínica';
+    try {
+      const datos = textoError ? JSON.parse(textoError) : null;
+      if (typeof datos === 'string' && datos) mensaje = datos;
+      else if (datos && datos.message) mensaje = datos.message;
+    } catch (e) {
+      if (textoError) mensaje = textoError;
+    }
+    throw new Error(mensaje);
+  }
+
+  const blob = await respuesta.blob();
+  const disposicion = respuesta.headers.get('Content-Disposition') || '';
+  const coincide = disposicion.match(/filename="?([^";]+)"?/);
+  const url = URL.createObjectURL(blob);
+  const enlace = document.createElement('a');
+  enlace.href = url;
+  enlace.download = coincide ? coincide[1].trim() : `historia_clinica_${idRegistro}.pdf`;
+  document.body.appendChild(enlace);
+  enlace.click();
+  enlace.remove();
+  URL.revokeObjectURL(url);
+}
+
+/* ---------------------------------------------------------------------
    ms-triage
    --------------------------------------------------------------------- */
 

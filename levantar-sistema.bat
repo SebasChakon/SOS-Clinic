@@ -3,6 +3,21 @@ setlocal
 
 set BASE=%~dp0
 
+rem ---------------------------------------------------------------------------
+rem Carga las credenciales de desarrollo desde el archivo .env (no versionado).
+rem Cada linea debe tener formato NOMBRE=VALOR. Las lineas vacias o que
+rem empiecen con # se ignoran. Si .env no existe, sigue con el entorno actual.
+rem ---------------------------------------------------------------------------
+if exist "%BASE%.env" (
+  echo Cargando credenciales desde .env ...
+  for /f "usebackq eol=# tokens=1,* delims==" %%A in ("%BASE%.env") do (
+    if not "%%A"=="" if not "%%B"=="" set "%%A=%%B"
+  )
+) else (
+  echo ADVERTENCIA: no existe el archivo .env. Copia .env.example a .env y
+  echo              completa las credenciales antes de levantar el sistema.
+)
+
 if not defined ANALITICA_DB_USERNAME set ANALITICA_DB_USERNAME=root
 if not defined ANALITICA_DB_PASSWORD set ANALITICA_DB_PASSWORD=root
 

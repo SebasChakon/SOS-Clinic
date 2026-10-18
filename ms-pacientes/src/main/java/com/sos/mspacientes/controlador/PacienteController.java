@@ -11,7 +11,13 @@ import com.sos.mspacientes.modelo.EstadoPaciente;
 import com.sos.mspacientes.modelo.Paciente;
 import com.sos.mspacientes.repositorio.EstadoPacienteRepository;
 import com.sos.mspacientes.repositorio.PacienteRepository;
+import com.sos.mspacientes.servicio.EmailNoEnviadoException;
 import com.sos.mspacientes.servicio.EmailService;
+import com.sos.mspacientes.servicio.EpisodioNoEncontradoException;
+import com.sos.mspacientes.servicio.HistoriaClinicaService;
+import com.sos.mspacientes.servicio.NotificacionesService;
+import com.sos.mspacientes.servicio.PdfNoGeneradoException;
+import com.sos.mspacientes.servicio.TriageNoDisponibleException;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -25,13 +31,19 @@ public class PacienteController {
     private final PacienteRepository pacienteRepository;
     private final EstadoPacienteRepository estadoPacienteRepository;
     private final EmailService emailService;
+    private final HistoriaClinicaService historiaClinicaService;
+    private final NotificacionesService notificacionesService;
 
     public PacienteController(PacienteRepository pacienteRepository,
                                EstadoPacienteRepository estadoPacienteRepository,
-                               EmailService emailService) {
+                               EmailService emailService,
+                               HistoriaClinicaService historiaClinicaService,
+                               NotificacionesService notificacionesService) {
         this.pacienteRepository = pacienteRepository;
         this.estadoPacienteRepository = estadoPacienteRepository;
         this.emailService = emailService;
+        this.historiaClinicaService = historiaClinicaService;
+        this.notificacionesService = notificacionesService;
     }
 
     @PostMapping
@@ -88,8 +100,24 @@ public class PacienteController {
             if (paciente.getEmail() == null || paciente.getEmail().isBlank()) {
                 return ResponseEntity.badRequest().body("Este paciente no tiene correo registrado");
             }
-            emailService.enviar(paciente.getEmail(), "Tu historia clinica - SOS", request.getContenido());
-            return ResponseEntity.ok().build();
+            try {
+                if (request.getIdRegistro() != null) {
+                    // Flujo nuevo: el backend arma la historia clinica y adjunta el PDF.
+                    notificacionesService.enviarHistoriaClinica(paciente, request.getIdRegistro());
+                } else {
+                    // Compatibilidad con el frontend antiguo que enviaba texto armado en el navegador.
+                    java.util.Map<String, Object> modelo = new java.util.LinkedHashMap<>();
+                    modelo.put("titulo", "Tu historia clínica - SOS");
+                    modelo.put("contenido", request.getContenido() == null ? "" : request.getContenido());
+                    modelo.put("nota", "Documento enviado por el equipo de atención de SOS Clinic.");
+                    modelo.put("destinatario", paciente.getEmail());
+                    emailService.enviarHtml(paciente.getEmail(), "Tu historia clínica - SOS",
+                            emailService.renderizar("plantillas/documento-texto", modelo));
+                }
+                return ResponseEntity.ok().build();
+            } catch (EmailNoEnviadoException e) {
+                return ResponseEntity.status(502).body(e.getMessage());
+            }
         }).orElse(ResponseEntity.notFound().build());
     }
 
@@ -100,13 +128,33 @@ public class PacienteController {
             if (paciente.getEmail() == null || paciente.getEmail().isBlank()) {
                 return ResponseEntity.badRequest().body("Este paciente no tiene correo registrado");
             }
-            String cuerpo = "Hola " + paciente.getNombre() + " " + paciente.getApellido() + ",\n\n"
-                    + "Tu cita de teleconsulta SOS ha sido agendada.\n\n"
-                    + "Fecha y hora: " + request.getFechaHora() + "\n"
-                    + "Enlace para conectarte: " + request.getEnlace() + "\n";
-            emailService.enviar(paciente.getEmail(), "Cita de teleconsulta SOS", cuerpo);
-            return ResponseEntity.ok().build();
+            try {
+                notificacionesService.enviarCitaPaciente(paciente, request.getFechaHora(), request.getEnlace(),
+                        request.getFechaHoraInicio(), request.getFechaHoraFin());
+                return ResponseEntity.ok().build();
+            } catch (EmailNoEnviadoException e) {
+                return ResponseEntity.status(502).body(e.getMessage());
+            }
         }).orElse(ResponseEntity.notFound().build());
+    }
+
+    /**
+     * PDF de la historia clinica bajo demanda: lo descarga el navegador
+     * desde la pantalla de seguimiento y tambien lo usa el correo.
+     */
+    @GetMapping("/historias/{idRegistro}/pdf")
+    public ResponseEntity<?> descargarHistoriaPdf(@PathVariable Integer idRegistro) {
+        try {
+            HistoriaClinicaService.PdfHistoria pdf = historiaClinicaService.generarPdf(idRegistro);
+            return ResponseEntity.ok()
+                    .header("Content-Disposition", "attachment; filename=\"" + pdf.nombreArchivo() + "\"")
+                    .contentType(org.springframework.http.MediaType.APPLICATION_PDF)
+                    .body(pdf.contenido());
+        } catch (EpisodioNoEncontradoException e) {
+            return ResponseEntity.status(404).body(e.getMessage());
+        } catch (TriageNoDisponibleException | PdfNoGeneradoException e) {
+            return ResponseEntity.status(502).body(e.getMessage());
+        }
     }
 
     @GetMapping("/buscar")
