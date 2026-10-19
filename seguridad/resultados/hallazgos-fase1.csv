@@ -1,0 +1,11 @@
+ID,Severidad,Tipo,Titulo,Componente,Evidencia,Estado
+S-01,Crítica,Secretos,Secreto JWT por defecto versionado,ms-seguridad / ms-analitica,application.properties:19 y :16,Confirmado
+S-02,Crítica,Secretos,Archivo env con credenciales reales fuera de .gitignore,raiz,env:16,Mitigado (ignorado); mover fuera
+S-03,Alta,Secretos,Contraseña de aplicación de Gmail en README,README.md,linea 487,Confirmado
+S-04,Media,Logs,Contraseña generada por Spring Security en log,ms-seguridad,logs/seguridad.log:124,Efímero
+S-05,Media,Configuración,Credenciales de desarrollo y puertos expuestos,infra,docker-compose.yml,Confirmado
+S-06,Media,Configuración,show-sql activo en tres servicios,ms-seguridad / ms-pacientes / ms-triage,application.properties,Confirmado
+S-07,Baja,Secretos,Falso positivo de Power BI como grafana-api-key,frontend,enfermedades-crue.html:90/97,Revisado
+S-08,Crítica,SCA,Tomcat 11.0.24 con 3 CVEs críticas,pom.xml,trivy-sca,Confirmado
+S-09,Crítica,SCA,FreeMarker 2.3.34 con path traversal,pom.xml,trivy-sca,Confirmado
+S-10,Alta,SCA,12 CVEs altas en Jackson y HttpComponents,pom.xml,trivy-sca,Confirmado

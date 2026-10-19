@@ -1,0 +1,16 @@
+# Configuracion de gitleaks para el repositorio.
+# Extiende las reglas por defecto y excluye artefactos locales que no se
+# versionan (logs, target, build) y el archivo .env de desarrollo.
+
+[extend]
+useDefault = true
+
+[allowlist]
+paths = [
+  '''(?i).*/logs/.*''',
+  '''(?i).*/target/.*''',
+  '''(?i).*/build/.*''',
+  '''(?i).*/legacy/.*''',
+  '''(?i).*/\.env$''',
+  '''(?i).*\.bundle$''',
+]

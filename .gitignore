@@ -8,6 +8,11 @@ nbproject/private/
 *.log 
 .env 
 
+# Credenciales locales: nunca versionar
+env
+.env.*
+!.env.example
+
 # Pruebas de seguridad: binarios locales y respaldos
 seguridad/utilidades/tools/
 *.bundle

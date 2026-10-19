@@ -9,6 +9,8 @@ ejecutar contra producción ni contra datos reales.
 | `smoke-auth.ps1` | Comprueba acceso GET a endpoints con y sin token. |
 | `idor-enum.ps1` | Recorre IDs de pacientes, triage o historias PDF (solo lectura). |
 | `payloads-xss.txt` | Payloads inofensivos para pruebas de XSS almacenado. |
+| `gitleaks.toml` | Reglas de gitleaks con allowlist de artefactos locales. |
+| `resumir-trivy.py` | Convierte el JSON de Trivy en CSV y cuenta hallazgos por severidad. |
 
 ## Requisitos
 
