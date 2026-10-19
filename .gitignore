@@ -7,3 +7,9 @@ target/
 nbproject/private/ 
 *.log 
 .env 
+
+# Pruebas de seguridad: binarios locales y respaldos
+seguridad/utilidades/tools/
+*.bundle
+__pycache__/
+*.pyc

