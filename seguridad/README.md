@@ -59,7 +59,7 @@ Excluido:
 | 0 | Preparación del entorno, snapshot y usuarios de prueba | Completada |
 | 1 | Análisis estático, secretos y dependencias (SCA/SAST) | Completada |
 | 2 | Pentest manual de API y autenticación | Completada |
-| 3 | DAST, frontend/XSS y agente IA | Pendiente |
+| 3 | DAST, frontend/XSS y agente IA | Completada |
 | 4 | Re-ejecución de casos previos y contraste Antes/Después | Pendiente |
 | 5 | Informe final, capturas y publicación | Pendiente |
 

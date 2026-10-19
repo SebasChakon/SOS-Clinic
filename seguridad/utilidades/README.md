@@ -14,6 +14,7 @@ ejecutar contra producción ni contra datos reales.
 | `capturas/generar-evidencia.js` | Genera las tarjetas PNG de evidencia de la Fase 2. |
 | `capturas/xss-pacientes.js` | Captura el XSS almacenado en la tabla de pacientes. |
 | `capturas/xss-seguimiento.js` | Captura el XSS almacenado en signos vitales. |
+| `capturas/capturar-zap.js` | Captura el resumen del reporte HTML de ZAP. |
 
 ## Requisitos
 

@@ -1,0 +1,5 @@
+ID,Severidad,Hallazgo,Componente,Evidencia,Estado
+P-17,Media,Endpoint de voz del agente sin autenticacion y sin limite de tamano,ms-ia-agente,,Confirmado
+P-18,Media,Cabeceras de seguridad ausentes y configuracion web debil,frontend,21_zap_baseline.png,Confirmado
+P-19,Media,Eureka pgAdmin y PostgreSQL expuestos en la red local,infra,,Confirmado
+P-20,Baja,Control de navegacion solo en el cliente,frontend,,Confirmado
