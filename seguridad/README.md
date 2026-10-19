@@ -56,7 +56,7 @@ Excluido:
 
 | Fase | Contenido | Estado |
 |---|---|---|
-| 0 | Preparación del entorno, snapshot y usuarios de prueba | Pendiente |
+| 0 | Preparación del entorno, snapshot y usuarios de prueba | Completada |
 | 1 | Análisis estático, secretos y dependencias (SCA/SAST) | Pendiente |
 | 2 | Pentest manual de API y autenticación | Pendiente |
 | 3 | DAST, frontend/XSS y agente IA | Pendiente |
