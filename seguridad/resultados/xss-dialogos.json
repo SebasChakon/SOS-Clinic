@@ -1,0 +1,9 @@
+{
+  "15_xss_pacientes": {
+    "dialogos": [{ "tipo": "alert", "mensaje": "1" }],
+    "filas": 17
+  },
+  "15b_xss_seguimiento": {
+    "dialogos": [{ "tipo": "alert", "mensaje": "1" }]
+  }
+}

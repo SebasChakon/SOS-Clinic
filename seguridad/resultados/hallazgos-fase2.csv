@@ -1,0 +1,17 @@
+ID,Severidad,Hallazgo,Componente,Evidencia,Estado
+P-01,Crítica,JWT forjado con el secreto por defecto,ms-seguridad / ms-analitica,07_jwt_forjado_admin.png,Confirmado
+P-02,Crítica,Escalada de privilegios con usuario de triage,ms-seguridad,08_escalada_admin.png,Confirmado
+P-03,Crítica,Lectura de datos clínicos sin token,ms-pacientes / ms-triage,11_pacientes_sin_token.png,Confirmado
+P-04,Crítica,Escritura y cambio de estado sin token,ms-pacientes / ms-triage,12_escritura_sin_token.png,Confirmado
+P-05,Alta,XSS almacenado en pacientes y signos vitales,frontend,15_xss_pacientes.png / 15b_xss_seguimiento.png,Confirmado
+P-06,Alta,Mass assignment en signos vitales,ms-pacientes,13_mass_assignment.png,Confirmado
+P-07,Alta,IDOR en pacientes triage e historias PDF,ms-pacientes / ms-triage,14_idor.png,Confirmado
+P-08,Alta,Agente IA sin autenticación devuelve datos clínicos,ms-ia-agente,16_agente_sin_token.png,Confirmado
+P-09,Alta,CORS refleja cualquier origen con credenciales,ms-gateway,10_cors_permisivo.png,Confirmado
+P-10,Alta,2FA sin límite de intentos ni bloqueo,ms-seguridad,09_2fa_sin_limite.png,Confirmado
+P-11,Media,Login sin bloqueo tras intentos fallidos,ms-seguridad,,Confirmado
+P-12,Media,Envío de correo sin autenticación,ms-pacientes,17_correo_sin_token.png,Confirmado
+P-13,Media,Enumeración de usuarios por mensajes distintos,ms-seguridad,18_enumeracion_usuarios.png,Confirmado
+P-14,Media,Cabeceras de seguridad ausentes,ms-gateway,,Confirmado
+P-15,Baja,Errores 500 por referencias inexistentes,ms-triage / ms-pacientes,,Confirmado
+P-16,Observación,Perfil coordinador_turnos rechazado en analítica,ms-analitica,,Confirmado

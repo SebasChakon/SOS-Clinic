@@ -11,6 +11,9 @@ ejecutar contra producción ni contra datos reales.
 | `payloads-xss.txt` | Payloads inofensivos para pruebas de XSS almacenado. |
 | `gitleaks.toml` | Reglas de gitleaks con allowlist de artefactos locales. |
 | `resumir-trivy.py` | Convierte el JSON de Trivy en CSV y cuenta hallazgos por severidad. |
+| `capturas/generar-evidencia.js` | Genera las tarjetas PNG de evidencia de la Fase 2. |
+| `capturas/xss-pacientes.js` | Captura el XSS almacenado en la tabla de pacientes. |
+| `capturas/xss-seguimiento.js` | Captura el XSS almacenado en signos vitales. |
 
 ## Requisitos
 

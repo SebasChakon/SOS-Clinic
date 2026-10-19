@@ -1,0 +1,12 @@
+{
+  "name": "capturas-seguridad",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Capturas automatizadas para el informe de seguridad de SOS Clinic",
+  "scripts": {
+    "xss": "node xss-pacientes.js"
+  },
+  "dependencies": {
+    "playwright": "^1.64.1"
+  }
+}

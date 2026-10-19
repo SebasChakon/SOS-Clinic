@@ -15,6 +15,7 @@ env
 
 # Pruebas de seguridad: binarios locales y respaldos
 seguridad/utilidades/tools/
+seguridad/utilidades/capturas/node_modules/
 *.bundle
 __pycache__/
 *.pyc
