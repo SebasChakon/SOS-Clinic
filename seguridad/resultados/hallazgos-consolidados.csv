@@ -1,0 +1,26 @@
+ID,Severidad,Hallazgo,Referencias,Evidencia,Estado
+H-01,Crítica,Secreto JWT por defecto y forja de tokens,"S-01, P-01",07_jwt_forjado_admin.png,Confirmado
+H-02,Crítica,Lectura de pacientes y triage sin autenticación,P-03,11_pacientes_sin_token.png,Confirmado
+H-03,Crítica,Escritura y altas sin autenticación,P-04,12_escritura_sin_token.png,Confirmado
+H-04,Crítica,Escalada de privilegios en rutas administrativas,P-02,08_escalada_admin.png,Confirmado
+H-05,Crítica,Archivo env con credenciales reales,S-02,20_secretos_gitleaks.png,Confirmado
+H-06,Crítica,Dependencias críticas vulnerables,"S-08, S-09",19_sca_trivy.png,Confirmado
+H-07,Alta,XSS almacenado en pacientes y signos vitales,P-05,"15_xss_pacientes.png, 15b_xss_seguimiento.png",Confirmado
+H-08,Alta,Mass assignment en signos vitales,P-06,13_mass_assignment.png,Confirmado
+H-09,Alta,IDOR en pacientes triage e historias PDF,P-07,14_idor.png,Confirmado
+H-10,Alta,Agente IA sin autenticación expone datos clínicos,P-08,16_agente_sin_token.png,Confirmado
+H-11,Alta,CORS permisivo con credenciales,P-09,10_cors_permisivo.png,Confirmado
+H-12,Alta,2FA sin límite de intentos,P-10,09_2fa_sin_limite.png,Confirmado
+H-13,Alta,Contraseña de aplicación de Gmail en el README,S-03,20_secretos_gitleaks.png,Confirmado
+H-14,Alta,Dependencias altas vulnerables,S-10,19_sca_trivy.png,Confirmado
+H-15,Media,Login sin bloqueo tras intentos fallidos,P-11,,Confirmado
+H-16,Media,Envío de correo sin autenticación,P-12,17_correo_sin_token.png,Confirmado
+H-17,Media,Enumeración de usuarios,P-13,18_enumeracion_usuarios.png,Confirmado
+H-18,Media,Cabeceras de seguridad ausentes,"P-14, P-18",21_zap_baseline.png,Confirmado
+H-19,Media,Infraestructura expuesta y credenciales de desarrollo,"S-05, P-19",,Confirmado
+H-20,Media,show-sql y secretos en logs,"S-04, S-06",,Confirmado
+H-21,Media,Endpoint de voz del agente sin autenticación,P-17,,Confirmado
+H-22,Baja,Errores 500 por referencias inexistentes,P-15,,Confirmado
+H-23,Baja,Control de navegación solo en el cliente,P-20,,Confirmado
+H-24,Observación,Rol de analítica mal nombrado,P-16,,Confirmado
+H-25,Observación,Falso positivo de Power BI en gitleaks,S-07,,Revisado

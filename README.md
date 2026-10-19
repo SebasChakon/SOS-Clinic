@@ -4,6 +4,8 @@ Sistema web de apoyo al registro y seguimiento de pacientes en el proceso de tri
 
 > **Estado:** prototipo académico en desarrollo. No debe tratarse como un sistema clínico de producción. El esquema SQL inicial no coincide con todos los modelos JPA, la autorización entre servicios está incompleta y hay secretos de desarrollo en configuración. Revisa [Estado y limitaciones conocidas](#estado-y-limitaciones-conocidas) antes de levantarlo desde cero o exponerlo en una red.
 
+> **Pruebas de seguridad:** el plan, la metodología, las utilidades y el informe con evidencias están en [`seguridad/`](seguridad/README.md). El informe final está en [`seguridad/informe/informe-seguridad.pdf`](seguridad/informe/informe-seguridad.pdf).
+
 ## Contenido
 
 - [Alcance actual](#alcance-actual)

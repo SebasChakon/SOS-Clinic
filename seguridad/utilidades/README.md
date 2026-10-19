@@ -15,6 +15,8 @@ ejecutar contra producción ni contra datos reales.
 | `capturas/xss-pacientes.js` | Captura el XSS almacenado en la tabla de pacientes. |
 | `capturas/xss-seguimiento.js` | Captura el XSS almacenado en signos vitales. |
 | `capturas/capturar-zap.js` | Captura el resumen del reporte HTML de ZAP. |
+| `exportar-informe.py` | Convierte el informe Markdown en HTML imprimible. |
+| `capturas/exportar-pdf.js` | Exporta el HTML del informe a PDF con Edge. |
 
 ## Requisitos
 

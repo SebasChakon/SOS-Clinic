@@ -1,0 +1,798 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Informe de pruebas de seguridad — SOS Clinic</title>
+<style>
+@page { size: A4; margin: 16mm 14mm 18mm 14mm; }
+* { box-sizing: border-box; }
+body {
+  font-family: "Segoe UI", Arial, sans-serif;
+  font-size: 10.5pt;
+  line-height: 1.5;
+  color: #1e293b;
+  max-width: 100%;
+}
+h1 { font-size: 24pt; color: #0f766e; border-bottom: 3px solid #0f766e; padding-bottom: 8px; }
+h2 { font-size: 16pt; color: #0f172a; margin-top: 26px; border-bottom: 1px solid #cbd5e1; padding-bottom: 4px; }
+h3 { font-size: 13pt; color: #0f766e; margin-top: 20px; }
+table { border-collapse: collapse; width: 100%; margin: 12px 0; font-size: 9pt; }
+th { background: #0f766e; color: #fff; text-align: left; padding: 7px 8px; }
+td { border: 1px solid #cbd5e1; padding: 6px 8px; vertical-align: top; }
+tr:nth-child(even) td { background: #f8fafc; }
+code { font-family: Consolas, monospace; background: #f1f5f9; padding: 1px 4px; border-radius: 3px; font-size: 9.5pt; }
+pre { background: #0f172a; color: #e2e8f0; padding: 12px 14px; border-radius: 6px; overflow-x: auto; font-size: 8.5pt; }
+pre code { background: transparent; color: inherit; padding: 0; }
+blockquote { border-left: 4px solid #0f766e; background: #f0fdfa; margin: 14px 0; padding: 10px 14px; color: #134e4a; }
+img { max-width: 100%; border: 1px solid #cbd5e1; border-radius: 5px; margin: 10px 0; }
+hr { border: none; border-top: 1px solid #cbd5e1; margin: 22px 0; }
+ul, ol { padding-left: 22px; }
+li { margin: 4px 0; }
+</style>
+</head>
+<body>
+<h1 id="informe-de-pruebas-de-seguridad-sos-clinic">Informe de pruebas de seguridad — SOS Clinic</h1>
+<table>
+<thead>
+<tr>
+<th>Campo</th>
+<th>Valor</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Proyecto</td>
+<td>SOS Clinic — sistema de apoyo al triage</td>
+</tr>
+<tr>
+<td>Tipo de evaluación</td>
+<td>Pruebas de seguridad académicas sobre entorno local</td>
+</tr>
+<tr>
+<td>Rama</td>
+<td><code>pruebas-seguridad-2</code></td>
+</tr>
+<tr>
+<td>Commit base</td>
+<td><code>e3f88b2</code> (más los commits de evidencia posteriores)</td>
+</tr>
+<tr>
+<td>Fecha</td>
+<td>2026-10-19</td>
+</tr>
+<tr>
+<td>Entorno</td>
+<td>Windows 11, Docker 29.7.2, PostgreSQL 16.15, JDK 26</td>
+</tr>
+<tr>
+<td>Datos</td>
+<td>Exclusivamente sintéticos; correo capturado en Mailpit</td>
+</tr>
+<tr>
+<td>Autorización</td>
+<td>Entorno local del repositorio, autorizado por el responsable</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p><strong>Advertencia:</strong> este informe describe vulnerabilidades reales del prototipo.
+No debe usarse como guía de explotación fuera del entorno local autorizado.
+Los valores de tokens, contraseñas y secretos fueron omitidos o redactados.</p>
+</blockquote>
+<h2 id="1-resumen-ejecutivo">1. Resumen ejecutivo</h2>
+<p>Se ejecutaron las fases de preparación, análisis estático, SCA, pentest manual de
+API, DAST con ZAP y pruebas de frontend/agente IA. Se registraron <strong>30
+hallazgos</strong>, que tras consolidar duplicados equivalen a <strong>25 temas únicos</strong>:</p>
+<table>
+<thead>
+<tr>
+<th>Severidad</th>
+<th>Cantidad</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Crítica</td>
+<td>6</td>
+</tr>
+<tr>
+<td>Alta</td>
+<td>8</td>
+</tr>
+<tr>
+<td>Media</td>
+<td>7</td>
+</tr>
+<tr>
+<td>Baja</td>
+<td>2</td>
+</tr>
+<tr>
+<td>Observación</td>
+<td>2</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Riesgo global: crítico.</strong> La aplicación no autentica las APIs de pacientes y
+triage, no autoriza por rol las rutas administrativas y conserva un secreto JWT
+por defecto. En conjunto, un atacante sin credenciales puede leer y modificar
+datos clínicos, y cualquiera con acceso al repositorio puede emitir un token de
+administrador.</p>
+<h3 id="hallazgos-consolidados">Hallazgos consolidados</h3>
+<table>
+<thead>
+<tr>
+<th>ID</th>
+<th>Severidad</th>
+<th>Hallazgo</th>
+<th>Referencias</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>H-01</td>
+<td>Crítica</td>
+<td>Secreto JWT por defecto y forja de tokens</td>
+<td>S-01, P-01</td>
+</tr>
+<tr>
+<td>H-02</td>
+<td>Crítica</td>
+<td>Lectura de pacientes y triage sin autenticación</td>
+<td>P-03</td>
+</tr>
+<tr>
+<td>H-03</td>
+<td>Crítica</td>
+<td>Escritura y altas sin autenticación</td>
+<td>P-04</td>
+</tr>
+<tr>
+<td>H-04</td>
+<td>Crítica</td>
+<td>Escalada de privilegios en <code>/admin/**</code></td>
+<td>P-02</td>
+</tr>
+<tr>
+<td>H-05</td>
+<td>Crítica</td>
+<td>Archivo <code>env</code> con credenciales reales</td>
+<td>S-02</td>
+</tr>
+<tr>
+<td>H-06</td>
+<td>Crítica</td>
+<td>Dependencias críticas vulnerables (Tomcat/FreeMarker)</td>
+<td>S-08, S-09</td>
+</tr>
+<tr>
+<td>H-07</td>
+<td>Alta</td>
+<td>XSS almacenado en pacientes y signos vitales</td>
+<td>P-05</td>
+</tr>
+<tr>
+<td>H-08</td>
+<td>Alta</td>
+<td>Mass assignment en signos vitales</td>
+<td>P-06</td>
+</tr>
+<tr>
+<td>H-09</td>
+<td>Alta</td>
+<td>IDOR en pacientes, triage e historias PDF</td>
+<td>P-07</td>
+</tr>
+<tr>
+<td>H-10</td>
+<td>Alta</td>
+<td>Agente IA sin autenticación expone datos clínicos</td>
+<td>P-08</td>
+</tr>
+<tr>
+<td>H-11</td>
+<td>Alta</td>
+<td>CORS permisivo con credenciales</td>
+<td>P-09</td>
+</tr>
+<tr>
+<td>H-12</td>
+<td>Alta</td>
+<td>2FA sin límite de intentos</td>
+<td>P-10</td>
+</tr>
+<tr>
+<td>H-13</td>
+<td>Alta</td>
+<td>Contraseña de aplicación de Gmail en el README</td>
+<td>S-03</td>
+</tr>
+<tr>
+<td>H-14</td>
+<td>Alta</td>
+<td>Dependencias altas vulnerables (Jackson/HttpComponents)</td>
+<td>S-10</td>
+</tr>
+<tr>
+<td>H-15</td>
+<td>Media</td>
+<td>Login sin bloqueo tras intentos fallidos</td>
+<td>P-11</td>
+</tr>
+<tr>
+<td>H-16</td>
+<td>Media</td>
+<td>Envío de correo sin autenticación</td>
+<td>P-12</td>
+</tr>
+<tr>
+<td>H-17</td>
+<td>Media</td>
+<td>Enumeración de usuarios</td>
+<td>P-13</td>
+</tr>
+<tr>
+<td>H-18</td>
+<td>Media</td>
+<td>Cabeceras de seguridad ausentes</td>
+<td>P-14, P-18</td>
+</tr>
+<tr>
+<td>H-19</td>
+<td>Media</td>
+<td>Infraestructura expuesta y credenciales de desarrollo</td>
+<td>S-05, P-19</td>
+</tr>
+<tr>
+<td>H-20</td>
+<td>Media</td>
+<td><code>show-sql</code> y secretos en logs</td>
+<td>S-04, S-06</td>
+</tr>
+<tr>
+<td>H-21</td>
+<td>Media</td>
+<td>Endpoint de voz del agente sin autenticación</td>
+<td>P-17</td>
+</tr>
+<tr>
+<td>H-22</td>
+<td>Baja</td>
+<td>Errores 500 por referencias inexistentes</td>
+<td>P-15</td>
+</tr>
+<tr>
+<td>H-23</td>
+<td>Baja</td>
+<td>Control de navegación solo en el cliente</td>
+<td>P-20</td>
+</tr>
+<tr>
+<td>H-24</td>
+<td>Observación</td>
+<td>Rol de analítica mal nombrado</td>
+<td>P-16</td>
+</tr>
+<tr>
+<td>H-25</td>
+<td>Observación</td>
+<td>Falso positivo de Power BI en gitleaks</td>
+<td>S-07</td>
+</tr>
+</tbody>
+</table>
+<h2 id="2-alcance-y-limitaciones">2. Alcance y limitaciones</h2>
+<p><strong>Incluido:</strong> gateway, seguridad, pacientes, triage, analítica, agente IA,
+frontend estático, PostgreSQL, pgAdmin, Eureka y Mailpit.</p>
+<p><strong>Excluido:</strong> <code>legacy/</code>, datos clínicos reales, producción y cualquier red
+externa al equipo local.</p>
+<p><strong>Limitaciones:</strong></p>
+<ul>
+<li>Las pruebas se ejecutaron sobre datos sintéticos y un entorno de desarrollo.</li>
+<li>El frontend se sirvió con <code>python -m http.server</code>; las cabeceras del servidor
+  definitivo pueden variar.</li>
+<li>ZAP se ejecutó en modo baseline (pasivo) sobre el frontend; la API se probó
+  manualmente con scripts reproducibles.</li>
+<li>El análisis SCA requirió el caché local de Maven porque Maven Central
+  respondió <code>429 Too Many Requests</code> durante la ejecución inicial.</li>
+<li>Trivy no detectó <code>docker-compose.yml</code>; la configuración de infraestructura se
+  revisó manualmente.</li>
+</ul>
+<h2 id="3-metodologia">3. Metodología</h2>
+<p>Se siguió PTES con apoyo de OWASP WSTG, OWASP API Security Top 10 2023, OWASP
+ASVS 4.0, ISO/IEC 27002:2022, CVSS 4.0 y STRIDE/DREAD. Cada hallazgo se
+reprodujo con una petición concreta y se documentó con una captura saneada.</p>
+<table>
+<thead>
+<tr>
+<th>Fase</th>
+<th>Actividad</th>
+<th>Resultado</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>0</td>
+<td>Entorno, snapshot, usuarios de prueba</td>
+<td>Completada</td>
+</tr>
+<tr>
+<td>1</td>
+<td>gitleaks, Semgrep, Trivy SCA</td>
+<td>22 vulnerabilidades únicas</td>
+</tr>
+<tr>
+<td>2</td>
+<td>Pentest manual de API y autenticación</td>
+<td>16 hallazgos</td>
+</tr>
+<tr>
+<td>3</td>
+<td>ZAP baseline, agente IA, infraestructura</td>
+<td>4 hallazgos</td>
+</tr>
+<tr>
+<td>4</td>
+<td>Contraste con casos previos</td>
+<td>Sin cambios relevantes</td>
+</tr>
+<tr>
+<td>5</td>
+<td>Informe y evidencias</td>
+<td>Este documento</td>
+</tr>
+</tbody>
+</table>
+<p>Los detalles de ejecución están en <code>seguridad/resultados/fase0-entorno.md</code>,
+<code>fase1-estatico.md</code>, <code>fase2-pentest.md</code> y <code>fase3-dast.md</code>.</p>
+<h2 id="4-arquitectura-y-superficie-de-ataque">4. Arquitectura y superficie de ataque</h2>
+<pre><code class="language-text">Navegador
+  └── frontend :5500
+        └── ms-gateway :8080
+              ├── ms-seguridad :8081
+              ├── ms-pacientes :8082
+              ├── ms-triage :8083
+              ├── ms-analitica :8084
+              └── ms-ia-agente :8088
+                    └── Groq API
+PostgreSQL :5433 · pgAdmin :5050 · Eureka :8761 · Mailpit :8025
+</code></pre>
+<p>Superficie principal: APIs REST sin autenticación en pacientes y triage, rutas
+administrativas sin autorización por rol, gateway sin validación global de JWT,
+frontend que confía en <code>sessionStorage</code> y en controles de navegación del cliente,
+y un agente IA con acceso a datos clínicos.</p>
+<h2 id="5-hallazgos-criticos">5. Hallazgos críticos</h2>
+<h3 id="h-01-secreto-jwt-por-defecto-y-forja-de-tokens">H-01 — Secreto JWT por defecto y forja de tokens</h3>
+<p><strong>Severidad:</strong> Crítica · <strong>CWE-798, CWE-347</strong> · <strong>OWASP API2:2023</strong></p>
+<p><code>ms-seguridad</code> y <code>ms-analitica</code> conservan un valor por defecto para
+<code>app.jwt.secret</code>. Con ese valor se firma un HS256 con <code>perfil=administrador</code> y
+se accede a <code>/ms-seguridad/admin/**</code> y a la analítica.</p>
+<ul>
+<li><code>GET /ms-seguridad/admin/personal</code> → <strong>200</strong> (2779 bytes).</li>
+<li><code>GET /ms-seguridad/admin/perfiles</code> → <strong>200</strong>.</li>
+<li><code>GET /ms-analitica/dashboard/resumen</code> → <strong>200</strong>.</li>
+<li>Firma incorrecta → <strong>401</strong>; token expirado → <strong>401</strong>; token sin <code>exp</code> → <strong>401</strong>.</li>
+</ul>
+<p><img alt="JWT forjado con el secreto por defecto" src="../evidencias/07_jwt_forjado_admin.png" /></p>
+<p><strong>Remediación:</strong> eliminar el fallback, exigir <code>APP_JWT_SECRET</code> desde el entorno,
+rotar el secreto y añadir validación de emisor/audiencia.</p>
+<h3 id="h-02-lectura-de-datos-clinicos-sin-autenticacion">H-02 — Lectura de datos clínicos sin autenticación</h3>
+<p><strong>Severidad:</strong> Crítica · <strong>CWE-306</strong> · <strong>OWASP API1/API2</strong></p>
+<p><code>ms-pacientes</code> y <code>ms-triage</code> no instalan filtro de seguridad y el gateway no
+valida el JWT globalmente.</p>
+<table>
+<thead>
+<tr>
+<th>Endpoint sin token</th>
+<th>HTTP</th>
+<th>Bytes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>GET /ms-pacientes/pacientes</code></td>
+<td>200</td>
+<td>2147</td>
+</tr>
+<tr>
+<td><code>GET /ms-pacientes/pacientes/buscar?q=0</code></td>
+<td>200</td>
+<td>1177</td>
+</tr>
+<tr>
+<td><code>GET /ms-pacientes/pacientes/signos-vitales/registro/1</code></td>
+<td>200</td>
+<td>2</td>
+</tr>
+<tr>
+<td><code>GET /ms-triage/triage/prioridad</code></td>
+<td>200</td>
+<td>1802</td>
+</tr>
+<tr>
+<td><code>GET /ms-triage/triage/1</code></td>
+<td>200</td>
+<td>429</td>
+</tr>
+</tbody>
+</table>
+<p><img alt="Pacientes sin token" src="../evidencias/11_pacientes_sin_token.png" /></p>
+<p><strong>Remediación:</strong> resource server con el mismo filtro JWT en ambos servicios y
+validación en el gateway.</p>
+<h3 id="h-03-escritura-y-altas-sin-autenticacion">H-03 — Escritura y altas sin autenticación</h3>
+<p><strong>Severidad:</strong> Crítica · <strong>CWE-306</strong> · <strong>OWASP API5</strong></p>
+<p>Sin token se creó un paciente (id 47), un episodio (id 61) y se dio el alta con
+diagnóstico y tratamiento arbitrarios: <code>PUT /ms-triage/triage/61/atendido</code> → 200,
+estado final <code>Atendido</code>.</p>
+<p><img alt="Escritura sin token" src="../evidencias/12_escritura_sin_token.png" /></p>
+<p><strong>Remediación:</strong> autenticación obligatoria, autorización por rol y validación de
+transiciones de estado.</p>
+<h3 id="h-04-escalada-de-privilegios-en-rutas-administrativas">H-04 — Escalada de privilegios en rutas administrativas</h3>
+<p><strong>Severidad:</strong> Crítica · <strong>CWE-862</strong> · <strong>OWASP API5</strong></p>
+<p>Un usuario <code>doctor_triage</code> creó una cuenta con <code>idPerfil=10</code> (administrador),
+inició sesión con ella y consultó <code>/admin/personal</code> con <strong>200</strong>.</p>
+<p><img alt="Escalada de privilegios" src="../evidencias/08_escalada_admin.png" /></p>
+<p><strong>Remediación:</strong> <code>hasRole('ADMINISTRADOR')</code> en <code>/ms-seguridad/admin/**</code> y
+separación de la gestión de usuarios.</p>
+<h3 id="h-05-credenciales-reales-en-el-archivo-env">H-05 — Credenciales reales en el archivo <code>env</code></h3>
+<p><strong>Severidad:</strong> Crítica · <strong>CWE-312</strong></p>
+<p>El archivo <code>env</code> (sin punto) contenía contraseña de aplicación de Gmail y clave
+de Groq, y no estaba en <code>.gitignore</code>. Se añadió la regla de exclusión; el
+archivo sigue en disco y debe moverse fuera del repositorio y rotarse.</p>
+<p><strong>Remediación:</strong> gestor de contraseñas, rotación de Gmail y Groq, y hook de
+gitleaks antes de cada commit.</p>
+<h3 id="h-06-dependencias-criticas-vulnerables">H-06 — Dependencias críticas vulnerables</h3>
+<p><strong>Severidad:</strong> Crítica · <strong>CWE-1104</strong> · <strong>OWASP A06:2021</strong></p>
+<p>Trivy reportó 22 vulnerabilidades únicas (4 críticas, 12 altas, 6 medias) en los
+siete módulos. Las críticas: tres en Tomcat 11.0.24 y una en FreeMarker 2.3.34.</p>
+<p><img alt="SCA con Trivy" src="../evidencias/19_sca_trivy.png" /></p>
+<p><strong>Remediación:</strong> Tomcat 11.0.25+, FreeMarker 2.3.35, Jackson y HttpComponents a
+las versiones corregidas; repetir el SCA.</p>
+<h2 id="6-hallazgos-altos">6. Hallazgos altos</h2>
+<h3 id="h-07-xss-almacenado">H-07 — XSS almacenado</h3>
+<p><strong>Severidad:</strong> Alta · <strong>CWE-79</strong> · <strong>OWASP A03:2021</strong></p>
+<p><code>pacientes.html</code> inserta nombre y apellido con <code>innerHTML</code>; <code>seguimiento.html</code>
+hace lo mismo con <code>descripcionSintoma</code>. Un paciente con
+<code>&lt;img src=x onerror=alert(1)&gt;</code> ejecutó <code>alert("1")</code> en ambas páginas.</p>
+<p><img alt="XSS en pacientes" src="../evidencias/15_xss_pacientes.png" /></p>
+<p><img alt="XSS en seguimiento" src="../evidencias/15b_xss_seguimiento.png" /></p>
+<p><strong>Remediación:</strong> <code>textContent</code>/<code>createElement</code>, codificación de salida y CSP.</p>
+<h3 id="h-08-mass-assignment-en-signos-vitales">H-08 — Mass assignment en signos vitales</h3>
+<p><strong>Severidad:</strong> Alta · <strong>CWE-915</strong> · <strong>OWASP API3:2023</strong></p>
+<p><code>POST /pacientes/signos-vitales</code> enlaza el JSON a la entidad <code>EstadoPaciente</code>.
+Se aceptó <code>idPersonal=9</code> (otro usuario); <code>idEstado</code> y <code>fechaHoraToma</code> fueron
+sobrescritos por el controlador. Un <code>idPersonal</code> inexistente produce <strong>500</strong>.</p>
+<p><img alt="Mass assignment" src="../evidencias/13_mass_assignment.png" /></p>
+<p><strong>Remediación:</strong> DTO con campos permitidos y <code>idPersonal</code> obtenido del token.</p>
+<h3 id="h-09-idor">H-09 — IDOR</h3>
+<p><strong>Severidad:</strong> Alta · <strong>CWE-639</strong> · <strong>OWASP API1:2023</strong></p>
+<p>Sin token: 6/20 pacientes, 9/20 episodios y 9/10 historias PDF respondieron 200.
+No existe verificación de propiedad ni de autenticación.</p>
+<p><img alt="IDOR" src="../evidencias/14_idor.png" /></p>
+<h3 id="h-10-agente-ia-sin-autenticacion">H-10 — Agente IA sin autenticación</h3>
+<p><strong>Severidad:</strong> Alta · <strong>CWE-306</strong> · <strong>OWASP API2:2023</strong></p>
+<p><code>POST /agente/preguntar</code> respondió 200 sin token y devolvió el conteo de la lista
+de espera, la mayor espera y el nombre del primer paciente (redactado en la
+evidencia). Las herramientas del agente consultan pacientes y triage sin token.</p>
+<p><img alt="Agente sin token" src="../evidencias/16_agente_sin_token.png" /></p>
+<p><strong>Remediación:</strong> exigir JWT, limitar herramientas al usuario autenticado y
+aplicar rate limiting.</p>
+<h3 id="h-11-cors-permisivo">H-11 — CORS permisivo</h3>
+<p><strong>Severidad:</strong> Alta · <strong>CWE-942</strong></p>
+<p><code>Origin: http://evil.local</code> fue reflejado con
+<code>Access-Control-Allow-Credentials: true</code> y métodos <code>GET,POST,PUT,DELETE,OPTIONS</code>.</p>
+<p><img alt="CORS permisivo" src="../evidencias/10_cors_permisivo.png" /></p>
+<p><strong>Remediación:</strong> lista blanca de orígenes y no habilitar credenciales sin
+necesidad.</p>
+<h3 id="h-12-2fa-sin-limite-de-intentos">H-12 — 2FA sin límite de intentos</h3>
+<p><strong>Severidad:</strong> Alta · <strong>CWE-307</strong></p>
+<p>Diez códigos incorrectos → 401; el código correcto después → 200. No hay
+bloqueo ni invalidación. El código es de un solo uso (reuso → 401), pero de seis
+dígitos y cinco minutos.</p>
+<p><img alt="2FA sin límite" src="../evidencias/09_2fa_sin_limite.png" /></p>
+<p><strong>Remediación:</strong> límite por usuario/IP, bloqueo temporal, <code>SecureRandom</code> y hash
+del código.</p>
+<h3 id="h-13-contrasena-de-aplicacion-de-gmail-en-el-readme">H-13 — Contraseña de aplicación de Gmail en el README</h3>
+<p><strong>Severidad:</strong> Alta · <strong>CWE-312</strong></p>
+<p>El README incluye una contraseña de aplicación de Gmail en texto plano. Debe
+considerarse comprometida y rotarse; gitleaks no la detectó por su formato.</p>
+<p><img alt="Secretos detectados" src="../evidencias/20_secretos_gitleaks.png" /></p>
+<h3 id="h-14-dependencias-altas-vulnerables">H-14 — Dependencias altas vulnerables</h3>
+<p><strong>Severidad:</strong> Alta · <strong>CWE-1104</strong></p>
+<p>Doce CVEs altas en Jackson (2.21.5 y 3.1.5) y HttpComponents (5.3.6). El detalle
+está en <code>resultados/trivy-sca-resumen-2026-10-19.csv</code>.</p>
+<h2 id="7-hallazgos-medios-y-bajos">7. Hallazgos medios y bajos</h2>
+<table>
+<thead>
+<tr>
+<th>ID</th>
+<th>Hallazgo</th>
+<th>Evidencia</th>
+<th>Remediación</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>H-15</td>
+<td>Login sin bloqueo tras 10 fallos</td>
+<td>—</td>
+<td>Rate limiting y bloqueo progresivo</td>
+</tr>
+<tr>
+<td>H-16</td>
+<td>Envío de correo sin autenticación</td>
+<td><code>17_correo_sin_token.png</code></td>
+<td>Exigir JWT y limitar destinatarios</td>
+</tr>
+<tr>
+<td>H-17</td>
+<td>Enumeración por “Usuario inactivo”</td>
+<td><code>18_enumeracion_usuarios.png</code></td>
+<td>Mensaje genérico y tiempos uniformes</td>
+</tr>
+<tr>
+<td>H-18</td>
+<td>Cabeceras de seguridad ausentes (ZAP)</td>
+<td><code>21_zap_baseline.png</code></td>
+<td>CSP, HSTS, X-Frame-Options, etc.</td>
+</tr>
+<tr>
+<td>H-19</td>
+<td>Eureka, pgAdmin y PostgreSQL expuestos</td>
+<td>—</td>
+<td>Limitar a localhost y credenciales fuertes</td>
+</tr>
+<tr>
+<td>H-20</td>
+<td><code>show-sql</code> y secretos en logs</td>
+<td>—</td>
+<td>Desactivar en producción y sanear logs</td>
+</tr>
+<tr>
+<td>H-21</td>
+<td>Voz del agente sin autenticación</td>
+<td>—</td>
+<td>Exigir JWT y limitar tamaño/rate</td>
+</tr>
+<tr>
+<td>H-22</td>
+<td>Errores 500 por referencias inexistentes</td>
+<td>—</td>
+<td>Devolver 400/404 controlados</td>
+</tr>
+<tr>
+<td>H-23</td>
+<td>Navegación controlada solo en el cliente</td>
+<td>—</td>
+<td>Autorización en el backend</td>
+</tr>
+<tr>
+<td>H-24</td>
+<td>Rol <code>coordinador_turnos</code> ≠ <code>COORDINACION</code></td>
+<td>—</td>
+<td>Unificar nombres de rol</td>
+</tr>
+<tr>
+<td>H-25</td>
+<td>Falso positivo de Power BI</td>
+<td>—</td>
+<td>Documentar y excluir en gitleaks</td>
+</tr>
+</tbody>
+</table>
+<h2 id="8-pruebas-sin-hallazgo">8. Pruebas sin hallazgo</h2>
+<table>
+<thead>
+<tr>
+<th>Prueba</th>
+<th>Resultado</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Inyección SQL en <code>buscar?q=</code></td>
+<td>200 con arreglo vacío; sin error de SQL</td>
+</tr>
+<tr>
+<td>Inyección SQL en <code>cedula/{valor}</code></td>
+<td>404</td>
+</tr>
+<tr>
+<td>Firma JWT incorrecta</td>
+<td>401</td>
+</tr>
+<tr>
+<td>JWT expirado</td>
+<td>401</td>
+</tr>
+<tr>
+<td>JWT sin <code>exp</code></td>
+<td>401</td>
+</tr>
+<tr>
+<td>Reutilización del código 2FA</td>
+<td>401</td>
+</tr>
+<tr>
+<td>Categoría de triage inexistente</td>
+<td>400</td>
+</tr>
+<tr>
+<td>Dashboards de analítica con rol incorrecto</td>
+<td>403</td>
+</tr>
+</tbody>
+</table>
+<p>La revisión de <code>DashboardRepository</code> confirma parámetros nombrados y nombres de
+columna fijos.</p>
+<h2 id="9-matriz-stridedread-resumen">9. Matriz STRIDE/DREAD (resumen)</h2>
+<table>
+<thead>
+<tr>
+<th>Componente</th>
+<th>S</th>
+<th>T</th>
+<th>R</th>
+<th>I</th>
+<th>D</th>
+<th>E</th>
+<th>Riesgo</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>ms-seguridad</td>
+<td>Alta</td>
+<td>Alta</td>
+<td>Media</td>
+<td>Alta</td>
+<td>Media</td>
+<td>Alta</td>
+<td>Crítico</td>
+</tr>
+<tr>
+<td>ms-pacientes</td>
+<td>Alta</td>
+<td>Alta</td>
+<td>Baja</td>
+<td>Alta</td>
+<td>Media</td>
+<td>Media</td>
+<td>Crítico</td>
+</tr>
+<tr>
+<td>ms-triage</td>
+<td>Alta</td>
+<td>Alta</td>
+<td>Baja</td>
+<td>Alta</td>
+<td>Media</td>
+<td>Media</td>
+<td>Crítico</td>
+</tr>
+<tr>
+<td>ms-gateway</td>
+<td>Media</td>
+<td>Media</td>
+<td>Baja</td>
+<td>Media</td>
+<td>Media</td>
+<td>Alta</td>
+<td>Alto</td>
+</tr>
+<tr>
+<td>ms-analitica</td>
+<td>Baja</td>
+<td>Baja</td>
+<td>Baja</td>
+<td>Media</td>
+<td>Baja</td>
+<td>Baja</td>
+<td>Medio</td>
+</tr>
+<tr>
+<td>ms-ia-agente</td>
+<td>Alta</td>
+<td>Media</td>
+<td>Media</td>
+<td>Alta</td>
+<td>Media</td>
+<td>Alta</td>
+<td>Alto</td>
+</tr>
+<tr>
+<td>Frontend</td>
+<td>Media</td>
+<td>Media</td>
+<td>Baja</td>
+<td>Alta</td>
+<td>Baja</td>
+<td>Media</td>
+<td>Alto</td>
+</tr>
+</tbody>
+</table>
+<h2 id="10-plan-de-remediacion-priorizado">10. Plan de remediación priorizado</h2>
+<table>
+<thead>
+<tr>
+<th>Prioridad</th>
+<th>Acción</th>
+<th>Hallazgos</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>Autenticar y autorizar pacientes/triage; validar JWT en el gateway</td>
+<td>H-02, H-03, H-09, H-23</td>
+</tr>
+<tr>
+<td>2</td>
+<td>Restringir <code>/admin/**</code> a administradores</td>
+<td>H-04</td>
+</tr>
+<tr>
+<td>3</td>
+<td>Eliminar y rotar el secreto JWT</td>
+<td>H-01</td>
+</tr>
+<tr>
+<td>4</td>
+<td>Mover <code>env</code> fuera del repo y rotar Gmail/Groq</td>
+<td>H-05, H-13</td>
+</tr>
+<tr>
+<td>5</td>
+<td>Actualizar Tomcat, FreeMarker, Jackson y HttpComponents</td>
+<td>H-06, H-14</td>
+</tr>
+<tr>
+<td>6</td>
+<td>Rate limiting y bloqueo en login/2FA</td>
+<td>H-12, H-15</td>
+</tr>
+<tr>
+<td>7</td>
+<td>Corregir XSS y mass assignment</td>
+<td>H-07, H-08</td>
+</tr>
+<tr>
+<td>8</td>
+<td>Autenticar y limitar el agente IA</td>
+<td>H-10, H-21</td>
+</tr>
+<tr>
+<td>9</td>
+<td>Restringir CORS y añadir cabeceras</td>
+<td>H-11, H-18</td>
+</tr>
+<tr>
+<td>10</td>
+<td>Endurecer infraestructura y manejo de errores</td>
+<td>H-19, H-20, H-22</td>
+</tr>
+</tbody>
+</table>
+<h2 id="11-conclusiones">11. Conclusiones</h2>
+<p>El prototipo prioriza la funcionalidad sobre la seguridad. La combinación de
+APIs sin autenticación, rutas administrativas sin autorización por rol y un
+secreto JWT versionado permite comprometer confidencialidad, integridad y
+disponibilidad de la información clínica sin credenciales. Las correcciones de
+las prioridades 1 a 4 son urgentes y de bajo esfuerzo; las restantes pueden
+planificarse como endurecimiento progresivo.</p>
+<p>Las pruebas se hicieron sobre datos sintéticos y un entorno local. No se
+utilizaron datos clínicos reales ni se enviaron correos fuera de Mailpit.</p>
+<h2 id="12-anexos">12. Anexos</h2>
+<ul>
+<li>Plan y metodología: <code>seguridad/PLAN.md</code>.</li>
+<li>Fase 0: <code>seguridad/resultados/fase0-entorno.md</code>.</li>
+<li>Fase 1: <code>seguridad/resultados/fase1-estatico.md</code>.</li>
+<li>Fase 2: <code>seguridad/resultados/fase2-pentest.md</code>.</li>
+<li>Fase 3: <code>seguridad/resultados/fase3-dast.md</code>.</li>
+<li>Evidencias: <code>seguridad/evidencias/</code>.</li>
+<li>Resultados crudos: <code>seguridad/resultados/</code>.</li>
+<li>Utilidades: <code>seguridad/utilidades/</code>.</li>
+</ul>
+</body>
+</html>
