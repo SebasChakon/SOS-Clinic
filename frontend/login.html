@@ -4,13 +4,15 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>SOS Clinic · Acceso al sistema</title>
+<meta name="description" content="Acceso del personal autorizado a SOS Clinic.">
+<link rel="icon" href="favicon.ico">
 <link rel="stylesheet" href="assets/estilos.css">
 <script src="assets/movimiento.js"></script>
 <style>
   /* Marca sobre el degradado */
   .layout-login .marca-login {
     display: flex; flex-direction: column; align-items: center; gap: 6px;
-    animation: bajar .6s cubic-bezier(.2, .7, .3, 1) both .12s;
+    animation: bajar .35s cubic-bezier(.2, .7, .3, 1) both .05s;
   }
   .layout-login .marca-fila { display: flex; align-items: baseline; gap: 10px; }
   .layout-login .marca-logo {
@@ -21,26 +23,37 @@
     color: transparent; -webkit-text-stroke: 1px var(--acento-claro);
   }
   .layout-login .marca-linea {
-    font-family: var(--mono); font-size: 10px; text-transform: uppercase;
-    letter-spacing: .2em; color: var(--acento-claro);
+    font-family: var(--mono); font-size: 11px; text-transform: uppercase;
+    letter-spacing: .18em; color: var(--acento-claro);
   }
 
-  /* Entradas suaves de la columna */
-  .layout-login .titular-login { animation: aparecer .6s ease both .22s; }
-  .layout-login .intro-login { animation: aparecer .6s ease both .32s; }
-  .layout-login .enlace-presentacion { animation: aparecer .6s ease both .44s; }
+  .layout-login .titular-login { animation: aparecer .35s ease both .08s; }
+  .layout-login .intro-login { animation: aparecer .35s ease both .12s; }
+  .layout-login .enlace-presentacion { animation: aparecer .35s ease both .16s; }
 
-  /* Lema del pie */
   .layout-login .lema-login {
     display: flex; align-items: center; margin: 0;
-    font-family: var(--mono); font-size: 13px; letter-spacing: .02em; color: var(--hueso);
-    animation: aparecer .6s ease both .5s;
+    font-family: var(--mono); font-size: 12.5px; letter-spacing: .02em; color: var(--hueso);
+    animation: aparecer .35s ease both .2s;
   }
   .layout-login .lema-comilla { color: var(--acento-claro); }
   .layout-login .lema-punto {
     width: 8px; height: 8px; border-radius: 50%; flex: none; margin-right: 10px;
-    background: var(--acento-claro); animation: parpadeoVista 2.4s ease-in-out infinite;
+    background: var(--acento-claro);
   }
+
+  .layout-login .tarjeta h2 { margin-bottom: 6px; }
+  .layout-login .tarjeta .sub { margin-bottom: 20px; }
+  .layout-login .mensaje:focus { outline: none; }
+  .layout-login .ayuda { margin-top: 6px; }
+
+  .layout-login .fila-botones {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-top: 8px;
+  }
+  .layout-login .fila-botones .boton-secundario { flex: 1 1 150px; }
 </style>
 </head>
 
@@ -56,41 +69,54 @@
       <span class="marca-linea">Sistema de Triage Inteligente</span>
     </div>
     <h1 class="titular-login">Acceso del personal de urgencias</h1>
-    <p class="intro-login">Ingresa con tu usuario y clave registrados para acceder al registro de pacientes y a la lista de priorizacion.</p>
+    <p class="intro-login">Ingresa con tu usuario y clave registrados para acceder al registro de pacientes y a la lista de priorización.</p>
   </header>
 
-  <div class="panel-form">
+  <main class="panel-form">
     <div class="tarjeta">
       <h2 id="tituloForm">Iniciar sesión</h2>
       <p class="sub" id="subtituloForm">Ingresa con tus credenciales de personal registrado.</p>
 
-      <form id="formLogin">
+      <form id="formLogin" novalidate>
         <div class="campo">
           <label for="usuario">Usuario</label>
-          <input type="text" id="usuario" placeholder="ana.triage" autocomplete="username" required>
+          <input type="text" id="usuario" name="usuario" placeholder="tu.usuario"
+                 autocomplete="username" autocapitalize="none" spellcheck="false" required>
         </div>
 
         <div class="campo">
           <label for="clave">Clave</label>
-          <input type="password" id="clave" placeholder="********" autocomplete="current-password" required>
+          <div class="campo-con-boton">
+            <input type="password" id="clave" name="clave" placeholder="Tu clave"
+                   autocomplete="current-password" required>
+            <button type="button" class="boton-ver" id="btnMostrarClave" aria-pressed="false" aria-label="Mostrar clave">Ver</button>
+          </div>
         </div>
 
         <button type="submit" id="btnEntrar" class="boton-primario boton-full">Entrar</button>
       </form>
 
-      <form id="formCodigo" style="display:none;">
+      <form id="formCodigo" hidden novalidate>
         <input type="hidden" id="usuarioParaCodigo">
         <div class="campo">
           <label for="codigoIngresado">Código de verificación</label>
-          <input type="text" id="codigoIngresado" placeholder="123456" maxlength="6" inputmode="numeric" required>
+          <input type="text" id="codigoIngresado" name="codigo"
+                 placeholder="123456" maxlength="6" inputmode="numeric" pattern="[0-9]{6}"
+                 autocomplete="one-time-code" autocapitalize="none" spellcheck="false"
+                 aria-describedby="ayudaCodigo" required>
+          <p class="ayuda" id="ayudaCodigo">El código vence en <span id="tiempoCodigo">05:00</span>.</p>
         </div>
+
         <button type="submit" id="btnVerificar" class="boton-primario boton-full">Verificar</button>
-        <button type="button" class="boton-secundario boton-full" style="margin-top:8px;" onclick="volverALogin()">Volver</button>
+        <div class="fila-botones">
+          <button type="button" class="boton-secundario" id="btnReenviar" onclick="reenviarCodigo()">Reenviar código</button>
+          <button type="button" class="boton-secundario" onclick="volverALogin()">Volver</button>
+        </div>
       </form>
 
-      <div class="mensaje" id="mensaje"></div>
+      <div class="mensaje" id="mensaje" tabindex="-1"></div>
     </div>
-  </div>
+  </main>
 
   <footer class="pie-login">
     <p class="lema-login"><span class="lema-punto"></span><span class="lema-comilla">«</span>A service made by the people for the people<span class="lema-comilla">»</span></p>
@@ -105,20 +131,117 @@
   const formCodigo = document.getElementById('formCodigo');
   const boton = document.getElementById('btnEntrar');
   const botonVerificar = document.getElementById('btnVerificar');
+  const botonReenviar = document.getElementById('btnReenviar');
+  const campoCodigo = document.getElementById('codigoIngresado');
 
-  // Si ya hay una sesion activa, no tiene sentido mostrar el login de nuevo
+  let credencialesPendientes = null;
+  let intervaloCuenta = null;
+  let intervaloReenvio = null;
+
+  // Si ya hay una sesión activa, no tiene sentido mostrar el login de nuevo.
   if (haySesion()) {
     const sesion = obtenerSesion();
     window.location.href = primerDestinoValido(sesion.actividades) || 'login.html';
   }
 
+  const motivo = new URLSearchParams(window.location.search).get('motivo');
+  if (motivo === 'sesion-expirada') {
+    mostrarMensaje('mensaje', 'Tu sesión expiró. Vuelve a iniciar sesión.', 'error');
+  } else if (motivo === 'sin-actividades') {
+    mostrarMensaje('mensaje', 'Tu usuario no tiene ninguna pantalla asignada. Contacta al coordinador de turnos.', 'error');
+  }
+
+  document.getElementById('btnMostrarClave').addEventListener('click', () => {
+    const campo = document.getElementById('clave');
+    const botonVer = document.getElementById('btnMostrarClave');
+    const mostrando = campo.type === 'text';
+    campo.type = mostrando ? 'password' : 'text';
+    botonVer.textContent = mostrando ? 'Ver' : 'Ocultar';
+    botonVer.setAttribute('aria-pressed', String(!mostrando));
+    botonVer.setAttribute('aria-label', mostrando ? 'Mostrar clave' : 'Ocultar clave');
+  });
+
+  function detenerCuentaRegresiva() {
+    clearInterval(intervaloCuenta);
+    clearInterval(intervaloReenvio);
+    intervaloCuenta = null;
+    intervaloReenvio = null;
+  }
+
+  function iniciarCuentaRegresiva(segundos = 300) {
+    clearInterval(intervaloCuenta);
+    let restantes = segundos;
+    const salida = document.getElementById('tiempoCodigo');
+
+    const pintar = () => {
+      const minutos = Math.floor(restantes / 60);
+      const segundosRestantes = restantes % 60;
+      salida.textContent = `${String(minutos).padStart(2, '0')}:${String(segundosRestantes).padStart(2, '0')}`;
+      if (restantes <= 0) {
+        salida.textContent = 'código vencido';
+        clearInterval(intervaloCuenta);
+        botonReenviar.disabled = false;
+      }
+      restantes--;
+    };
+
+    pintar();
+    intervaloCuenta = setInterval(pintar, 1000);
+  }
+
+  function iniciarEsperaReenvio(segundos = 30) {
+    clearInterval(intervaloReenvio);
+    let restantes = segundos;
+    botonReenviar.disabled = true;
+
+    const pintar = () => {
+      if (restantes <= 0) {
+        botonReenviar.disabled = false;
+        botonReenviar.textContent = 'Reenviar código';
+        clearInterval(intervaloReenvio);
+        return;
+      }
+      botonReenviar.textContent = `Reenviar en ${restantes} s`;
+      restantes--;
+    };
+
+    pintar();
+    intervaloReenvio = setInterval(pintar, 1000);
+  }
+
+  function mostrarPasoCodigo(usuario) {
+    formLogin.hidden = true;
+    formCodigo.hidden = false;
+    document.getElementById('usuarioParaCodigo').value = usuario;
+    document.getElementById('tituloForm').textContent = 'Verificación en dos pasos';
+    document.getElementById('subtituloForm').textContent = 'Revisa tu correo e ingresa el código de 6 dígitos.';
+    mostrarMensaje('mensaje', 'Te enviamos un código a tu correo registrado. Expira en 5 minutos.', 'exito');
+    iniciarCuentaRegresiva(300);
+    iniciarEsperaReenvio(30);
+    campoCodigo.focus();
+  }
+
+  function volverALogin() {
+    detenerCuentaRegresiva();
+    credencialesPendientes = null;
+    formCodigo.hidden = true;
+    formLogin.hidden = false;
+    document.getElementById('tituloForm').textContent = 'Iniciar sesión';
+    document.getElementById('subtituloForm').textContent = 'Ingresa con tus credenciales de personal registrado.';
+    document.getElementById('codigoIngresado').value = '';
+    limpiarMensaje('mensaje');
+    document.getElementById('usuario').focus();
+  }
+
   formLogin.addEventListener('submit', async (evento) => {
     evento.preventDefault();
+    limpiarMensaje('mensaje');
+
+    if (!formLogin.reportValidity()) return;
 
     const usuario = document.getElementById('usuario').value.trim();
     const clave = document.getElementById('clave').value;
 
-    limpiarMensaje('mensaje');
     boton.disabled = true;
     boton.textContent = 'Verificando...';
 
@@ -126,62 +249,52 @@
       const datos = await login(usuario, clave);
 
       if (datos.requiere2fa) {
+        credencialesPendientes = { usuario, clave };
         mostrarPasoCodigo(usuario);
         return;
       }
 
+      credencialesPendientes = null;
       const destino = primerDestinoValido(datos.actividades);
 
       if (!destino) {
         mostrarMensaje('mensaje', 'Tu usuario no tiene ninguna pantalla asignada. Contacta al coordinador de turnos.', 'error');
+        document.getElementById('mensaje').focus();
         return;
       }
 
-      mostrarMensaje('mensaje', `Sesion iniciada como ${datos.usuario} (perfil: ${datos.perfil}). Redirigiendo...`, 'exito');
+      mostrarMensaje('mensaje', `Sesión iniciada como ${datos.usuario} (perfil: ${datos.perfil}). Redirigiendo...`, 'exito');
       setTimeout(() => { window.location.href = destino; }, 700);
     } catch (error) {
       mostrarMensaje('mensaje', error.message, 'error');
+      document.getElementById('mensaje').focus();
     } finally {
       boton.disabled = false;
       boton.textContent = 'Entrar';
     }
   });
 
-  function mostrarPasoCodigo(usuario) {
-    formLogin.style.display = 'none';
-    formCodigo.style.display = 'block';
-    document.getElementById('usuarioParaCodigo').value = usuario;
-    document.getElementById('tituloForm').textContent = 'Verificación en dos pasos';
-    document.getElementById('subtituloForm').textContent = 'Revisa tu correo e ingresa el código de 6 dígitos.';
-    mostrarMensaje('mensaje', 'Te enviamos un código a tu correo registrado. Expira en 5 minutos.', 'exito');
-    document.getElementById('codigoIngresado').focus();
-  }
-
-  function volverALogin() {
-    formCodigo.style.display = 'none';
-    formLogin.style.display = 'block';
-    document.getElementById('tituloForm').textContent = 'Iniciar sesión';
-    document.getElementById('subtituloForm').textContent = 'Ingresa con tus credenciales de personal registrado.';
-    document.getElementById('codigoIngresado').value = '';
-    limpiarMensaje('mensaje');
-  }
-
   formCodigo.addEventListener('submit', async (evento) => {
     evento.preventDefault();
+    limpiarMensaje('mensaje');
+
+    if (!formCodigo.reportValidity()) return;
 
     const usuario = document.getElementById('usuarioParaCodigo').value;
-    const codigo = document.getElementById('codigoIngresado').value.trim();
+    const codigo = campoCodigo.value.trim();
 
-    limpiarMensaje('mensaje');
     botonVerificar.disabled = true;
     botonVerificar.textContent = 'Verificando...';
 
     try {
       const datos = await verificarCodigo2fa(usuario, codigo);
-      const destino = primerDestinoValido(datos.actividades);
+      credencialesPendientes = null;
+      detenerCuentaRegresiva();
 
+      const destino = primerDestinoValido(datos.actividades);
       if (!destino) {
         mostrarMensaje('mensaje', 'Tu usuario no tiene ninguna pantalla asignada. Contacta al coordinador de turnos.', 'error');
+        document.getElementById('mensaje').focus();
         return;
       }
 
@@ -189,11 +302,44 @@
       setTimeout(() => { window.location.href = destino; }, 700);
     } catch (error) {
       mostrarMensaje('mensaje', error.message, 'error');
+      document.getElementById('mensaje').focus();
+      campoCodigo.select();
     } finally {
       botonVerificar.disabled = false;
       botonVerificar.textContent = 'Verificar';
     }
   });
+
+  async function reenviarCodigo() {
+    limpiarMensaje('mensaje');
+    if (!credencialesPendientes) {
+      mostrarMensaje('mensaje', 'No pudimos reenviar el código. Vuelve a iniciar sesión.', 'error');
+      return;
+    }
+
+    botonReenviar.disabled = true;
+    try {
+      const datos = await login(credencialesPendientes.usuario, credencialesPendientes.clave);
+      if (datos.requiere2fa) {
+        mostrarMensaje('mensaje', 'Te enviamos un código nuevo. Revisa tu correo.', 'exito');
+        iniciarCuentaRegresiva(300);
+        iniciarEsperaReenvio(30);
+        campoCodigo.focus();
+      } else {
+        // La cuenta dejó de exigir 2FA: iniciar sesión normalmente.
+        const destino = primerDestinoValido(datos.actividades);
+        if (destino) {
+          window.location.href = destino;
+        } else {
+          mostrarMensaje('mensaje', 'Tu usuario no tiene ninguna pantalla asignada. Contacta al coordinador de turnos.', 'error');
+        }
+      }
+    } catch (error) {
+      mostrarMensaje('mensaje', error.message, 'error');
+      botonReenviar.disabled = false;
+      botonReenviar.textContent = 'Reenviar código';
+    }
+  }
 </script>
 
 </body>

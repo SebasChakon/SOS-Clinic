@@ -1,0 +1,217 @@
+\section{Pruebas realizadas}
+\label{sec:pruebas}
+
+La evaluación se ejecutó en seis fases. La tabla~\ref{tab:fases} resume la
+actividad y el resultado de cada una; el detalle de comandos y salidas crudas está
+en \texttt{seguridad/resultados/}.
+
+\begin{table}[htbp]
+\centering
+\caption{Fases de la evaluación y resultado principal.}
+\label{tab:fases}
+\small
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{@{}L{1.6cm}L{7.0cm}L{6.7cm}@{}}
+\toprule
+\textbf{Fase} & \textbf{Actividad} & \textbf{Resultado}\\
+\midrule
+0 & Preparación del entorno, snapshot, usuarios de prueba y baseline. & 7 servicios arriba; 4 usuarios; baseline con y sin token.\\
+1 & gitleaks, Semgrep, Trivy SCA y revisión manual de configuración. & 22 CVEs únicas; 7 hallazgos manuales; 0 hallazgos Semgrep.\\
+2 & Pentest manual de API y autenticación. & 16 hallazgos P-01 a P-16.\\
+3 & ZAP baseline, XSS con Playwright, agente IA e infraestructura. & 4 hallazgos nuevos P-17 a P-20; ZAP sin alertas altas.\\
+4 & Contraste y regresión de casos previos. & Sin cambios relevantes; no se aplicaron correcciones.\\
+5 & Consolidación, evidencias y redacción del informe. & 25 temas únicos; 16 capturas; reporte PDF.\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Línea base y análisis estático}
+
+La línea base confirmó que el gateway responde y que los servicios se registran en
+Eureka. También dejó ver la diferencia de protección entre módulos: seguridad y
+analítica responden \texttt{401} sin token, mientras pacientes y triage responden
+\texttt{200}. La tabla~\ref{tab:baseline} reproduce los casos más relevantes.
+
+\begin{table}[htbp]
+\centering
+\caption{Línea base de peticiones sin token (2026-10-19).}
+\label{tab:baseline}
+\small
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{@{}L{9.0cm}C{1.3cm}C{1.5cm}L{3.4cm}@{}}
+\toprule
+\textbf{Endpoint} & \textbf{HTTP} & \textbf{Bytes} & \textbf{Observación}\\
+\midrule
+GET \path{/ms-pacientes/pacientes} & 200 & 2147 & Lista completa sin autenticación.\\
+GET \path{/ms-pacientes/pacientes/buscar?q=0} & 200 & 1177 & Búsqueda sin token.\\
+GET \path{/ms-pacientes/pacientes/signos-vitales/registro/1} & 200 & 2 & Lectura de signos vitales.\\
+GET \path{/ms-triage/triage/prioridad} & 200 & 1802 & Lista de espera.\\
+GET \path{/ms-triage/triage/1} & 200 & 429 & Episodio clínico.\\
+GET \path{/ms-seguridad/admin/personal} & 401 & 0 & Protegido sin token.\\
+GET \path{/ms-analitica/dashboard/resumen} & 401 & 0 & Protegido sin token.\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}[htbp]
+\centering
+\caption{Herramientas de análisis estático y resultados.}
+\label{tab:estatico}
+\small
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{@{}L{4.1cm}L{6.7cm}L{4.5cm}@{}}
+\toprule
+\textbf{Herramienta} & \textbf{Alcance} & \textbf{Resultado}\\
+\midrule
+gitleaks (historial) & Historial Git del repositorio. & 2 hallazgos; ambos el mismo enlace de Power BI.\\
+gitleaks (árbol) & Árbol de trabajo, con configuración local. & 3 hallazgos: 2 enlaces Power BI y 1 archivo \texttt{env}.\\
+Semgrep OWASP/Java & 308 reglas, 226 archivos. & 0 hallazgos.\\
+Semgrep security-audit & 159 reglas, 227 archivos. & 0 hallazgos.\\
+Trivy SCA & \texttt{pom.xml} de los siete módulos. & 22 vulnerabilidades únicas: 4 críticas, 12 altas y 6 medias.\\
+Trivy config & \texttt{infra/}. & 0 archivos; Trivy no evaluó \texttt{docker-compose.yml}.\\
+Revisión manual & Configuración, JWT, CORS, logs y Compose. & 7 hallazgos S-01 a S-07.\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+gitleaks marcó dos enlaces públicos de Power BI como falsos positivos de
+\texttt{grafana-api-key} y detectó un archivo \texttt{env} real con credenciales
+locales. El archivo se añadió a \texttt{.gitignore}, pero sigue en disco; el
+historial contiene el mismo enlace de Power BI en commits anteriores.
+
+El SCA detectó 22 vulnerabilidades únicas. Las cuatro críticas son
+CVE-2026-65182, CVE-2026-65905 y CVE-2026-68525 en Tomcat 11.0.24 (corregidas en
+11.0.25), y CVE-2026-84939 en FreeMarker 2.3.34 (corregida en 2.3.35). Las altas
+afectan a Jackson y HttpComponents; el anexo~\ref{app:sca} agrupa las 22 por
+paquete y versión.
+
+\subsection{Pentest manual de API}
+
+La matriz principal de pruebas de API se presenta en la
+tabla~\ref{tab:matriz}. Las pruebas se ejecutaron con PowerShell y Postman contra
+\texttt{http://localhost:8080}; los recorridos de IDOR y los smoke tests quedaron
+en CSV dentro de \texttt{seguridad/resultados/}.
+
+{\small
+\begin{longtable}{@{}L{1.0cm}L{5.8cm}L{3.7cm}L{4.5cm}@{}}
+\caption{Matriz de pruebas manuales de API y resultado.}
+\label{tab:matriz}\\
+\toprule
+\textbf{ID} & \textbf{Prueba} & \textbf{Referencia} & \textbf{Resultado}\\
+\midrule
+\endfirsthead
+\toprule
+\textbf{ID} & \textbf{Prueba} & \textbf{Referencia} & \textbf{Resultado}\\
+\midrule
+\endhead
+\bottomrule
+\endlastfoot
+A-01 & Pacientes sin token & API1/API2, CWE-306 & 200; H-02.\\
+A-02 & Triage sin token & CWE-306 & 200; H-02.\\
+A-03 & Enumeración de usuarios en login & WSTG-IDNT & Confirmado; H-17.\\
+A-05 & Fuerza bruta y reutilización de 2FA & CWE-307/798 & Confirmado; H-12.\\
+A-06 & Forja de JWT con el secreto por defecto & CWE-798/347 & Confirmado; H-01.\\
+A-09 & Token de perfil ordinario contra \texttt{/admin/**} & API5, CWE-862 & 200; H-04.\\
+A-11 & IDOR en pacientes, triage e historias PDF & API1, CWE-639 & Confirmado; H-09.\\
+A-12 & Mass assignment en signos vitales & API3, CWE-915 & Confirmado; H-08.\\
+A-13 & CORS con origen arbitrario y credenciales & CWE-942 & Confirmado; H-11.\\
+A-16 & Abuso de endpoints de correo & API4 & Confirmado; H-16.\\
+A-19 & Cabeceras de seguridad ausentes & WSTG-CONF & Confirmado; H-18.\\
+A-20 & Acceso directo a páginas sin actividad asignada & WSTG-ATHZ & Confirmado; H-23.\\
+\end{longtable}
+}
+
+La matriz completa A-01 a A-20, incluidas las pruebas sin hallazgo y los controles
+negativos de JWT, está en el repositorio. El recorrido de IDOR sin token obtuvo
+\texttt{200} en 6 de 20 pacientes, 9 de 20 episodios de triage y 9 de 10 historias
+PDF. El detalle está en
+\path{idor-pacientes-2026-10-19.csv}, \path{idor-triage-2026-10-19.csv} e
+\path{idor-historias-2026-10-19.csv}. En 2FA, diez códigos incorrectos
+(\texttt{000000} a \texttt{000009}) devolvieron \texttt{401}; el código correcto
+inmediatamente después devolvió \texttt{200} y un JWT válido.
+
+\subsection{DAST, frontend y agente IA}
+
+ZAP 2.17.0 se ejecutó en modo baseline sobre
+\texttt{http://host.docker.internal:5500/index.html}. El resultado fue 0 alertas
+altas, 3 medias, 7 bajas, 1 informativa y 58 pruebas superadas. La
+tabla~\ref{tab:zap} lista las alertas; el reporte completo está en
+\texttt{zap-baseline-frontend-2026-10-19.html}.
+
+\begin{table}[htbp]
+\centering
+\caption{Alertas del ZAP baseline sobre el frontend.}
+\label{tab:zap}
+\small
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{@{}L{1.7cm}L{7.6cm}C{1.7cm}L{3.3cm}@{}}
+\toprule
+\textbf{Riesgo} & \textbf{Alerta} & \textbf{Instancias} & \textbf{Observación}\\
+\midrule
+\media{Media} & Content Security Policy (CSP) Header Not Set & 5 & Sin CSP.\\
+\media{Media} & Missing Anti-clickjacking Header & 3 & Sin \texttt{X-Frame-Options}.\\
+\media{Media} & Sub Resource Integrity Attribute Missing & 2 & Recursos externos sin SRI.\\
+\baja{Baja} & Cross-Domain JavaScript Source File Inclusion & 2 & Inclusión entre dominios.\\
+\baja{Baja} & Cross-Origin-Embedder-Policy Header Missing or Invalid & 2 & Sin COEP.\\
+\baja{Baja} & Cross-Origin-Opener-Policy Header Missing or Invalid & 2 & Sin COOP.\\
+\baja{Baja} & Cross-Origin-Resource-Policy Header Missing or Invalid & 3 & Sin CORP.\\
+\baja{Baja} & Permissions Policy Header Not Set & 5 & Sin cabecera.\\
+\baja{Baja} & Server Leaks Version Information & 5 & Fuga del servidor de pruebas.\\
+\baja{Baja} & X-Content-Type-Options Header Missing & 5 & Sin \texttt{nosniff}.\\
+\obs{Info.} & Storable and Cacheable Content & 5 & Contenido cacheable.\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+En el frontend se confirmó XSS almacenado en dos flujos. \texttt{pacientes.html}
+inserta \texttt{nombre} y \texttt{apellido} con \texttt{innerHTML};
+\texttt{seguimiento.html} hace lo mismo con \texttt{descripcionSintoma} (línea
+363). El payload \texttt{<img src=x onerror=alert(1)>} se registró en un paciente
+sin token y en los signos vitales del episodio 61. Playwright abrió ambas páginas
+y capturó el diálogo \texttt{alert("1")}; el resultado está en
+\texttt{xss-dialogos.json} y en las figuras~\ref{fig:xss-pacientes} y
+\ref{fig:xss-seguimiento}.
+
+El control de navegación del frontend se implementa en
+\path{frontend/assets/api.js} mediante \path{exigirSesion()}. Es una
+verificación de cliente: se puede omitir navegando directamente a la página y no
+sustituye la autorización del backend. Además, el JWT se guarda en
+\texttt{sessionStorage}, por lo que un XSS puede extraerlo.
+
+En el agente IA, \texttt{POST /ms-ia-agente/agente/preguntar} respondió sin token
+y devolvió el conteo de la lista de espera, la mayor espera y el nombre del primer
+paciente (redactado en la evidencia). \texttt{/agente/transcribir} también está
+abierto: un WAV silencioso de 0,2 s devolvió \texttt{500} desde el procesamiento
+de Groq, no desde un rechazo de autenticación.
+
+\subsection{Pruebas sin hallazgo}
+
+\begin{table}[htbp]
+\centering
+\caption{Pruebas ejecutadas que no produjeron un hallazgo explotable.}
+\label{tab:sin-hallazgo}
+\small
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{@{}L{8.7cm}L{6.4cm}@{}}
+\toprule
+\textbf{Prueba} & \textbf{Resultado}\\
+\midrule
+Inyección SQL en \texttt{buscar?q=} & 200 con arreglo vacío; sin error SQL.\\
+Inyección SQL en \texttt{cedula/\{valor\}} & 404.\\
+Firma JWT incorrecta & 401.\\
+JWT expirado & 401.\\
+JWT sin \texttt{exp} & 401.\\
+Reutilización del código 2FA & 401; el código es de un solo uso.\\
+Categoría de triage inexistente & 400; manejo correcto.\\
+Dashboards de analítica con rol incorrecto & 403.\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+La revisión del repositorio de analítica confirmó el uso de parámetros nombrados
+(\texttt{:desde}, \texttt{:hasta}, \texttt{:localidad}, \texttt{:turno}) y
+nombres de columna fijos. La ausencia de hallazgos en Semgrep
+no demuestra ausencia de vulnerabilidades: la revisión manual encontró el secreto
+JWT, la contraseña del README, CORS permisivo y la falta de autorización que las
+reglas no cubrieron.
+

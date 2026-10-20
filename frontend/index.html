@@ -4,8 +4,11 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>SOS Clinic · Sistema de Triage Inteligente</title>
+<meta name="description" content="SOS Clinic: registro, priorización y seguimiento de pacientes en urgencias.">
+<link rel="icon" href="favicon.ico">
 <link rel="stylesheet" href="assets/estilos.css">
 <script src="assets/movimiento.js"></script>
+<noscript><style>[data-reveal]{opacity:1 !important;transform:none !important;}</style></noscript>
 <style>
   html { scroll-behavior: smooth; }
   .seccion, .banda-datos, .cinta { scroll-margin-top: 84px; }
@@ -25,7 +28,8 @@
   .topbar-landing { position: sticky; top: 0; z-index: 50; border-bottom: 1px solid rgba(77, 87, 87, .6); }
   .topbar-landing nav a.activa { color: var(--hueso); border-color: var(--acento-claro); }
   .boton-mini {
-    font-family: var(--mono); font-size: 11.5px; text-transform: uppercase; letter-spacing: .05em;
+    display: inline-flex; align-items: center; min-height: 44px;
+    font-family: var(--fuente); font-size: 13px; text-transform: none; letter-spacing: 0;
     color: #fff; background: var(--acento); border-radius: var(--radio-boton);
     padding: 9px 15px; text-decoration: none; white-space: nowrap;
     transition: background .15s ease;
@@ -230,9 +234,12 @@
     color: #ffffff;
   }
 
+  .acciones-video { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
   .boton-sonido {
+    min-height: 44px;
     border: 1px solid #4d5757; background: transparent; color: var(--sobre-tinta);
     border-radius: var(--radio-boton); padding: 9px 16px;
+    font-family: var(--fuente); font-size: 13px; text-transform: none; letter-spacing: 0;
   }
   .boton-sonido:hover { border-color: var(--acento-claro); color: var(--hueso); }
 
@@ -428,15 +435,23 @@
      Adaptación a pantallas pequeñas
      ------------------------------------------------------------------ */
   @media (max-width: 980px) {
-    .hero-interior { grid-template-columns: 1fr; gap: 52px; padding: 72px 24px 68px; }
-    .marco-telefono { order: -1; }
+    .hero-interior { grid-template-columns: 1fr; gap: 52px; padding: 64px 24px 60px; }
     .banda-interior { grid-template-columns: repeat(2, 1fr); gap: 24px; padding: 44px 24px; }
     .seccion-interior { padding: 64px 24px; }
     .pasos { grid-template-columns: repeat(2, 1fr); }
     .paso-cabeza { margin-bottom: 28px; }
-    .topbar-landing .marca { display: none; }
   }
+  @media (max-width: 760px) {
+    .topbar-landing nav { display: none; }
+    .topbar-landing .boton-mini { margin-left: auto; }
+    .hero-interior { padding-top: 48px; }
+    .marco-telefono { width: 100%; }
+    .telefono { width: min(280px, 72vw); }
+  }
+
   @media (max-width: 600px) {
+    .topbar-landing .marca-sub { display: none; }
+    .topbar-landing .marca { font-size: 12px; }
     .pasos { grid-template-columns: 1fr; }
     .banda-interior { grid-template-columns: 1fr 1fr; }
     .dato-numero { font-size: 34px; }
@@ -459,10 +474,12 @@
 
 <body>
 
+<a class="skip-link" href="#contenidoPrincipal">Saltar al contenido</a>
+
 <div class="barra-progreso" id="barraProgreso" aria-hidden="true"></div>
 
 <header class="topbar topbar-landing">
-  <div class="marca"><strong>SOS Clinic</strong> · Sistema de Triage Inteligente</div>
+  <div class="marca"><strong>SOS Clinic</strong> <span class="marca-sub">· Sistema de Triage Inteligente</span></div>
   <nav>
     <a href="#como-funciona">Flujo</a>
     <a href="#microservicios">Arquitectura</a>
@@ -472,7 +489,7 @@
   <a class="boton-mini" href="login.html">Iniciar sesión</a>
 </header>
 
-<main>
+<main id="contenidoPrincipal">
 
   <!-- ================= HERO ================= -->
   <section class="hero">
@@ -483,7 +500,7 @@
         <p class="kicker" data-reveal>Urgencias hospitalarias · Bogotá</p>
         <h1 class="hero-titulo">
           <span class="linea" data-reveal style="--d:.1s">El triage de urgencias,</span>
-          <span class="linea" data-reveal style="--d:.22s"><span class="acento">en tiempo real.</span></span>
+          <span class="linea" data-reveal style="--d:.22s"><span class="acento">en un solo flujo.</span></span>
         </h1>
         <p class="hero-parrafo" data-reveal style="--d:.34s">
           Registro de llegada, clasificación por prioridad, seguimiento clínico y notificación al
@@ -510,7 +527,8 @@
             <div id="reelSOS" title="Video del proyecto SOS en YouTube Shorts"></div>
           </div>
           <div class="marco-fallback" id="respaldoReel" hidden>
-            <video id="videoLocal" src="assets/reel.mp4" muted loop playsinline preload="metadata"
+            <video id="videoLocal" src="assets/reel.mp4" muted loop playsinline preload="none"
+                   poster="https://i.ytimg.com/vi/FK6m8qrQHuQ/oar2.jpg"
                    title="Video del proyecto SOS"></video>
             <div class="capa-aviso" id="capaAviso" hidden>
               <img id="miniaturaReel"
@@ -524,7 +542,10 @@
             </div>
           </div>
         </div>
-        <button class="boton-sonido" id="btnSonido" type="button" onclick="alternarSonido()">Activar sonido</button>
+        <div class="acciones-video">
+          <button class="boton-sonido" id="btnPausaVideo" type="button" aria-pressed="false" onclick="alternarPausaVideo()" disabled>Pausar video</button>
+          <button class="boton-sonido" id="btnSonido" type="button" aria-pressed="false" onclick="alternarSonido()" disabled>Activar sonido</button>
+        </div>
       </div>
     </div>
   </section>
@@ -545,8 +566,8 @@
         <span class="dato-etiqueta">Refresco de la lista de espera</span>
       </div>
       <div class="dato" data-reveal style="--d:.3s">
-        <span class="dato-numero" data-contador="100" data-sufijo=" %">100 %</span>
-        <span class="dato-etiqueta">Historia clínica digital</span>
+        <span class="dato-numero" data-contador="3" data-sufijo=" correos">3 correos</span>
+        <span class="dato-etiqueta">Notificaciones por alta</span>
       </div>
     </div>
   </section>
@@ -726,7 +747,7 @@
   </div>
 </footer>
 
-<script src="https://www.youtube.com/iframe_api"></script>
+<script src="https://www.youtube.com/iframe_api" defer></script>
 <script>
   /* ------------------------------------------------------------------
      Revelado de secciones al desplazar
@@ -741,6 +762,12 @@
   }, { threshold: 0.15, rootMargin: '0px 0px -8% 0px' });
   document.querySelectorAll('[data-reveal]').forEach((elemento) => observador.observe(elemento));
 
+  // Red de seguridad: si el observador no llega a ejecutarse o el navegador no lo soporta,
+  // el contenido no debe quedar invisible.
+  setTimeout(() => {
+    document.querySelectorAll('[data-reveal]:not(.revelado)').forEach((elemento) => elemento.classList.add('revelado'));
+  }, 2500);
+
   /* ------------------------------------------------------------------
      Contadores animados de la banda de datos
      ------------------------------------------------------------------ */
@@ -751,6 +778,12 @@
       observadorContadores.unobserve(elemento);
       const objetivo = Number(elemento.dataset.contador);
       const sufijo = elemento.dataset.sufijo || '';
+      const reducir = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+        && !document.documentElement.classList.contains('movimiento');
+      if (reducir) {
+        elemento.textContent = objetivo + sufijo;
+        return;
+      }
       const inicio = performance.now();
       const duracion = 1500;
       function paso(ahora) {
@@ -846,14 +879,22 @@
     reproductor = new YT.Player('reelSOS', {
       videoId: ID_REEL,
       playerVars: {
-        autoplay: 1, mute: 1, loop: 1, playlist: ID_REEL,
+        autoplay: sinMovimiento ? 0 : 1, mute: 1, loop: 1, playlist: ID_REEL,
         playsinline: 1, rel: 0, modestbranding: 1, iv_load_policy: 3
       },
       events: {
         onReady: (evento) => {
           document.body.dataset.reel = 'listo';
+          document.getElementById('btnPausaVideo').disabled = false;
+          document.getElementById('btnSonido').disabled = false;
           evento.target.mute();
-          evento.target.playVideo();
+          if (!sinMovimiento) {
+            evento.target.playVideo();
+            actualizarBotonPausa(false);
+          } else {
+            document.getElementById('textoReel').textContent = 'Video pausado — toca reproducir';
+            actualizarBotonPausa(true);
+          }
         },
         onStateChange: (evento) => {
           const texto = document.getElementById('textoReel');
@@ -861,8 +902,12 @@
           if (evento.data === YT.PlayerState.PLAYING) {
             texto.textContent = 'Reproduciendo ahora';
             algunaVezReproducido = true;
+            actualizarBotonPausa(false);
           }
-          else if (evento.data === YT.PlayerState.PAUSED) texto.textContent = 'Pausado — toca reproducir';
+          else if (evento.data === YT.PlayerState.PAUSED) {
+            texto.textContent = 'Pausado — toca reproducir';
+            actualizarBotonPausa(true);
+          }
           else if (evento.data === YT.PlayerState.BUFFERING) texto.textContent = 'Cargando video…';
         },
         onError: (evento) => activarRespaldoReel('youtube-' + evento.data)
@@ -880,14 +925,53 @@
     const video = document.getElementById('videoLocal');
     if (marcoVideo) marcoVideo.hidden = true;
     if (respaldo) respaldo.hidden = false;
+    document.getElementById('btnPausaVideo').disabled = false;
+    document.getElementById('btnSonido').disabled = false;
     if (video) {
-      video.play().catch(() => { });
-      // Si el navegador bloqueó el autoplay (p. ej. pestaña oculta), reintenta al estar visible
-      setTimeout(() => {
-        if (reelConRespaldo && video.paused && !document.hidden) video.play().catch(() => { });
-      }, 1200);
+      if (sinMovimiento) {
+        if (texto) texto.textContent = 'Video pausado — toca reproducir';
+        actualizarBotonPausa(true);
+      } else {
+        video.play().catch(() => { });
+        actualizarBotonPausa(false);
+        // Si el navegador bloqueó el autoplay (p. ej. pestaña oculta), reintenta al estar visible
+        setTimeout(() => {
+          if (reelConRespaldo && video.paused && !document.hidden) video.play().catch(() => { });
+        }, 1200);
+      }
     }
-    if (texto) texto.textContent = 'Reproduciendo ahora';
+    if (texto && !sinMovimiento) texto.textContent = 'Reproduciendo ahora';
+  }
+
+  function actualizarBotonPausa(pausado) {
+    const boton = document.getElementById('btnPausaVideo');
+    if (!boton) return;
+    boton.textContent = pausado ? 'Reproducir video' : 'Pausar video';
+    boton.setAttribute('aria-pressed', String(pausado));
+  }
+
+  function alternarPausaVideo() {
+    const video = document.getElementById('videoLocal');
+
+    if (reelConRespaldo && video) {
+      if (video.paused) {
+        video.play().catch(() => { });
+        actualizarBotonPausa(false);
+      } else {
+        video.pause();
+        actualizarBotonPausa(true);
+      }
+      return;
+    }
+
+    if (!reproductor || typeof reproductor.pauseVideo !== 'function') return;
+    if (reproductor.getPlayerState() === YT.PlayerState.PLAYING) {
+      reproductor.pauseVideo();
+      actualizarBotonPausa(true);
+    } else {
+      reproductor.playVideo();
+      actualizarBotonPausa(false);
+    }
   }
 
   function alternarSonido() {
@@ -904,7 +988,9 @@
     } else {
       reproductor.mute();
     }
-    document.getElementById('btnSonido').textContent = conSonido ? 'Silenciar video' : 'Activar sonido';
+    const botonSonido = document.getElementById('btnSonido');
+    botonSonido.textContent = conSonido ? 'Silenciar video' : 'Activar sonido';
+    botonSonido.setAttribute('aria-pressed', String(conSonido));
   }
 
   /* Si el navegador pospuso el autoplay (pestaña oculta al cargar o
@@ -927,8 +1013,8 @@
     }
     try { reproductor.playVideo(); } catch (error) { }
   }
-  document.addEventListener('visibilitychange', () => { if (!document.hidden) despertarReel(); });
-  window.addEventListener('focus', despertarReel);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden && !sinMovimiento) despertarReel(); });
+  window.addEventListener('focus', () => { if (!sinMovimiento) despertarReel(); });
   document.addEventListener('pointerdown', () => { if (!algunaVezReproducido) despertarReel(); });
 
   /* El video de respaldo actualiza la etiqueta y avisa si el archivo no existe */
@@ -938,10 +1024,12 @@
       algunaVezReproducido = true;
       const texto = document.getElementById('textoReel');
       if (texto) texto.textContent = 'Reproduciendo ahora';
+      actualizarBotonPausa(false);
     });
     videoLocal.addEventListener('pause', () => {
       const texto = document.getElementById('textoReel');
       if (texto) texto.textContent = 'Pausado — toca reproducir';
+      actualizarBotonPausa(true);
     });
     videoLocal.addEventListener('click', () => {
       if (videoLocal.paused) videoLocal.play().catch(() => { });

@@ -4,56 +4,166 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>SOS · Lista de espera</title>
+<meta name="description" content="Pacientes en espera ordenados por prioridad de triage.">
+<link rel="icon" href="favicon.ico">
 <link rel="stylesheet" href="assets/estilos.css">
 <script src="assets/movimiento.js"></script>
 <style>
-  .barra-lista { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
-  .barra-lista .indicador-refresco { font-family: var(--mono); font-size: 11.5px; color: var(--texto-suave); }
-  .acciones-fila { display: flex; gap: 8px; }
-  .acciones-fila button, .acciones-fila a { padding: 7px 11px; font-size: 10.5px; }
+  .cabecera-lista {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 20px;
+    flex-wrap: wrap;
+    margin-bottom: 18px;
+  }
+  .cabecera-lista h1 { margin-bottom: 4px; }
+  .cabecera-lista .sub { margin: 0; }
+
+  .controles-lista {
+    display: flex;
+    align-items: flex-end;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .controles-lista .campo { margin: 0; }
+  .controles-lista select { min-width: 170px; }
+  .controles-lista .boton-secundario,
+  .controles-lista .boton-primario { min-height: 44px; }
+
+  .linea-estado {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-bottom: 12px;
+  }
+  .indicador-refresco {
+    margin: 0;
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--texto-suave);
+  }
+
+  .acciones-fila { display: flex; gap: 8px; justify-content: flex-end; }
+  .acciones-fila .boton-secundario { min-height: 44px; padding: 8px 14px; font-size: 13px; }
   .paciente-desconocido { color: var(--texto-suave); font-family: var(--mono); font-size: 13px; }
+  .celda-espera { font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .celda-prioridad { white-space: nowrap; }
+
+  @media (max-width: 720px) {
+    .cabecera-lista { align-items: flex-start; flex-direction: column; }
+    .controles-lista { width: 100%; }
+    .controles-lista .campo { flex: 1 1 160px; }
+    .controles-lista select { width: 100%; }
+    .controles-lista .boton-secundario,
+    .controles-lista .boton-primario { flex: 1 1 auto; }
+
+    .tabla-scroll .tabla-lista { min-width: 0; }
+    .tabla-lista thead { display: none; }
+    .tabla-lista,
+    .tabla-lista tbody,
+    .tabla-lista tr,
+    .tabla-lista td { display: block; width: 100%; }
+    .tabla-lista tr {
+      margin: 0 0 10px;
+      padding: 10px 12px;
+      border: 1px solid var(--liquen);
+      border-radius: 12px;
+      background: var(--papel);
+    }
+    .tabla-lista td {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 6px 0;
+      border: 0;
+      text-align: right;
+    }
+    .tabla-lista td::before {
+      content: attr(data-label);
+      flex: none;
+      color: var(--texto-suave);
+      font-family: var(--fuente);
+      font-size: 12px;
+      font-weight: 600;
+      text-align: left;
+    }
+    .tabla-lista td[data-label="Acciones"] { justify-content: flex-end; padding-top: 10px; }
+    .tabla-lista td[data-label="Acciones"]::before { display: none; }
+    .acciones-fila .boton-secundario { min-height: 44px; }
+  }
 </style>
 </head>
 
-
 <body>
 
-<div class="topbar">
-  <div class="marca"><strong>SOS</strong> · Sistema de Triage Inteligente</div>
-  <nav id="navPrincipal"></nav>
-  <div style="display:flex; align-items:center; gap:14px;">
+<a class="skip-link" href="#contenidoPrincipal">Saltar al contenido</a>
+
+<header class="topbar" role="banner">
+  <div class="marca" title="SOS Clinic · Sistema de Triage Inteligente"><strong>SOS</strong> · Triage</div>
+  <nav id="navPrincipal" aria-label="Navegación principal"></nav>
+  <div class="topbar-usuario">
     <span id="infoUsuario" class="usuario-info"></span>
-    <button class="salir" onclick="cerrarSesion()">Salir</button>
+    <button class="salir" type="button" onclick="cerrarSesion()">Salir</button>
   </div>
-</div>
+</header>
 
-<div class="contenido">
-  <div class="barra-lista">
+<main class="contenido" id="contenidoPrincipal">
+  <div class="cabecera-lista">
     <div>
-      <h1 style="margin-bottom:4px;">Lista de priorización</h1>
-      <p class="sub" style="margin:0;">Pacientes en espera, ordenados por urgencia.</p>
+      <h1>Lista de priorización</h1>
+      <p class="sub">Pacientes en espera, ordenados por urgencia.</p>
     </div>
-    <span class="indicador-refresco" id="indicadorRefresco">Actualizando...</span>
+
+    <div class="controles-lista">
+      <div class="campo">
+        <label for="filtroPrioridad">Prioridad</label>
+        <select id="filtroPrioridad">
+          <option value="">Todas</option>
+          <option value="1">1 · Resucitación</option>
+          <option value="2">2 · Emergencia</option>
+          <option value="3">3 · Urgencia</option>
+          <option value="4">4 · Urgencia menor</option>
+          <option value="5">5 · Sin urgencia</option>
+        </select>
+      </div>
+      <button type="button" class="boton-secundario" id="btnActualizar" onclick="cargarListaPriorizacion(true)">Actualizar</button>
+      <button type="button" class="boton-secundario" id="btnPausar" aria-pressed="false" onclick="alternarPausa()">Pausar</button>
+    </div>
   </div>
 
-  <div class="tarjeta">
-    <table>
-      <thead>
-        <tr>
-          <th>Prioridad</th>
-          <th>Paciente</th>
-          <th>Ubicación</th>
-          <th>Espera</th>
-          <th>Estado</th>
-          <th>Acciones</th>
-        </tr>
-      </thead>
-      <tbody id="cuerpoTablaPriorizacion">
-        <tr><td colspan="6" class="tabla-vacia">Cargando...</td></tr>
-      </tbody>
-    </table>
+  <div class="linea-estado">
+    <p class="indicador-refresco" id="indicadorRefresco">Actualizando...</p>
+    <p class="solo-lectores" id="resumenLista" role="status" aria-live="polite"></p>
   </div>
-</div>
+
+  <div class="aviso" id="avisoLista" hidden></div>
+
+  <section class="tarjeta" aria-labelledby="tituloTablaLista">
+    <h2 class="solo-lectores" id="tituloTablaLista">Pacientes en espera</h2>
+    <div class="tabla-scroll" id="contenedorTablaLista">
+      <table class="tabla-lista">
+        <caption class="solo-lectores">Pacientes en espera con prioridad, ubicación, tiempo de espera, estado y acción de seguimiento</caption>
+        <thead>
+          <tr>
+            <th scope="col">Prioridad</th>
+            <th scope="col">Paciente</th>
+            <th scope="col">Ubicación</th>
+            <th scope="col">Espera</th>
+            <th scope="col">Estado</th>
+            <th scope="col">Acciones</th>
+          </tr>
+        </thead>
+        <tbody id="cuerpoTablaPriorizacion">
+          <tr><td colspan="6" class="tabla-vacia">Cargando pacientes...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+</main>
 
 <script src="assets/api.js"></script>
 <script>
@@ -61,9 +171,20 @@
   pintarNav('navPrincipal', 'lista-espera.html');
 
   const sesion = obtenerSesion();
-  document.getElementById('infoUsuario').textContent = `${sesion.usuario} · ${sesion.perfil}`;
+  if (sesion) document.getElementById('infoUsuario').textContent = `${sesion.usuario} · ${sesion.perfil}`;
 
   const cachePacientes = {};
+  const cuerpo = document.getElementById('cuerpoTablaPriorizacion');
+  const contenedorTabla = document.getElementById('contenedorTablaLista');
+  const indicador = document.getElementById('indicadorRefresco');
+  const resumenLista = document.getElementById('resumenLista');
+  const avisoLista = document.getElementById('avisoLista');
+  const filtroPrioridad = document.getElementById('filtroPrioridad');
+  const btnPausar = document.getElementById('btnPausar');
+
+  let ultimaLista = [];
+  let cargando = false;
+  let pausado = false;
 
   async function nombrePaciente(idPaciente) {
     if (cachePacientes[idPaciente]) return cachePacientes[idPaciente];
@@ -78,51 +199,118 @@
   }
 
   function formatearEspera(minutos) {
-    if (minutos < 60) return `${minutos} min`;
-    const horas = Math.floor(minutos / 60);
-    const resto = minutos % 60;
-    return `${horas}h ${resto}min`;
+    const valor = Number(minutos);
+    if (!Number.isFinite(valor) || valor < 0) return '—';
+    if (valor < 60) return `${valor} min`;
+    const horas = Math.floor(valor / 60);
+    const resto = valor % 60;
+    return `${horas} h ${resto} min`;
   }
 
-  async function cargarListaPriorizacion() {
-    const indicador = document.getElementById('indicadorRefresco');
-    const cuerpo = document.getElementById('cuerpoTablaPriorizacion');
+  function filaVacia(texto) {
+    return `<tr><td colspan="6" class="tabla-vacia">${texto}</td></tr>`;
+  }
+
+  function pintarLista(lista) {
+    const filtro = filtroPrioridad.value;
+    const visibles = filtro
+      ? lista.filter((registro) => String(registro.categoriaTriage?.prioridad) === filtro)
+      : lista;
+
+    if (visibles.length === 0) {
+      cuerpo.innerHTML = filaVacia(filtro
+        ? 'No hay pacientes en espera con la prioridad seleccionada.'
+        : 'No hay pacientes en espera.');
+      resumenLista.textContent = filtro
+        ? 'Sin pacientes para la prioridad seleccionada.'
+        : 'No hay pacientes en espera.';
+      return;
+    }
+
+    cuerpo.innerHTML = visibles.map((registro) => {
+      const prioridad = registro.categoriaTriage?.prioridad;
+      const nombre = cachePacientes[registro.idPaciente];
+      const nombreMostrado = nombre
+        ? escaparHtml(nombre)
+        : `<span class="paciente-desconocido">Paciente #${escaparHtml(registro.idPaciente)}</span>`;
+      return `
+        <tr>
+          <td data-label="Prioridad" class="celda-prioridad"><span class="insignia insignia-p${escaparHtml(prioridad)}">${escaparHtml(registro.categoriaTriage?.nombreCategoria || 'Sin categoría')}</span></td>
+          <td data-label="Paciente">${nombreMostrado}</td>
+          <td data-label="Ubicación">${escaparHtml(registro.ubicacion || '—')}</td>
+          <td data-label="Espera" class="celda-espera">${formatearEspera(registro.tiempoEsperaMinutos)}</td>
+          <td data-label="Estado">${escaparHtml(formatearEstado(registro.estadoTriage?.nombreEstado))}</td>
+          <td data-label="Acciones">
+            <div class="acciones-fila">
+              <a href="seguimiento.html?idRegistro=${encodeURIComponent(registro.idRegistro)}" class="boton-secundario" aria-label="Abrir seguimiento de ${nombre ? escaparHtml(nombre) : 'paciente ' + escaparHtml(registro.idPaciente)}">Ver</a>
+            </div>
+          </td>
+        </tr>`;
+    }).join('');
+
+    resumenLista.textContent = `${visibles.length} paciente(s) en espera${filtro ? ' con la prioridad seleccionada' : ''}.`;
+  }
+
+  async function cargarListaPriorizacion(manual = false) {
+    if (cargando) return;
+    if (!manual && (pausado || document.hidden)) return;
+
+    cargando = true;
+    contenedorTabla.setAttribute('aria-busy', 'true');
+    if (manual) {
+      indicador.textContent = 'Actualizando...';
+      indicador.className = 'indicador-refresco';
+    }
 
     try {
       const lista = await listaPriorizacion();
-
-      if (lista.length === 0) {
-        cuerpo.innerHTML = '<tr><td colspan="6" class="tabla-vacia">No hay pacientes en espera</td></tr>';
-      } else {
-        const filas = await Promise.all(lista.map(async (registro) => {
-          const nombre = await nombrePaciente(registro.idPaciente);
-          const nombreMostrado = nombre
-            ? escaparHtml(nombre)
-            : `<span class="paciente-desconocido">Paciente #${escaparHtml(registro.idPaciente)}</span>`;
-
-          return `
-            <tr>
-              <td><span class="insignia insignia-p${escaparHtml(registro.categoriaTriage.prioridad)}">${escaparHtml(registro.categoriaTriage.nombreCategoria)}</span></td>
-              <td>${nombreMostrado}</td>
-              <td>${escaparHtml(registro.ubicacion || '—')}</td>
-              <td>${formatearEspera(registro.tiempoEsperaMinutos)}</td>
-              <td>${escaparHtml(registro.estadoTriage.nombreEstado)}</td>
-              <td><div class="acciones-fila"><a href="seguimiento.html?idRegistro=${registro.idRegistro}" class="boton-secundario" style="text-decoration:none; display:inline-block;">Ver</a></div></td>
-            </tr>
-          `;
-        }));
-        cuerpo.innerHTML = filas.join('');
-      }
-
-      indicador.textContent = `Actualizado ${new Date().toLocaleTimeString()}`;
+      ultimaLista = lista;
+      // Primero se muestra la prioridad y la espera; los nombres se completan en segundo plano.
+      pintarLista(lista);
+      await Promise.all(lista.map((registro) => nombrePaciente(registro.idPaciente)));
+      pintarLista(lista);
+      avisoLista.hidden = true;
+      avisoLista.textContent = '';
+      indicador.textContent = `Actualizado ${new Date().toLocaleTimeString('es-CO', { hour12: false })}`;
+      indicador.className = 'indicador-refresco';
     } catch (error) {
-      indicador.textContent = 'Error al actualizar';
-      cuerpo.innerHTML = `<tr><td colspan="6" class="tabla-vacia">${escaparHtml(error.message)}</td></tr>`;
+      // Se conserva la última lista buena: no se borra información clínica por un fallo transitorio.
+      avisoLista.hidden = false;
+      avisoLista.innerHTML = `<span>${escaparHtml(error.message)}</span> <button type="button" class="boton-secundario" id="btnReintentarLista">Reintentar</button>`;
+      document.getElementById('btnReintentarLista')?.addEventListener('click', () => cargarListaPriorizacion(true));
+      indicador.textContent = 'No se pudo actualizar';
+      indicador.className = 'indicador-refresco error';
+      if (ultimaLista.length === 0) {
+        cuerpo.innerHTML = filaVacia('No se pudo cargar la lista. Usa “Reintentar”.');
+      }
+    } finally {
+      cargando = false;
+      contenedorTabla.setAttribute('aria-busy', 'false');
     }
   }
 
+  function alternarPausa() {
+    pausado = !pausado;
+    btnPausar.setAttribute('aria-pressed', String(pausado));
+    btnPausar.textContent = pausado ? 'Reanudar' : 'Pausar';
+    if (pausado) {
+      indicador.textContent = 'Actualización automática en pausa';
+      indicador.className = 'indicador-refresco pausado';
+    } else {
+      indicador.textContent = 'Actualizando...';
+      indicador.className = 'indicador-refresco';
+      cargarListaPriorizacion(true);
+    }
+  }
+
+  filtroPrioridad.addEventListener('change', () => pintarLista(ultimaLista));
+
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden && !pausado) cargarListaPriorizacion();
+  });
+
   cargarListaPriorizacion();
-  setInterval(cargarListaPriorizacion, 15000);
+  setInterval(() => cargarListaPriorizacion(), 15000);
 </script>
 
 <script src="assets/copiloto.js"></script>
