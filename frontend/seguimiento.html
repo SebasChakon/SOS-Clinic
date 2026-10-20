@@ -4,131 +4,348 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>SOS · Seguimiento del paciente</title>
+<meta name="description" content="Seguimiento clínico, signos vitales y alta del paciente.">
+<link rel="icon" href="favicon.ico">
 <link rel="stylesheet" href="assets/estilos.css">
 <script src="assets/movimiento.js"></script>
 <style>
-  .encabezado-paciente { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 24px; flex-wrap: wrap; gap: 16px; }
-  .encabezado-paciente h1 { margin: 0 0 4px; }
-  .encabezado-paciente .meta { font-size: 13.5px; color: var(--texto-suave); }
-  .grid-seguimiento { display: grid; grid-template-columns: 340px 1fr; gap: 24px; align-items: start; }
+  .enlace-volver {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 44px;
+    margin-bottom: 8px;
+    color: var(--texto-suave);
+    font-size: 14px;
+    text-decoration: none;
+  }
+  .enlace-volver:hover { color: var(--acento-hover); }
+
+  .encabezado-paciente {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 20px;
+    flex-wrap: wrap;
+    margin-bottom: 20px;
+  }
+  .encabezado-paciente h1 { margin: 0; }
+
+  .linea-titulo {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+
+  .estado-registro {
+    display: inline-flex;
+    align-items: center;
+    min-height: 28px;
+    padding: 3px 10px;
+    border-radius: 999px;
+    background: var(--tejido);
+    color: var(--texto);
+    font-size: 12px;
+    font-weight: 600;
+  }
+  .estado-registro.en-espera { background: #fbf3dc; color: #74530a; }
+  .estado-registro.en-atencion { background: var(--verde-fondo); color: var(--acento-hover); }
+  .estado-registro.atendido { background: var(--tejido); color: var(--texto-suave); }
+
+  .meta { font-size: 14px; color: var(--texto-suave); line-height: 1.55; }
+  .meta + .meta { margin-top: 2px; }
+  .meta strong { color: var(--texto); font-weight: 500; }
+
+  .acciones-estado { display: flex; gap: 10px; flex-wrap: wrap; }
+
+  .grid-seguimiento {
+    display: grid;
+    grid-template-columns: minmax(300px, 380px) 1fr;
+    gap: 24px;
+    align-items: start;
+  }
+  .grid-seguimiento.cerrado { grid-template-columns: 1fr; }
+
+  .fieldset-signos { margin: 0; padding: 0; border: 0; min-width: 0; }
+  .fieldset-signos:disabled { opacity: .68; }
+
+  .ubicacion-editable {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    margin-top: 10px;
+    flex-wrap: wrap;
+  }
+  .ubicacion-editable select { width: min(240px, 100%); }
+  .ubicacion-editable .boton-secundario { min-height: 44px; }
+
+  .toma-vital {
+    border: 1px solid var(--gris-linea);
+    border-radius: 12px;
+    padding: 16px 18px;
+  }
+  .toma-vital .fecha {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+    flex-wrap: wrap;
+    font-family: var(--mono);
+    font-size: 12px;
+    letter-spacing: 0.03em;
+    color: var(--texto-suave);
+    margin-bottom: 10px;
+  }
+  .toma-vital .cifras {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px 16px;
+    margin-bottom: 10px;
+  }
+  .toma-vital .cifra .valor { font-size: 18px; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .toma-vital .cifra .etiqueta {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--texto-suave);
+    text-transform: none;
+    letter-spacing: 0;
+  }
+  .toma-vital .motivo {
+    font-size: 14px;
+    color: var(--texto);
+    background: var(--gris-fondo);
+    padding: 10px 12px;
+    border-radius: 8px;
+  }
+  .tendencia {
+    margin-left: 5px;
+    color: var(--texto-suave);
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 400;
+  }
+
   .linea-tiempo { display: flex; flex-direction: column; gap: 14px; }
-  .toma-vital { border: 1px solid var(--gris-linea); border-radius: 12px; padding: 16px 18px; }
-  .toma-vital .fecha { font-family: var(--mono); font-size: 11.5px; letter-spacing: 0.03em; color: var(--texto-suave); margin-bottom: 10px; }
-  .toma-vital .cifras { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px 16px; margin-bottom: 10px; }
-  .toma-vital .cifra .valor { font-size: 17px; font-weight: 500; }
-  .toma-vital .cifra .etiqueta { font-family: var(--mono); font-size: 10.5px; color: var(--texto-suave); text-transform: uppercase; letter-spacing: 0.06em; }
-  .toma-vital .motivo { font-size: 13.5px; color: var(--texto); background: var(--gris-fondo); padding: 10px 12px; border-radius: 8px; }
-  .estado-cerrado { background: var(--verde-fondo); color: var(--teal-hover); border: 1px solid var(--verde-borde); padding: 12px 14px; border-radius: 8px; font-size: 13.5px; margin-bottom: 16px; }
-  .ubicacion-editable { display: flex; gap: 8px; align-items: center; margin-top: 6px; }
-  .ubicacion-editable select { width: 200px; }
-  .ubicacion-editable button { padding: 8px 12px; font-size: 11px; }
-  .seccion-alta { border-top: 1px solid var(--gris-linea); margin-top: 20px; padding-top: 20px; }
-  .resumen-alta { background: var(--gris-fondo); padding: 12px 14px; border-radius: 8px; font-size: 13.5px; margin-bottom: 12px; }
-  .resumen-alta strong { display: block; margin-bottom: 4px; font-weight: 500; }
-  .ayuda { font-size: 12px; color: var(--texto-suave); margin-top: 6px; }
-  .resultado-alta { border: 1px solid var(--verde-borde); background: var(--verde-fondo); border-radius: 12px; padding: 16px 18px; margin-top: 16px; }
-  .resultado-alta.con-fallos { border-color: #e2cd9d; background: #fbf5e8; }
-  .resultado-alta .titulo-resultado { font-weight: 500; margin-bottom: 10px; }
-  .lista-correos { list-style: none; padding: 0; margin: 0 0 12px; display: flex; flex-direction: column; gap: 8px; font-size: 13.5px; }
-  .lista-correos li { display: flex; gap: 8px; align-items: flex-start; background: rgba(255,255,255,.75); padding: 8px 10px; border-radius: 8px; }
-  .estado-correo { font-family: var(--mono); font-size: 10.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--texto-suave); margin-left: 6px; }
+
+  .resultado-cierre { margin-bottom: 22px; }
+  .resultado-cierre h2 { margin-top: 0; }
+  .resumen-cierre { color: var(--texto-suave); font-size: 14px; }
+  .resumen-cierre .acciones { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 14px; }
+
+  .resultado-alta {
+    margin-top: 14px;
+    padding: 16px 18px;
+    border: 1px solid var(--verde-borde);
+    border-radius: 12px;
+    background: var(--verde-fondo);
+  }
+  .resultado-alta.con-fallos { border-color: var(--borde-aviso); background: var(--superficie-aviso); }
+  .resultado-alta .titulo-resultado { font-weight: 600; margin-bottom: 10px; }
+  .lista-correos {
+    list-style: none;
+    padding: 0;
+    margin: 0 0 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    font-size: 14px;
+  }
+  .lista-correos li {
+    display: flex;
+    gap: 8px;
+    align-items: flex-start;
+    background: rgba(255, 255, 255, .75);
+    padding: 8px 10px;
+    border-radius: 8px;
+  }
+  .estado-correo {
+    font-family: var(--mono);
+    font-size: 11px;
+    text-transform: none;
+    letter-spacing: 0;
+    color: var(--texto-suave);
+    margin-left: 6px;
+  }
   .detalle-correo { font-size: 12.5px; color: var(--texto-suave); margin-top: 2px; }
   .acciones-resultado { display: flex; gap: 10px; flex-wrap: wrap; }
-  .cita-generada { font-size: 13px; margin-bottom: 10px; }
-  .cita-generada a { color: var(--teal-hover); }
+  .cita-generada { font-size: 13.5px; margin-bottom: 10px; }
+  .cita-generada a { color: var(--acento-hover); }
+
+  .aviso-email { margin-bottom: 16px; }
+
+  @media (max-width: 980px) {
+    .grid-seguimiento { grid-template-columns: 1fr; }
+  }
+
+  @media (max-width: 620px) {
+    .encabezado-paciente { flex-direction: column; }
+    .acciones-estado { width: 100%; }
+    .acciones-estado .boton-primario,
+    .acciones-estado .boton-secundario { flex: 1 1 160px; }
+    .toma-vital .cifras { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .ubicacion-editable { align-items: stretch; flex-direction: column; }
+    .ubicacion-editable select,
+    .ubicacion-editable .boton-secundario { width: 100%; }
+  }
 </style>
 </head>
 
-
 <body>
 
-<div class="topbar">
-  <div class="marca"><strong>SOS</strong> · Sistema de Triage Inteligente</div>
-  <nav id="navPrincipal"></nav>
-  <div style="display:flex; align-items:center; gap:14px;">
-    <span id="infoUsuario" class="usuario-info"></span>
-    <button class="salir" onclick="cerrarSesion()">Salir</button>
-  </div>
-</div>
+<a class="skip-link" href="#contenidoPrincipal">Saltar al contenido</a>
 
-<div class="contenido">
+<header class="topbar" role="banner">
+  <div class="marca" title="SOS Clinic · Sistema de Triage Inteligente"><strong>SOS</strong> · Triage</div>
+  <nav id="navPrincipal" aria-label="Navegación principal"></nav>
+  <div class="topbar-usuario">
+    <span id="infoUsuario" class="usuario-info"></span>
+    <button class="salir" type="button" onclick="cerrarSesion()">Salir</button>
+  </div>
+</header>
+
+<main class="contenido" id="contenidoPrincipal">
+  <a class="enlace-volver" href="lista-espera.html">← Volver a la lista de espera</a>
 
   <div class="encabezado-paciente">
     <div>
-      <h1 id="nombrePaciente">Cargando...</h1>
+      <div class="linea-titulo">
+        <h1 id="nombrePaciente">Cargando...</h1>
+        <span class="estado-registro" id="estadoRegistro" hidden></span>
+      </div>
       <div class="meta" id="metaRegistro"></div>
-      <div class="ubicacion-editable" id="bloqueUbicacion" style="display:none;">
-        <select id="inputUbicacion" aria-label="Seleccionar ubicación"></select>
-        <button class="boton-secundario" onclick="guardarUbicacion()">Guardar ubicación</button>
+      <div class="meta" id="contactoPaciente"></div>
+      <div class="ubicacion-editable" id="bloqueUbicacion" hidden>
+        <label class="solo-lectores" for="inputUbicacion">Ubicación del paciente</label>
+        <select id="inputUbicacion"></select>
+        <button type="button" class="boton-secundario" onclick="guardarUbicacion()">Guardar ubicación</button>
       </div>
     </div>
-    <div id="accionesEstado" style="display:flex; gap:10px;"></div>
+    <div class="acciones-estado" id="accionesEstado"></div>
   </div>
 
-  <div id="avisoCerrado"></div>
+  <div class="aviso" id="errorEncabezado" hidden>
+    <span id="textoErrorEncabezado"></span>
+    <button type="button" class="boton-secundario" onclick="cargarEncabezado()">Reintentar</button>
+  </div>
 
-  <div class="grid-seguimiento">
+  <section class="tarjeta resultado-cierre" id="resultadoCierre" hidden tabindex="-1" aria-labelledby="tituloResultadoCierre">
+    <h2 id="tituloResultadoCierre">Resultado del alta</h2>
+    <div id="resultadoAlta" role="status" aria-live="polite"></div>
+  </section>
 
-    <div class="tarjeta">
-      <h2>Registrar signos vitales</h2>
-      <p class="sub">Se guarda una nueva toma, sin borrar las anteriores.</p>
+  <div class="grid-seguimiento" id="gridSeguimiento">
 
-      <form id="formSignos">
-        <div class="fila-campos">
-          <div class="campo"><label for="frecuenciaCardiaca">Frec. cardíaca (lpm)</label><input type="number" id="frecuenciaCardiaca" required></div>
-          <div class="campo"><label for="frecuenciaRespiratoria">Frec. respiratoria</label><input type="number" id="frecuenciaRespiratoria" required></div>
-        </div>
-        <div class="fila-campos">
-          <div class="campo"><label for="presionSistolica">Presión sistólica</label><input type="number" id="presionSistolica" required></div>
-          <div class="campo"><label for="presionDiastolica">Presión diastólica</label><input type="number" id="presionDiastolica" required></div>
-        </div>
-        <div class="fila-campos">
-          <div class="campo"><label for="temperatura">Temperatura (°C)</label><input type="number" step="0.1" id="temperatura" required></div>
-          <div class="campo"><label for="saturacion">Saturación (%)</label><input type="number" id="saturacion" required></div>
-        </div>
-        <div class="campo"><label for="glucemia">Glucemia (opcional)</label><input type="number" step="0.1" id="glucemia"></div>
-        <div class="campo"><label for="descripcionSintoma">Motivo / síntomas</label><textarea id="descripcionSintoma" rows="3" placeholder="Dolor toracico, dificultad para respirar..."></textarea></div>
-        <button type="submit" id="btnGuardarSignos" class="boton-primario boton-full">Guardar toma</button>
-        <div class="mensaje" id="mensajeSignos"></div>
+    <section class="tarjeta" id="tarjetaSignos" aria-labelledby="tituloSignos">
+      <h2 id="tituloSignos">Registrar signos vitales</h2>
+      <p class="sub">Cada guardado crea una nueva toma; las anteriores se conservan.</p>
+
+      <form id="formSignos" novalidate>
+        <fieldset class="fieldset-signos" id="fieldsetSignos" disabled>
+          <div class="fila-campos">
+            <div class="campo">
+              <label for="frecuenciaCardiaca">Frecuencia cardíaca (lpm)</label>
+              <input type="number" id="frecuenciaCardiaca" min="20" max="300" step="1" inputmode="numeric" required>
+            </div>
+            <div class="campo">
+              <label for="frecuenciaRespiratoria">Frecuencia respiratoria (rpm)</label>
+              <input type="number" id="frecuenciaRespiratoria" min="4" max="80" step="1" inputmode="numeric" required>
+            </div>
+          </div>
+
+          <div class="fila-campos">
+            <div class="campo">
+              <label for="presionSistolica">Presión sistólica (mmHg)</label>
+              <input type="number" id="presionSistolica" min="50" max="300" step="1" inputmode="numeric" required>
+            </div>
+            <div class="campo">
+              <label for="presionDiastolica">Presión diastólica (mmHg)</label>
+              <input type="number" id="presionDiastolica" min="20" max="200" step="1" inputmode="numeric" required>
+            </div>
+          </div>
+
+          <div class="fila-campos">
+            <div class="campo">
+              <label for="temperatura">Temperatura (°C)</label>
+              <input type="number" id="temperatura" min="30" max="45" step="0.1" inputmode="decimal" required>
+            </div>
+            <div class="campo">
+              <label for="saturacion">Saturación de oxígeno (%)</label>
+              <input type="number" id="saturacion" min="50" max="100" step="1" inputmode="numeric" required>
+            </div>
+          </div>
+
+          <div class="campo">
+            <label for="glucemia">Glucemia (mg/dL) <span class="solo-lectores">(opcional)</span></label>
+            <input type="number" id="glucemia" min="20" max="600" step="0.1" inputmode="decimal">
+          </div>
+
+          <div class="campo">
+            <label for="descripcionSintoma">Motivo / síntomas</label>
+            <textarea id="descripcionSintoma" rows="3" placeholder="Dolor torácico, dificultad para respirar..."></textarea>
+          </div>
+
+          <button type="submit" id="btnGuardarSignos" class="boton-primario boton-full">Guardar toma</button>
+        </fieldset>
+
+        <div class="mensaje" id="mensajeSignos" tabindex="-1"></div>
       </form>
-    </div>
+    </section>
 
     <div>
-      <div class="tarjeta" id="seccionAlta" style="display:none; margin-bottom:24px;">
-        <h2 style="margin-top:0;">Diagnóstico y alta</h2>
-        <p class="sub">Obligatorio antes de dar de alta al paciente.</p>
-        <form id="formAlta">
+      <section class="tarjeta" id="seccionAlta" hidden aria-labelledby="tituloAlta">
+        <h2 id="tituloAlta">Diagnóstico y alta</h2>
+        <p class="sub">Revisa el diagnóstico y el tratamiento antes de cerrar el episodio y enviar los correos.</p>
+
+        <div class="aviso aviso-email" id="avisoEmail" hidden></div>
+
+        <form id="formAlta" novalidate>
           <div class="campo">
             <label for="diagnosticoFinal">Diagnóstico final</label>
             <textarea id="diagnosticoFinal" rows="3" required></textarea>
           </div>
+
           <div class="campo">
             <label for="tratamiento">Tratamiento / instrucciones en casa / cuándo volver</label>
             <textarea id="tratamiento" rows="3" required></textarea>
           </div>
+
           <div class="campo">
-            <label for="direccionPaciente">Dirección del paciente (obligatoria, para las farmacias cercanas)</label>
-            <input type="text" id="direccionPaciente" required
+            <label for="direccionPaciente">Dirección del paciente <span class="solo-lectores">(opcional, para farmacias cercanas)</span></label>
+            <input type="text" id="direccionPaciente"
                    placeholder="Calle 10 # 45-67, barrio, Bogotá"
                    autocomplete="street-address">
-            <p class="ayuda">Con esta dirección se buscan farmacias cercanas para el correo del paciente. Si no se puede ubicar, el correo incluirá farmacias de Bogotá en general.</p>
+            <p class="ayuda">Si no la indicas, el correo incluirá farmacias de Bogotá en general.</p>
           </div>
-          <button type="submit" id="btnDarAlta" class="boton-primario boton-full">Dar de alta y enviar correos</button>
-          <div class="mensaje" id="mensajeAlta"></div>
-          <div id="resultadoAlta"></div>
-        </form>
-      </div>
 
-      <div class="tarjeta">
-        <h2 style="margin-top:0;">Historial de signos vitales</h2>
+          <button type="submit" id="btnDarAlta" class="boton-primario boton-full">Revisar y dar de alta</button>
+          <div class="mensaje" id="mensajeAlta" tabindex="-1"></div>
+        </form>
+      </section>
+
+      <section class="tarjeta" aria-labelledby="tituloHistorial">
+        <h2 id="tituloHistorial">Historial de signos vitales</h2>
         <div class="linea-tiempo" id="lineaTiempo">
-          <p class="tabla-vacia">Cargando...</p>
+          <p class="tabla-vacia">Cargando historial...</p>
         </div>
-      </div>
+      </section>
     </div>
 
   </div>
-</div>
+</main>
+
+<dialog class="dialogo" id="dialogoAlta" aria-labelledby="tituloDialogoAlta">
+  <div class="dialogo-cabecera">
+    <h2 id="tituloDialogoAlta">Confirmar alta y envío de correos</h2>
+  </div>
+  <div class="dialogo-cuerpo">
+    <p>Revisa la información. El alta se guarda en el sistema y no se puede deshacer desde esta pantalla.</p>
+    <div class="resumen-confirmacion" id="resumenConfirmacion"></div>
+  </div>
+  <div class="dialogo-acciones">
+    <button type="button" class="boton-secundario" id="btnCancelarAlta">Volver</button>
+    <button type="button" class="boton-primario" id="btnConfirmarAlta">Confirmar alta y correos</button>
+  </div>
+</dialog>
 
 <script src="assets/api.js"></script>
 <script>
@@ -136,70 +353,172 @@
   pintarNav('navPrincipal', 'seguimiento.html');
 
   const sesion = obtenerSesion();
-  document.getElementById('infoUsuario').textContent = `${sesion.usuario} · ${sesion.perfil}`;
+  if (sesion) document.getElementById('infoUsuario').textContent = `${sesion.usuario} · ${sesion.perfil}`;
 
   const parametros = new URLSearchParams(window.location.search);
   const idRegistro = parametros.get('idRegistro');
+  const CLAVE_RESULTADO_ALTA = `sos_resultado_alta_${idRegistro}`;
 
   if (!idRegistro) {
-    window.location.href = primerDestinoValido(sesion.actividades) || 'login.html';
+    window.location.href = primerDestinoValido(sesion?.actividades || []) || 'login.html';
   }
 
-  document.getElementById('inputUbicacion').innerHTML =
-    '<option value="" disabled>Selecciona una ubicación</option>' +
-    [...new Set(UBICACIONES_DISPONIBLES)].map(u => `<option value="${u}">${u}</option>`).join('');
+  const campoSignos = [
+    { id: 'frecuenciaCardiaca', etiqueta: 'frecuencia cardíaca', min: 20, max: 300, decimales: 0 },
+    { id: 'frecuenciaRespiratoria', etiqueta: 'frecuencia respiratoria', min: 4, max: 80, decimales: 0 },
+    { id: 'presionSistolica', etiqueta: 'presión sistólica', min: 50, max: 300, decimales: 0 },
+    { id: 'presionDiastolica', etiqueta: 'presión diastólica', min: 20, max: 200, decimales: 0 },
+    { id: 'temperatura', etiqueta: 'temperatura', min: 30, max: 45, decimales: 1 },
+    { id: 'saturacion', etiqueta: 'saturación', min: 50, max: 100, decimales: 0 },
+    { id: 'glucemia', etiqueta: 'glucemia', min: 20, max: 600, decimales: 1, opcional: true }
+  ];
+
+  const dialogoAlta = document.getElementById('dialogoAlta');
+  const resumenConfirmacion = document.getElementById('resumenConfirmacion');
+  const resultadoCierre = document.getElementById('resultadoCierre');
+  const contenedorResultado = document.getElementById('resultadoAlta');
 
   let registroActual = null;
   let pacienteActual = null;
+  let altaEnCurso = false;
 
-  function formatearFecha(isoString) {
-    return new Date(isoString).toLocaleString('es-CO', { dateStyle: 'medium', timeStyle: 'short' });
+  document.getElementById('inputUbicacion').innerHTML =
+    '<option value="" disabled selected>Selecciona una ubicación</option>' +
+    [...new Set(UBICACIONES_DISPONIBLES)].map((u) => `<option value="${escaparHtml(u)}">${escaparHtml(u)}</option>`).join('');
+
+  function minutosDesde(iso) {
+    const fecha = new Date(iso);
+    if (Number.isNaN(fecha.getTime())) return null;
+    return Math.max(0, Math.floor((Date.now() - fecha.getTime()) / 60000));
+  }
+
+  function formatearEspera(minutos) {
+    if (minutos === null) return '—';
+    if (minutos < 60) return `${minutos} min`;
+    return `${Math.floor(minutos / 60)} h ${minutos % 60} min`;
+  }
+
+  function actualizarAvisoEmail() {
+    const aviso = document.getElementById('avisoEmail');
+    if (!pacienteActual) {
+      aviso.hidden = true;
+      return;
+    }
+    if (!pacienteActual.email) {
+      aviso.hidden = false;
+      aviso.textContent = 'Este paciente no tiene email registrado. El alta se guardará, pero la cita y la historia clínica no se enviarán por correo.';
+    } else {
+      aviso.hidden = true;
+      aviso.textContent = '';
+    }
+  }
+
+  function pintarEstado(estado) {
+    const badge = document.getElementById('estadoRegistro');
+    const texto = formatearEstado(estado);
+    badge.textContent = texto;
+    badge.hidden = false;
+    badge.className = 'estado-registro ' + (
+      estado === 'En espera' ? 'en-espera' :
+      estado === 'En atencion' ? 'en-atencion' :
+      estado === 'Atendido' ? 'atendido' : ''
+    );
   }
 
   async function cargarEncabezado() {
+    document.getElementById('errorEncabezado').hidden = true;
     try {
       registroActual = await obtenerRegistroTriage(idRegistro);
       pacienteActual = await obtenerPacientePorId(registroActual.idPaciente);
 
       document.getElementById('nombrePaciente').textContent = `${pacienteActual.nombre} ${pacienteActual.apellido}`;
-      document.getElementById('metaRegistro').textContent =
-        `Cédula ${pacienteActual.cedula} · ${registroActual.categoriaTriage.nombreCategoria} · Ubicación: ${registroActual.ubicacion || 'sin asignar'} · Llegó ${formatearFecha(registroActual.fechaHoraLlegada)}`;
+      const espera = registroActual.estadoTriage?.nombreEstado === 'Atendido' ? null : minutosDesde(registroActual.fechaHoraLlegada);
+      document.getElementById('metaRegistro').innerHTML =
+        `<strong>CC ${escaparHtml(pacienteActual.cedula)}</strong> · ${escaparHtml(registroActual.categoriaTriage?.nombreCategoria || 'Sin categoría')} · Llegó ${escaparHtml(formatearFechaHora(registroActual.fechaHoraLlegada))}${espera === null ? '' : ` · Espera ${escaparHtml(formatearEspera(espera))}`}`;
+      document.getElementById('contactoPaciente').textContent = pacienteActual.email
+        ? `Email: ${pacienteActual.email}`
+        : 'Sin email registrado';
+      document.title = `${pacienteActual.nombre} ${pacienteActual.apellido} · Seguimiento · SOS Clinic`;
 
+      pintarEstado(registroActual.estadoTriage?.nombreEstado || '');
+      actualizarAvisoEmail();
       pintarAcciones();
     } catch (error) {
+      document.getElementById('errorEncabezado').hidden = false;
+      document.getElementById('textoErrorEncabezado').textContent = error.message;
       document.getElementById('nombrePaciente').textContent = 'No se pudo cargar el registro';
-      document.getElementById('metaRegistro').textContent = error.message;
+      document.getElementById('metaRegistro').textContent = '';
     }
   }
 
   function pintarAcciones() {
+    if (!registroActual) return;
+
     const contenedor = document.getElementById('accionesEstado');
-    const aviso = document.getElementById('avisoCerrado');
     const bloqueUbicacion = document.getElementById('bloqueUbicacion');
     const seccionAlta = document.getElementById('seccionAlta');
-    const estado = registroActual.estadoTriage.nombreEstado;
+    const tarjetaSignos = document.getElementById('tarjetaSignos');
+    const grid = document.getElementById('gridSeguimiento');
+    const fieldset = document.getElementById('fieldsetSignos');
+    const estado = registroActual.estadoTriage?.nombreEstado;
 
     contenedor.innerHTML = '';
-    aviso.innerHTML = '';
+    resultadoCierre.hidden = true;
+    contenedorResultado.innerHTML = '';
+    grid.classList.remove('cerrado');
+    tarjetaSignos.hidden = false;
 
     if (estado === 'En espera') {
-      contenedor.innerHTML = `<button class="boton-primario" onclick="cambiarAEnAtencion()">Marcar en atención</button>`;
-      bloqueUbicacion.style.display = 'flex';
+      contenedor.innerHTML = '<button type="button" class="boton-primario" onclick="cambiarAEnAtencion()">Marcar en atención</button>';
+      bloqueUbicacion.hidden = false;
       document.getElementById('inputUbicacion').value = registroActual.ubicacion || '';
-      seccionAlta.style.display = 'none';
+      seccionAlta.hidden = true;
+      fieldset.disabled = false;
     } else if (estado === 'En atencion') {
-      bloqueUbicacion.style.display = 'flex';
+      bloqueUbicacion.hidden = false;
       document.getElementById('inputUbicacion').value = registroActual.ubicacion || '';
-      seccionAlta.style.display = 'block';
+      seccionAlta.hidden = false;
+      fieldset.disabled = false;
+      actualizarAvisoEmail();
     } else {
-      bloqueUbicacion.style.display = 'none';
-      seccionAlta.style.display = 'none';
-      aviso.innerHTML = `
-        <div class="estado-cerrado">
-          Este episodio ya fue cerrado (paciente atendido). El historial queda disponible para consulta.
+      bloqueUbicacion.hidden = true;
+      seccionAlta.hidden = true;
+      fieldset.disabled = true;
+      tarjetaSignos.hidden = true;
+      grid.classList.add('cerrado');
+      resultadoCierre.hidden = false;
+
+      const diagnostico = registroActual.diagnosticoFinal;
+      const tratamiento = registroActual.tratamiento;
+      const detalleCierre = [
+        diagnostico ? `<p><strong>Diagnóstico:</strong> ${escaparHtml(diagnostico)}</p>` : '',
+        tratamiento ? `<p><strong>Tratamiento:</strong> ${escaparHtml(tratamiento)}</p>` : ''
+      ].join('');
+
+      contenedorResultado.innerHTML = `
+        <div class="resumen-cierre">
+          <p>Este episodio ya fue cerrado. El historial queda disponible para consulta.</p>
+          ${detalleCierre}
+          <p class="ayuda">El resultado de los correos se conserva mientras esta pestaña siga abierta. Si necesitas reenviarlos, usa el botón inferior.</p>
+          <div class="acciones">
+            <button type="button" class="boton-secundario" onclick="descargarPdfHistoria()">Descargar historia clínica (PDF)</button>
+            <button type="button" class="boton-secundario" id="btnReintentar" onclick="reintentarCorreos()">Reintentar envío de correos</button>
+          </div>
         </div>`;
-      contenedor.innerHTML = `<button class="boton-secundario" onclick="descargarPdfHistoria()">Descargar historia clínica (PDF)</button>`;
-      document.getElementById('btnGuardarSignos').disabled = true;
+
+      let resultadoGuardado = null;
+      try {
+        resultadoGuardado = sessionStorage.getItem(CLAVE_RESULTADO_ALTA);
+      } catch (error) {
+        // sessionStorage puede estar bloqueado; se muestra el resumen básico.
+      }
+      if (resultadoGuardado) {
+        try {
+          pintarResultadosAlta(JSON.parse(resultadoGuardado), false);
+        } catch (error) {
+          try { sessionStorage.removeItem(CLAVE_RESULTADO_ALTA); } catch (e) { }
+        }
+      }
     }
   }
 
@@ -207,175 +526,129 @@
     try {
       await marcarEnAtencion(idRegistro);
       await cargarEncabezado();
+      avisar('Paciente marcado en atención.', 'exito');
     } catch (error) {
-      alert(error.message);
+      avisar(error.message, 'error');
     }
   }
 
   async function guardarUbicacion() {
     const nuevaUbicacion = document.getElementById('inputUbicacion').value.trim();
-    if (!nuevaUbicacion) return;
+    if (!nuevaUbicacion) {
+      avisar('Selecciona una ubicación antes de guardar.', 'error');
+      return;
+    }
     try {
       await actualizarUbicacionTriage(idRegistro, nuevaUbicacion);
       await cargarEncabezado();
+      avisar('Ubicación actualizada.', 'exito');
     } catch (error) {
-      alert(error.message);
-    }
-  }
-
-  /* ------------------------------------------------------------------
-     Direccion del paciente: la unica fuente de ubicacion para las
-     farmacias cercanas del correo (sin geolocalizacion del navegador).
-     ------------------------------------------------------------------ */
-  function leerDireccionPaciente() {
-    return document.getElementById('direccionPaciente').value.trim();
-  }
-
-  /* ------------------------------------------------------------------
-     Alta completa: UNA sola llamada al backend. El backend persiste el
-     alta en ms-triage y luego envia cada correo aislando los errores,
-     devolviendo estado por correo para poder reintentar.
-     ------------------------------------------------------------------ */
-  document.getElementById('formAlta').addEventListener('submit', async (evento) => {
-    evento.preventDefault();
-    limpiarMensaje('mensajeAlta');
-    document.getElementById('resultadoAlta').innerHTML = '';
-
-    const diagnostico = document.getElementById('diagnosticoFinal').value.trim();
-    const tratamiento = document.getElementById('tratamiento').value.trim();
-
-    const boton = document.getElementById('btnDarAlta');
-    boton.disabled = true;
-    boton.textContent = 'Dando de alta y enviando correos...';
-
-    try {
-      const resultado = await finalizarAtencion(idRegistro, {
-        diagnosticoFinal: diagnostico,
-        tratamiento,
-        direccion: leerDireccionPaciente()
-      });
-      await cargarEncabezado();
-      mostrarMensaje('mensajeAlta', 'Paciente dado de alta. Estado de cada correo abajo.', 'exito');
-      pintarResultadosAlta(resultado, false);
-    } catch (error) {
-      mostrarMensaje('mensajeAlta', error.message, 'error');
-    } finally {
-      boton.disabled = false;
-      boton.textContent = 'Dar de alta y enviar correos';
-    }
-  });
-
-  const ETIQUETAS_CORREO = {
-    'teleconsulta-profesional': 'Confirmación de teleconsulta · profesional',
-    'cita-paciente': 'Cita de teleconsulta · paciente',
-    'historia-pdf': 'Historia clínica en PDF · paciente'
-  };
-
-  function escaparHtml(texto) {
-    return String(texto).replace(/[&<>"']/g, (c) => ({
-      '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
-    }[c]));
-  }
-
-  function pintarResultadosAlta(resultado, esReintento) {
-    const contenedor = document.getElementById('resultadoAlta');
-    const iconos = { ENVIADO: '✅', FALLIDO: '⚠️', OMITIDO: '⏭️' };
-    const correos = resultado.correos || [];
-    const fallidos = correos.filter((c) => c.estado === 'FALLIDO');
-
-    const lista = correos.map((c) => `
-      <li>
-        <span>${iconos[c.estado] || '•'}</span>
-        <div>
-          <b>${ETIQUETAS_CORREO[c.tipo] || escaparHtml(c.tipo)}</b>
-          <span class="estado-correo">${escaparHtml(c.estado.toLowerCase())}</span>
-          ${c.detalle ? `<div class="detalle-correo">${escaparHtml(c.detalle)}</div>` : ''}
-        </div>
-      </li>`).join('');
-
-    const cita = resultado.citaFechaHora ? `
-      <div class="cita-generada">
-        📅 Cita de teleconsulta: <b>${escaparHtml(resultado.citaFechaHora)}</b>
-        ${resultado.citaEnlace ? ` · <a href="${escaparHtml(resultado.citaEnlace)}" target="_blank" rel="noopener">abrir videollamada</a>` : ''}
-      </div>` : '';
-
-    contenedor.innerHTML = `
-      <div class="resultado-alta ${fallidos.length ? 'con-fallos' : 'todo-ok'}">
-        <div class="titulo-resultado">${fallidos.length ? '⚠️ Alta guardada con incidencias de envío' : '✅ Alta completada'}${esReintento ? ' (correos reintentados)' : ''}</div>
-        ${cita}
-        <ul class="lista-correos">${lista}</ul>
-        <div class="acciones-resultado">
-          ${fallidos.length ? '<button type="button" id="btnReintentar" class="boton-secundario" onclick="reintentarCorreos()">Reintentar envío de correos</button>' : ''}
-          <button type="button" class="boton-secundario" onclick="descargarPdfHistoria()">Descargar historia clínica (PDF)</button>
-        </div>
-      </div>`;
-
-    if (esReintento) {
-      mostrarMensaje('mensajeAlta',
-        fallidos.length
-          ? `El alta está guardada, pero ${fallidos.length} correo(s) siguen sin enviarse.`
-          : 'Correos reenviados correctamente.',
-        fallidos.length ? 'error' : 'exito');
-    }
-  }
-
-  async function reintentarCorreos() {
-    const boton = document.getElementById('btnReintentar');
-    if (boton) { boton.disabled = true; boton.textContent = 'Reenviando...'; }
-    try {
-      const resultado = await reenviarCorreosAtencion(idRegistro, {
-        direccion: leerDireccionPaciente()
-      });
-      pintarResultadosAlta(resultado, true);
-    } catch (error) {
-      mostrarMensaje('mensajeAlta', error.message, 'error');
-      const reintento = document.getElementById('btnReintentar');
-      if (reintento) { reintento.disabled = false; reintento.textContent = 'Reintentar envío de correos'; }
+      avisar(error.message, 'error');
     }
   }
 
   async function descargarPdfHistoria() {
     try {
       await descargarHistoriaPdf(idRegistro);
+      avisar('Descargando historia clínica...', 'info');
     } catch (error) {
-      alert(error.message);
+      avisar(error.message, 'error');
     }
+  }
+
+  function tendencia(actual, anterior, unidad, decimales = 0) {
+    if (actual === null || actual === undefined || actual === ''
+      || anterior === null || anterior === undefined || anterior === '') return '';
+    const valorActual = Number(actual);
+    const valorAnterior = Number(anterior);
+    if (!Number.isFinite(valorActual) || !Number.isFinite(valorAnterior)) return '';
+    const diferencia = valorActual - valorAnterior;
+    if (Math.abs(diferencia) < 0.05) return '';
+    const flecha = diferencia > 0 ? '↑' : '↓';
+    return `<span class="tendencia" title="Diferencia con la toma anterior">${flecha} ${Math.abs(diferencia).toFixed(decimales)}${unidad ? ' ' + unidad : ''}</span>`;
   }
 
   function pintarHistorial(lista) {
     const contenedor = document.getElementById('lineaTiempo');
-    if (lista.length === 0) {
-      contenedor.innerHTML = '<p class="tabla-vacia">Aún no se han registrado signos vitales</p>';
+    if (!Array.isArray(lista) || lista.length === 0) {
+      contenedor.innerHTML = '<p class="tabla-vacia">Aún no se han registrado signos vitales.</p>';
       return;
     }
+
     const ordenada = [...lista].sort((a, b) => new Date(b.fechaHoraToma) - new Date(a.fechaHoraToma));
-    contenedor.innerHTML = ordenada.map((toma) => `
-      <div class="toma-vital">
-        <div class="fecha">${formatearFecha(toma.fechaHoraToma)}</div>
-        <div class="cifras">
-          <div class="cifra"><div class="valor">${toma.frecuenciaCardiaca}</div><div class="etiqueta">FC lpm</div></div>
-          <div class="cifra"><div class="valor">${toma.presionSistolica}/${toma.presionDiastolica}</div><div class="etiqueta">Presión</div></div>
-          <div class="cifra"><div class="valor">${toma.temperatura}°C</div><div class="etiqueta">Temp.</div></div>
-          <div class="cifra"><div class="valor">${toma.saturacion}%</div><div class="etiqueta">SatO2</div></div>
-          <div class="cifra"><div class="valor">${toma.frecuenciaRespiratoria}</div><div class="etiqueta">FR</div></div>
-          ${toma.glucemia ? `<div class="cifra"><div class="valor">${toma.glucemia}</div><div class="etiqueta">Glucemia</div></div>` : ''}
-        </div>
-        ${toma.descripcionSintoma ? `<div class="motivo">${escaparHtml(toma.descripcionSintoma)}</div>` : ''}
-      </div>`).join('');
+    contenedor.innerHTML = ordenada.map((toma, indice) => {
+      const anterior = ordenada[indice + 1] || null;
+      return `
+        <article class="toma-vital">
+          <div class="fecha">
+            <span>${escaparHtml(formatearFechaHora(toma.fechaHoraToma))}</span>
+            ${anterior ? '<span class="tendencia">Comparado con la toma anterior</span>' : ''}
+          </div>
+          <div class="cifras">
+            <div class="cifra"><div class="valor">${escaparHtml(toma.frecuenciaCardiaca)}${tendencia(toma.frecuenciaCardiaca, anterior?.frecuenciaCardiaca, '')}</div><div class="etiqueta">FC lpm</div></div>
+            <div class="cifra"><div class="valor">${escaparHtml(toma.presionSistolica)}/${escaparHtml(toma.presionDiastolica)}${tendencia(toma.presionSistolica, anterior?.presionSistolica, '')}</div><div class="etiqueta">Presión mmHg</div></div>
+            <div class="cifra"><div class="valor">${escaparHtml(toma.temperatura)}°C${tendencia(toma.temperatura, anterior?.temperatura, '°', 1)}</div><div class="etiqueta">Temperatura</div></div>
+            <div class="cifra"><div class="valor">${escaparHtml(toma.saturacion)}%${tendencia(toma.saturacion, anterior?.saturacion, '%')}</div><div class="etiqueta">SatO₂</div></div>
+            <div class="cifra"><div class="valor">${escaparHtml(toma.frecuenciaRespiratoria)}${tendencia(toma.frecuenciaRespiratoria, anterior?.frecuenciaRespiratoria, '')}</div><div class="etiqueta">FR rpm</div></div>
+            ${toma.glucemia ? `<div class="cifra"><div class="valor">${escaparHtml(toma.glucemia)}${tendencia(toma.glucemia, anterior?.glucemia, '', 1)}</div><div class="etiqueta">Glucemia mg/dL</div></div>` : ''}
+          </div>
+          ${toma.descripcionSintoma ? `<div class="motivo">${escaparHtml(toma.descripcionSintoma)}</div>` : ''}
+        </article>`;
+    }).join('');
   }
 
   async function cargarHistorial() {
+    const contenedor = document.getElementById('lineaTiempo');
     try {
+      contenedor.setAttribute('aria-busy', 'true');
       const lista = await listarSignosVitalesPorRegistro(idRegistro);
       pintarHistorial(lista);
     } catch (error) {
-      document.getElementById('lineaTiempo').innerHTML = `<p class="tabla-vacia">${escaparHtml(error.message)}</p>`;
+      contenedor.innerHTML = `<p class="tabla-vacia">${escaparHtml(error.message)} <button type="button" class="boton-secundario" onclick="cargarHistorial()">Reintentar</button></p>`;
+    } finally {
+      contenedor.setAttribute('aria-busy', 'false');
     }
+  }
+
+  function validarSignos() {
+    for (const campo of campoSignos) {
+      const input = document.getElementById(campo.id);
+      const valor = input.value.trim();
+      if (!valor) {
+        if (campo.opcional) continue;
+        input.focus();
+        return `Falta ${campo.etiqueta}.`;
+      }
+      const numero = Number(valor);
+      if (!Number.isFinite(numero)) {
+        input.focus();
+        return `El valor de ${campo.etiqueta} no es válido.`;
+      }
+      if (numero < campo.min || numero > campo.max) {
+        input.focus();
+        return `${campo.etiqueta} debe estar entre ${campo.min} y ${campo.max}.`;
+      }
+    }
+
+    const sistolica = Number(document.getElementById('presionSistolica').value);
+    const diastolica = Number(document.getElementById('presionDiastolica').value);
+    if (Number.isFinite(sistolica) && Number.isFinite(diastolica) && sistolica <= diastolica) {
+      document.getElementById('presionSistolica').focus();
+      return 'La presión sistólica debe ser mayor que la diastólica.';
+    }
+
+    return null;
   }
 
   document.getElementById('formSignos').addEventListener('submit', async (evento) => {
     evento.preventDefault();
     limpiarMensaje('mensajeSignos');
+
+    const errorValidacion = validarSignos();
+    if (errorValidacion) {
+      mostrarMensaje('mensajeSignos', errorValidacion, 'error');
+      return;
+    }
 
     const boton = document.getElementById('btnGuardarSignos');
     boton.disabled = true;
@@ -396,9 +669,10 @@
         descripcionSintoma: document.getElementById('descripcionSintoma').value.trim()
       });
 
-      mostrarMensaje('mensajeSignos', 'Toma registrada correctamente', 'exito');
+      mostrarMensaje('mensajeSignos', 'Toma registrada correctamente.', 'exito');
       document.getElementById('formSignos').reset();
-      cargarHistorial();
+      await cargarHistorial();
+      avisar('Toma de signos vitales guardada.', 'exito');
     } catch (error) {
       mostrarMensaje('mensajeSignos', error.message, 'error');
     } finally {
@@ -406,6 +680,154 @@
       boton.textContent = 'Guardar toma';
     }
   });
+
+  function prepararResumenAlta() {
+    const diagnostico = document.getElementById('diagnosticoFinal').value.trim();
+    const tratamiento = document.getElementById('tratamiento').value.trim();
+    const direccion = document.getElementById('direccionPaciente').value.trim();
+    const email = pacienteActual?.email;
+
+    resumenConfirmacion.innerHTML = `
+      <strong>${escaparHtml(pacienteActual?.nombre || '')} ${escaparHtml(pacienteActual?.apellido || '')}</strong><br>
+      CC ${escaparHtml(pacienteActual?.cedula || '')}<br>
+      <b>Diagnóstico:</b> ${escaparHtml(diagnostico)}<br>
+      <b>Tratamiento:</b> ${escaparHtml(tratamiento)}<br>
+      <b>Dirección:</b> ${escaparHtml(direccion || 'No indicada')}<br>
+      <b>Correos:</b> ${email ? escaparHtml(email) : 'el paciente no tiene email registrado'}`;
+
+    return { diagnostico, tratamiento, direccion };
+  }
+
+  document.getElementById('formAlta').addEventListener('submit', (evento) => {
+    evento.preventDefault();
+    limpiarMensaje('mensajeAlta');
+
+    if (!document.getElementById('formAlta').reportValidity()) return;
+
+    const datos = prepararResumenAlta();
+    if (!datos.diagnostico || !datos.tratamiento) {
+      mostrarMensaje('mensajeAlta', 'Completa el diagnóstico y el tratamiento antes de continuar.', 'error');
+      return;
+    }
+
+    dialogoAlta.showModal();
+    document.getElementById('btnCancelarAlta').focus();
+  });
+
+  document.getElementById('btnCancelarAlta').addEventListener('click', () => {
+    dialogoAlta.close();
+    document.getElementById('btnDarAlta').focus();
+  });
+
+  dialogoAlta.addEventListener('cancel', () => {
+    document.getElementById('btnDarAlta').focus();
+  });
+
+  document.getElementById('btnConfirmarAlta').addEventListener('click', async () => {
+    if (altaEnCurso) return;
+    dialogoAlta.close();
+    await ejecutarAlta();
+  });
+
+  async function ejecutarAlta() {
+    altaEnCurso = true;
+    const boton = document.getElementById('btnDarAlta');
+    boton.disabled = true;
+    boton.textContent = 'Dando de alta y enviando correos...';
+
+    try {
+      const resultado = await finalizarAtencion(idRegistro, {
+        diagnosticoFinal: document.getElementById('diagnosticoFinal').value.trim(),
+        tratamiento: document.getElementById('tratamiento').value.trim(),
+        direccion: document.getElementById('direccionPaciente').value.trim()
+      });
+
+      await cargarEncabezado();
+      pintarResultadosAlta(resultado, false);
+      avisar('Alta guardada. Revisa el resultado de los correos.', 'exito');
+      resultadoCierre.focus();
+    } catch (error) {
+      mostrarMensaje('mensajeAlta', error.message, 'error');
+      avisar(error.message, 'error');
+    } finally {
+      altaEnCurso = false;
+      boton.disabled = false;
+      boton.textContent = 'Revisar y dar de alta';
+    }
+  }
+
+  const ETIQUETAS_CORREO = {
+    'teleconsulta-profesional': 'Confirmación de teleconsulta · profesional',
+    'cita-paciente': 'Cita de teleconsulta · paciente',
+    'historia-pdf': 'Historia clínica en PDF · paciente'
+  };
+
+  function pintarResultadosAlta(resultado, esReintento) {
+    try {
+      sessionStorage.setItem(CLAVE_RESULTADO_ALTA, JSON.stringify(resultado));
+    } catch (error) {
+      // Si el navegador bloquea sessionStorage, el resultado sigue visible en pantalla.
+    }
+
+    const iconos = { ENVIADO: '✅', FALLIDO: '⚠️', OMITIDO: '⏭️' };
+    const correos = resultado.correos || [];
+    const fallidos = correos.filter((c) => c.estado === 'FALLIDO');
+
+    const lista = correos.map((c) => `
+      <li>
+        <span aria-hidden="true">${iconos[c.estado] || '•'}</span>
+        <div>
+          <b>${ETIQUETAS_CORREO[c.tipo] || escaparHtml(c.tipo)}</b>
+          <span class="estado-correo">${escaparHtml((c.estado || '').toLowerCase())}</span>
+          ${c.detalle ? `<div class="detalle-correo">${escaparHtml(c.detalle)}</div>` : ''}
+        </div>
+      </li>`).join('');
+
+    const cita = resultado.citaFechaHora ? `
+      <div class="cita-generada">
+        📅 Cita de teleconsulta: <b>${escaparHtml(resultado.citaFechaHora)}</b>
+        ${resultado.citaEnlace ? ` · <a href="${escaparHtml(urlExternaSegura(resultado.citaEnlace))}" target="_blank" rel="noopener noreferrer">abrir videollamada</a>` : ''}
+      </div>` : '';
+
+    contenedorResultado.innerHTML = `
+      <div class="resultado-alta ${fallidos.length ? 'con-fallos' : 'todo-ok'}">
+        <div class="titulo-resultado">${fallidos.length ? '⚠️ Alta guardada con incidencias de envío' : '✅ Alta completada'}${esReintento ? ' (correos reintentados)' : ''}</div>
+        ${cita}
+        <ul class="lista-correos">${lista || '<li>No se reportaron correos para este alta.</li>'}</ul>
+        <div class="acciones-resultado">
+          ${fallidos.length ? '<button type="button" id="btnReintentar" class="boton-secundario" onclick="reintentarCorreos()">Reintentar envío de correos</button>' : ''}
+          <button type="button" class="boton-secundario" onclick="descargarPdfHistoria()">Descargar historia clínica (PDF)</button>
+        </div>
+      </div>`;
+
+    resultadoCierre.hidden = false;
+    document.getElementById('seccionAlta').hidden = true;
+    document.getElementById('fieldsetSignos').disabled = true;
+    document.getElementById('tarjetaSignos').hidden = true;
+    document.getElementById('gridSeguimiento').classList.add('cerrado');
+    if (esReintento) {
+      avisar(
+        fallidos.length
+          ? `El alta está guardada, pero ${fallidos.length} correo(s) siguen sin enviarse.`
+          : 'Correos reenviados correctamente.',
+        fallidos.length ? 'error' : 'exito'
+      );
+    }
+  }
+
+  async function reintentarCorreos() {
+    const boton = document.getElementById('btnReintentar');
+    if (boton) { boton.disabled = true; boton.textContent = 'Reenviando...'; }
+    try {
+      const resultado = await reenviarCorreosAtencion(idRegistro, {
+        direccion: document.getElementById('direccionPaciente').value.trim()
+      });
+      pintarResultadosAlta(resultado, true);
+    } catch (error) {
+      avisar(error.message, 'error');
+      if (boton) { boton.disabled = false; boton.textContent = 'Reintentar envío de correos'; }
+    }
+  }
 
   cargarEncabezado();
   cargarHistorial();

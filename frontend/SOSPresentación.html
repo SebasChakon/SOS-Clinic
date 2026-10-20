@@ -68,17 +68,25 @@
   .cromo-centro { display: flex; align-items: center; gap: 8px; }
 
   .punto-deck {
-    width: 8px; height: 8px; padding: 0; border: 0; border-radius: 999px;
-    background: var(--cromo-txt); opacity: .5; cursor: pointer;
+    position: relative;
+    width: 26px; height: 26px; padding: 0; border: 0; border-radius: 999px;
+    background: transparent; cursor: pointer;
+  }
+  .punto-deck::before {
+    content: ""; position: absolute; left: 50%; top: 50%;
+    width: 8px; height: 8px; border-radius: 999px;
+    background: var(--cromo-txt); opacity: .5;
+    transform: translate(-50%, -50%);
     transition: width .3s ease, opacity .3s ease, background .3s ease;
   }
-  .punto-deck:hover { opacity: .9; }
-  .punto-deck.activo { width: 26px; opacity: 1; background: var(--cromo-acento); }
+  .punto-deck:hover::before { opacity: .9; }
+  .punto-deck.activo::before { width: 26px; opacity: 1; background: var(--cromo-acento); }
+  .punto-deck:focus-visible { outline: 2px solid var(--cromo-acento); outline-offset: 2px; }
 
   .boton-deck {
-    width: 36px; height: 30px; display: grid; place-items: center;
-    background: transparent; border: 1px solid var(--cromo-linea); border-radius: 7px;
-    color: var(--cromo-txt); font-family: var(--mono); font-size: 15px; line-height: 1; cursor: pointer;
+    width: 44px; height: 44px; display: grid; place-items: center;
+    background: transparent; border: 1px solid var(--cromo-linea); border-radius: 8px;
+    color: var(--cromo-txt); font-family: var(--mono); font-size: 18px; line-height: 1; cursor: pointer;
     transition: color .25s ease, border-color .25s ease;
   }
   .boton-deck:hover { color: var(--cromo-fuerte); border-color: var(--cromo-acento); }
@@ -900,7 +908,7 @@
     <div class="cromo-derecha">
       <button type="button" class="boton-deck" id="btnAnteriorDeck" aria-label="Diapositiva anterior">‹</button>
       <button type="button" class="boton-deck" id="btnSiguienteDeck" aria-label="Diapositiva siguiente">›</button>
-      <span class="contador-deck" id="contadorDeck">01 / 12</span>
+      <span class="contador-deck" id="contadorDeck" role="status" aria-live="polite">01 / 12</span>
     </div>
   </footer>
 </div>

@@ -62,6 +62,24 @@
 
   .crue-cargando[hidden] { display: none; }
 
+  .crue-contexto {
+    margin: -4px 0 14px;
+    max-width: 75ch;
+    color: var(--texto-suave);
+    font-size: 14px;
+    line-height: 1.55;
+  }
+
+  .crue-cargando.error {
+    pointer-events: auto;
+    background: var(--superficie-aviso);
+    color: var(--tinta-aviso);
+    padding: 24px;
+    text-align: center;
+    line-height: 1.55;
+  }
+  .crue-cargando.error a { color: var(--tinta-aviso); font-weight: 600; }
+
   @media (max-width: 640px) {
     .contenido-crue { padding: 20px 12px; }
     .crue-marco {
@@ -75,26 +93,30 @@
 
 <body>
 
-<div class="topbar">
-  <div class="marca"><strong>SOS</strong> · Sistema de Triage Inteligente</div>
-  <nav id="navPrincipal"></nav>
-  <div style="display:flex; align-items:center; gap:14px;">
-    <span id="infoUsuario" class="usuario-info"></span>
-    <button class="salir" onclick="cerrarSesion()">Salir</button>
-  </div>
-</div>
+<a class="skip-link" href="#contenidoPrincipal">Saltar al contenido</a>
 
-<main class="contenido contenido-crue">
+<header class="topbar" role="banner">
+  <div class="marca" title="SOS Clinic · Sistema de Triage Inteligente"><strong>SOS</strong> · Triage</div>
+  <nav id="navPrincipal" aria-label="Navegación principal"></nav>
+  <div class="topbar-usuario">
+    <span id="infoUsuario" class="usuario-info"></span>
+    <button class="salir" type="button" onclick="cerrarSesion()">Salir</button>
+  </div>
+</header>
+
+<main class="contenido contenido-crue" id="contenidoPrincipal">
   <h1>Enfermedades atendidas por el CRUE</h1>
+  <p class="crue-contexto">Reporte público del Centro Regulador de Urgencias y Emergencias. El contenido se carga desde Power BI; si la red o el servicio externo fallan, usa el enlace de respaldo.</p>
   <div class="crue-acciones">
     <a href="https://app.powerbi.com/view?r=eyJrIjoiMzZiMmNiNWUtOTk0Ni00MWM3LTgzNzctZDk0OTljN2ExNjAyIiwidCI6IjRhYjExODNlLTc1ZDYtNGI4Ny1iNGI1LWJmY2I5NjhjMWQ1NyIsImMiOjR9" target="_blank" rel="noopener noreferrer">Abrir reporte en otra pestaña</a>
   </div>
-  <div class="crue-marco">
+  <div class="crue-marco" id="marcoCrue" aria-busy="true">
     <div class="crue-cargando" id="estadoCarga" role="status">Cargando visualizador...</div>
     <iframe
       id="reporteCrue"
       title="Power BI: principales enfermedades atendidas por el CRUE de Bogotá"
       src="https://app.powerbi.com/view?r=eyJrIjoiMzZiMmNiNWUtOTk0Ni00MWM3LTgzNzctZDk0OTljN2ExNjAyIiwidCI6IjRhYjExODNlLTc1ZDYtNGI4Ny1iNGI1LWJmY2I5NjhjMWQ1NyIsImMiOjR9"
+      loading="lazy"
       allowfullscreen="true">
     </iframe>
   </div>
@@ -106,10 +128,26 @@
   pintarNav('navPrincipal', 'enfermedades-crue.html');
 
   const sesion = obtenerSesion();
-  document.getElementById('infoUsuario').textContent = `${sesion.usuario} · ${sesion.perfil}`;
+  if (sesion) document.getElementById('infoUsuario').textContent = `${sesion.usuario} · ${sesion.perfil}`;
+
+  const marco = document.getElementById('marcoCrue');
+  const estadoCarga = document.getElementById('estadoCarga');
+  let cargado = false;
+  const URL_REPORTE = 'https://app.powerbi.com/view?r=eyJrIjoiMzZiMmNiNWUtOTk0Ni00MWM3LTgzNzctZDk0OTljN2ExNjAyIiwidCI6IjRhYjExODNlLTc1ZDYtNGI4Ny1iNGI1LWJmY2I5NjhjMWQ1NyIsImMiOjR9';
+
   document.getElementById('reporteCrue').addEventListener('load', () => {
-    document.getElementById('estadoCarga').hidden = true;
+    cargado = true;
+    estadoCarga.hidden = true;
+    marco.setAttribute('aria-busy', 'false');
   });
+
+  setTimeout(() => {
+    if (cargado) return;
+    estadoCarga.hidden = false;
+    estadoCarga.classList.add('error');
+    estadoCarga.innerHTML = `El reporte está tardando en cargar. Puedes abrirlo directamente en Power BI: <a href="${URL_REPORTE}" target="_blank" rel="noopener noreferrer">abrir reporte</a>.`;
+    marco.setAttribute('aria-busy', 'false');
+  }, 12000);
 </script>
 
 <script src="assets/copiloto.js"></script>

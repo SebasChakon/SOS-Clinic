@@ -4,64 +4,239 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>SOS · Nuevo triage</title>
+<meta name="description" content="Búsqueda de paciente y registro de llegada a triage.">
+<link rel="icon" href="favicon.ico">
 <link rel="stylesheet" href="assets/estilos.css">
 <script src="assets/movimiento.js"></script>
-</head>
+<style>
+  .contenido { max-width: 680px; }
 
+  .buscador-paciente { position: relative; }
+
+  .lista-sugerencias {
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    right: 0;
+    z-index: 40;
+    max-height: 260px;
+    overflow-y: auto;
+    margin: 0;
+    padding: 6px;
+    list-style: none;
+    border: 1px solid var(--liquen);
+    border-radius: var(--radio-boton);
+    background: var(--papel);
+    box-shadow: 0 16px 34px rgba(34, 47, 48, .16);
+  }
+  .lista-sugerencias[hidden] { display: none; }
+
+  .lista-sugerencias li { margin: 0; }
+
+  .sugerencia {
+    display: block;
+    width: 100%;
+    min-height: 44px;
+    padding: 9px 11px;
+    border: 0;
+    border-radius: 7px;
+    background: transparent;
+    color: var(--texto);
+    font-family: var(--fuente);
+    font-size: 14px;
+    text-align: left;
+    text-transform: none;
+    letter-spacing: 0;
+  }
+  .sugerencia:hover,
+  .lista-sugerencias li.activo .sugerencia { background: var(--acento-tenue); }
+  .sugerencia .sugerencia-nombre { font-weight: 600; }
+  .sugerencia .sugerencia-meta { display: block; color: var(--texto-suave); font-size: 12.5px; }
+
+  .paciente-seleccionado {
+    margin-top: 12px;
+    padding: 12px 14px;
+    border: 1px solid var(--verde-borde);
+    border-radius: var(--radio-boton);
+    background: var(--verde-fondo);
+    font-size: 14px;
+  }
+  .paciente-seleccionado strong { display: block; font-size: 15px; }
+  .paciente-seleccionado span { color: var(--texto-suave); }
+
+  .grupo-categorias { margin: 0 0 18px; padding: 0; border: 0; }
+  .grupo-categorias > legend {
+    padding: 0;
+    margin-bottom: 8px;
+    font-family: var(--fuente);
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--grafito);
+  }
+
+  .opciones-categoria {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+
+  .opcion-categoria {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-height: 52px;
+    padding: 9px 11px;
+    border: 1px solid var(--liquen);
+    border-radius: 10px;
+    background: var(--papel);
+    cursor: pointer;
+  }
+  .opcion-categoria:hover { border-color: var(--acento); }
+  .opcion-categoria:focus-within { outline: 2px solid var(--acento); outline-offset: 2px; }
+  .opcion-categoria input {
+    position: absolute;
+    opacity: 0;
+    width: 1px;
+    height: 1px;
+  }
+  .opcion-categoria:has(input:checked) { border-color: var(--tinta); background: var(--hueso); }
+  .opcion-categoria .cat-color {
+    width: 10px;
+    height: 34px;
+    border-radius: 999px;
+    flex: none;
+  }
+  .opcion-categoria .cat-texto { display: flex; flex-direction: column; line-height: 1.25; }
+  .opcion-categoria .cat-texto strong { font-size: 13.5px; font-weight: 600; }
+  .opcion-categoria .cat-texto small { color: var(--texto-suave); font-size: 11.5px; }
+
+  .p1 .cat-color { background: var(--prioridad-1); }
+  .p2 .cat-color { background: var(--prioridad-2); }
+  .p3 .cat-color { background: var(--prioridad-3); }
+  .p4 .cat-color { background: var(--prioridad-4); }
+  .p5 .cat-color { background: var(--prioridad-5); }
+
+  .resumen-seleccion {
+    margin: 0 0 16px;
+    padding: 11px 13px;
+    border: 1px solid var(--tejido);
+    border-radius: var(--radio-boton);
+    background: var(--hueso);
+    color: var(--texto-suave);
+    font-size: 13.5px;
+  }
+  .resumen-seleccion strong { color: var(--texto); }
+
+  .resultado-triage h2 { margin-top: 0; }
+  .resultado-triage .detalle { margin: 0 0 16px; color: var(--texto-suave); }
+  .resultado-triage .acciones { display: flex; gap: 10px; flex-wrap: wrap; }
+
+  @media (max-width: 560px) {
+    .opciones-categoria { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
 
 <body>
 
-<div class="topbar">
-  <div class="marca"><strong>SOS</strong> · Sistema de Triage Inteligente</div>
-  <nav id="navPrincipal"></nav>
-  <div style="display:flex; align-items:center; gap:14px;">
+<a class="skip-link" href="#contenidoPrincipal">Saltar al contenido</a>
+
+<header class="topbar" role="banner">
+  <div class="marca" title="SOS Clinic · Sistema de Triage Inteligente"><strong>SOS</strong> · Triage</div>
+  <nav id="navPrincipal" aria-label="Navegación principal"></nav>
+  <div class="topbar-usuario">
     <span id="infoUsuario" class="usuario-info"></span>
-    <button class="salir" onclick="cerrarSesion()">Salir</button>
+    <button class="salir" type="button" onclick="cerrarSesion()">Salir</button>
   </div>
-</div>
+</header>
 
-<div class="contenido" style="max-width:520px;">
+<main class="contenido" id="contenidoPrincipal">
   <h1>Registrar llegada a triage</h1>
-  <p class="sub">Escribe la cédula; aparecerán los pacientes registrados que coincidan.</p>
+  <p class="sub">Busca al paciente por cédula, confirma su identidad y asigna la categoría de prioridad.</p>
 
-  <div class="tarjeta">
-    <form id="formTriage">
+  <section class="tarjeta" id="tarjetaFormulario" aria-labelledby="tituloFormulario">
+    <h2 id="tituloFormulario">Datos de la llegada</h2>
+
+    <form id="formTriage" novalidate>
       <div class="campo">
         <label for="cedula">Cédula del paciente</label>
-        <input class="input-autocompletar" type="text" id="cedula" list="listaCedulas" placeholder="Escribe para buscar..." autocomplete="off" required>
-        <datalist id="listaCedulas"></datalist>
+        <div class="buscador-paciente">
+          <input class="input-autocompletar" type="text" id="cedula" name="cedula"
+                 placeholder="Escribe al menos 2 dígitos..."
+                 autocomplete="off" inputmode="numeric"
+                 role="combobox" aria-expanded="false" aria-controls="listaSugerencias"
+                 aria-autocomplete="list" aria-describedby="ayudaCedula" required>
+          <ul class="lista-sugerencias" id="listaSugerencias" role="listbox" aria-label="Pacientes encontrados" hidden></ul>
+        </div>
+        <p class="ayuda" id="ayudaCedula">Si el paciente no existe, podrás registrarlo desde aquí.</p>
+        <div class="aviso" id="avisoBusqueda" hidden></div>
       </div>
 
-      <div class="campo" id="campoPacienteEncontrado" style="display:none;">
-        <label>Paciente</label>
-        <div id="nombrePacienteEncontrado" style="font-size:14.5px; padding:8px 0;"></div>
+      <div class="paciente-seleccionado" id="pacienteSeleccionado" hidden>
+        <strong id="nombrePacienteSeleccionado"></strong>
+        <span id="detallePacienteSeleccionado"></span>
       </div>
 
-      <div class="campo">
-        <label for="categoria">Categoría de triage</label>
-        <select id="categoria" required>
-          <option value="">Selecciona una categoría</option>
-          <option value="1">1 · Resucitación</option>
-          <option value="2">2 · Emergencia</option>
-          <option value="3">3 · Urgencia</option>
-          <option value="4">4 · Urgencia menor</option>
-          <option value="5">5 · Sin urgencia</option>
-        </select>
-      </div>
+      <fieldset class="grupo-categorias">
+        <legend>Categoría de triage</legend>
+        <div class="opciones-categoria">
+          <label class="opcion-categoria p1">
+            <input type="radio" name="categoria" value="1">
+            <span class="cat-color" aria-hidden="true"></span>
+            <span class="cat-texto"><strong>1 · Resucitación</strong><small>Prioridad máxima</small></span>
+          </label>
+          <label class="opcion-categoria p2">
+            <input type="radio" name="categoria" value="2">
+            <span class="cat-color" aria-hidden="true"></span>
+            <span class="cat-texto"><strong>2 · Emergencia</strong><small>Prioridad alta</small></span>
+          </label>
+          <label class="opcion-categoria p3">
+            <input type="radio" name="categoria" value="3">
+            <span class="cat-color" aria-hidden="true"></span>
+            <span class="cat-texto"><strong>3 · Urgencia</strong><small>Prioridad media</small></span>
+          </label>
+          <label class="opcion-categoria p4">
+            <input type="radio" name="categoria" value="4">
+            <span class="cat-color" aria-hidden="true"></span>
+            <span class="cat-texto"><strong>4 · Urgencia menor</strong><small>Prioridad baja</small></span>
+          </label>
+          <label class="opcion-categoria p5">
+            <input type="radio" name="categoria" value="5">
+            <span class="cat-color" aria-hidden="true"></span>
+            <span class="cat-texto"><strong>5 · Sin urgencia</strong><small>Prioridad mínima</small></span>
+          </label>
+        </div>
+      </fieldset>
 
       <div class="campo">
         <label for="ubicacion">Ubicación</label>
-        <select id="ubicacion">
+        <select id="ubicacion" name="ubicacion">
           <option value="">Sin ubicación</option>
         </select>
+        <p class="ayuda">Opcional. Puedes actualizarla después en el seguimiento.</p>
+      </div>
+
+      <div class="resumen-seleccion" id="resumenSeleccion" aria-live="polite">
+        Selecciona un paciente y una categoría para revisar el registro.
       </div>
 
       <button type="submit" id="btnRegistrar" class="boton-primario boton-full">Registrar llegada</button>
 
-      <div class="mensaje" id="mensajeTriage"></div>
+      <div class="mensaje" id="mensajeTriage" tabindex="-1"></div>
     </form>
-  </div>
-</div>
+  </section>
+
+  <section class="tarjeta resultado-triage" id="resultadoTriage" hidden tabindex="-1" aria-labelledby="tituloResultado">
+    <h2 id="tituloResultado">Llegada registrada</h2>
+    <p class="detalle" id="detalleResultado"></p>
+    <div class="acciones">
+      <a class="boton-primario" href="lista-espera.html">Ver lista de espera</a>
+      <a class="boton-secundario" id="enlaceSeguimiento" href="#" hidden>Abrir seguimiento</a>
+      <button type="button" class="boton-secundario" onclick="registrarOtraLlegada()">Registrar otra llegada</button>
+    </div>
+  </section>
+</main>
 
 <script src="assets/api.js"></script>
 <script>
@@ -69,71 +244,194 @@
   pintarNav('navPrincipal', 'triage-nuevo.html');
 
   const sesion = obtenerSesion();
-  document.getElementById('infoUsuario').textContent = `${sesion.usuario} · ${sesion.perfil}`;
+  if (sesion) document.getElementById('infoUsuario').textContent = `${sesion.usuario} · ${sesion.perfil}`;
+
+  const campoCedula = document.getElementById('cedula');
+  const listaSugerencias = document.getElementById('listaSugerencias');
+  const avisoBusqueda = document.getElementById('avisoBusqueda');
+  const pacienteSeleccionado = document.getElementById('pacienteSeleccionado');
+  const resumenSeleccion = document.getElementById('resumenSeleccion');
+  const formTriage = document.getElementById('formTriage');
+  const tarjetaFormulario = document.getElementById('tarjetaFormulario');
+  const resultadoTriage = document.getElementById('resultadoTriage');
 
   document.getElementById('ubicacion').insertAdjacentHTML('beforeend',
-    [...new Set(UBICACIONES_DISPONIBLES)].map(u => `<option value="${u}">${u}</option>`).join(''));
-
-  const formTriage = document.getElementById('formTriage');
-  const campoCedula = document.getElementById('cedula');
-  const campoPacienteEncontrado = document.getElementById('campoPacienteEncontrado');
-  const nombrePacienteEncontrado = document.getElementById('nombrePacienteEncontrado');
-  const listaCedulas = document.getElementById('listaCedulas');
+    [...new Set(UBICACIONES_DISPONIBLES)].map((u) => `<option value="${escaparHtml(u)}">${escaparHtml(u)}</option>`).join(''));
 
   let idPacienteEncontrado = null;
-  let ultimaBusqueda = null;
-  let temporizadorBusqueda = null;
+  let pacienteEncontrado = null;
   let resultadosActuales = [];
+  let indiceActivo = -1;
+  let temporizadorBusqueda = null;
+  let ultimaBusqueda = '';
 
-  campoCedula.addEventListener('input', () => {
-    idPacienteEncontrado = null;
-    campoPacienteEncontrado.style.display = 'none';
-
-    const valor = campoCedula.value.trim();
-    clearTimeout(temporizadorBusqueda);
-
-    if (valor.length < 2) {
-      listaCedulas.innerHTML = '';
-      return;
+  function mostrarAvisoBusqueda(texto, conEnlace = false) {
+    avisoBusqueda.hidden = false;
+    avisoBusqueda.innerHTML = `<span>${escaparHtml(texto)}</span>`;
+    if (conEnlace) {
+      const enlace = document.createElement('a');
+      enlace.href = `pacientes.html?cedula=${encodeURIComponent(campoCedula.value.trim())}`;
+      enlace.textContent = 'Registrar paciente';
+      avisoBusqueda.appendChild(enlace);
     }
+  }
 
-    temporizadorBusqueda = setTimeout(async () => {
-      ultimaBusqueda = valor;
-      try {
-        const resultados = await buscarPacientesPorCedula(valor);
-        if (ultimaBusqueda !== valor) return; // respuesta vieja, ignorar
+  function limpiarAvisoBusqueda() {
+    avisoBusqueda.hidden = true;
+    avisoBusqueda.textContent = '';
+  }
 
-        resultadosActuales = resultados;
-        listaCedulas.innerHTML = resultados.map(p =>
-          `<option value="${escaparHtml(p.cedula)}">${escaparHtml(p.nombre)} ${escaparHtml(p.apellido)}</option>`
-        ).join('');
+  function cerrarSugerencias() {
+    listaSugerencias.hidden = true;
+    campoCedula.setAttribute('aria-expanded', 'false');
+    campoCedula.removeAttribute('aria-activedescendant');
+    indiceActivo = -1;
+  }
 
-        const exacto = resultados.find(p => p.cedula === valor);
-        if (exacto) seleccionarPaciente(exacto);
-      } catch (error) {
-        listaCedulas.innerHTML = '';
-      }
-    }, 300);
-  });
+  function limpiarSeleccion() {
+    idPacienteEncontrado = null;
+    pacienteEncontrado = null;
+    pacienteSeleccionado.hidden = true;
+    actualizarResumen();
+  }
+
+  function actualizarResumen() {
+    const categoria = document.querySelector('input[name="categoria"]:checked');
+    const ubicacion = document.getElementById('ubicacion').value;
+    const partes = [];
+    partes.push(pacienteEncontrado
+      ? `Paciente: <strong>${escaparHtml(pacienteEncontrado.nombre)} ${escaparHtml(pacienteEncontrado.apellido)}</strong>`
+      : 'Paciente: <strong>sin seleccionar</strong>');
+    partes.push(categoria
+      ? `Categoría: <strong>${escaparHtml(categoria.closest('label').querySelector('strong').textContent)}</strong>`
+      : 'Categoría: <strong>sin seleccionar</strong>');
+    partes.push(`Ubicación: <strong>${escaparHtml(ubicacion || 'sin asignar')}</strong>`);
+    resumenSeleccion.innerHTML = partes.join(' · ');
+  }
 
   function seleccionarPaciente(paciente) {
     idPacienteEncontrado = paciente.idPaciente;
-    nombrePacienteEncontrado.textContent = `${paciente.nombre} ${paciente.apellido}`;
-    nombrePacienteEncontrado.style.color = 'var(--teal-hover)';
-    campoPacienteEncontrado.style.display = 'block';
+    pacienteEncontrado = paciente;
+    campoCedula.value = paciente.cedula;
+    const edad = calcularEdad(paciente.fechaNacimiento);
+    const detalle = [
+      `CC ${paciente.cedula}`,
+      edad === null ? '' : `${edad} años`,
+      paciente.email ? `Email: ${paciente.email}` : 'Sin email registrado'
+    ].filter(Boolean).join(' · ');
+    document.getElementById('nombrePacienteSeleccionado').textContent = `${paciente.nombre} ${paciente.apellido}`;
+    document.getElementById('detallePacienteSeleccionado').textContent = detalle;
+    pacienteSeleccionado.hidden = false;
+    cerrarSugerencias();
+    limpiarAvisoBusqueda();
+    actualizarResumen();
   }
 
-  campoCedula.addEventListener('blur', () => {
-    if (idPacienteEncontrado) return;
-    const valor = campoCedula.value.trim();
-    const exacto = resultadosActuales.find(p => p.cedula === valor);
-    if (exacto) {
-      seleccionarPaciente(exacto);
-    } else if (valor) {
-      nombrePacienteEncontrado.textContent = 'No encontrado — regístralo primero en la pantalla de Pacientes';
-      nombrePacienteEncontrado.style.color = 'var(--rojo-alerta)';
-      campoPacienteEncontrado.style.display = 'block';
+  function pintarSugerencias(resultados, valor) {
+    resultadosActuales = resultados;
+    indiceActivo = -1;
+
+    if (!resultados.length) {
+      listaSugerencias.hidden = true;
+      campoCedula.setAttribute('aria-expanded', 'false');
+      mostrarAvisoBusqueda(`No encontramos un paciente con la cédula «${valor}».`, true);
+      return;
     }
+
+    limpiarAvisoBusqueda();
+    listaSugerencias.innerHTML = resultados.map((p, indice) => {
+      const edad = calcularEdad(p.fechaNacimiento);
+      return `
+        <li role="option" id="opcionPaciente${indice}" data-indice="${indice}" aria-selected="false">
+          <button type="button" class="sugerencia" data-id="${escaparHtml(p.idPaciente)}">
+            <span class="sugerencia-nombre">${escaparHtml(p.nombre)} ${escaparHtml(p.apellido)}</span>
+            <span class="sugerencia-meta">CC ${escaparHtml(p.cedula)}${edad === null ? '' : ` · ${edad} años`}</span>
+          </button>
+        </li>`;
+    }).join('');
+    listaSugerencias.hidden = false;
+    campoCedula.setAttribute('aria-expanded', 'true');
+
+    listaSugerencias.querySelectorAll('.sugerencia').forEach((boton) => {
+      boton.addEventListener('click', () => {
+        const paciente = resultadosActuales.find((p) => String(p.idPaciente) === boton.dataset.id);
+        if (paciente) seleccionarPaciente(paciente);
+      });
+    });
+  }
+
+  async function buscarPaciente(valor) {
+    ultimaBusqueda = valor;
+    try {
+      const resultados = await buscarPacientesPorCedula(valor);
+      if (ultimaBusqueda !== valor || campoCedula.value.trim() !== valor) return;
+      pintarSugerencias(resultados, valor);
+      const exacto = resultados.find((p) => p.cedula === valor);
+      if (exacto) seleccionarPaciente(exacto);
+    } catch (error) {
+      listaSugerencias.hidden = true;
+      campoCedula.setAttribute('aria-expanded', 'false');
+      avisoBusqueda.hidden = false;
+      avisoBusqueda.innerHTML = `<span>${escaparHtml(error.message)}</span> <button type="button" class="boton-secundario" id="btnReintentarBusqueda">Reintentar</button>`;
+      document.getElementById('btnReintentarBusqueda')?.addEventListener('click', () => buscarPaciente(valor));
+    }
+  }
+
+  campoCedula.addEventListener('input', () => {
+    limpiarSeleccion();
+    limpiarAvisoBusqueda();
+    cerrarSugerencias();
+
+    const valor = campoCedula.value.trim();
+    ultimaBusqueda = valor;
+    clearTimeout(temporizadorBusqueda);
+
+    if (valor.length < 2) {
+      listaSugerencias.innerHTML = '';
+      return;
+    }
+
+    temporizadorBusqueda = setTimeout(() => buscarPaciente(valor), 300);
+  });
+
+  campoCedula.addEventListener('keydown', (evento) => {
+    if (listaSugerencias.hidden || !resultadosActuales.length) {
+      if (evento.key === 'Enter') evento.preventDefault();
+      return;
+    }
+
+    if (evento.key === 'ArrowDown' || evento.key === 'ArrowUp') {
+      evento.preventDefault();
+      indiceActivo = evento.key === 'ArrowDown'
+        ? Math.min(indiceActivo + 1, resultadosActuales.length - 1)
+        : Math.max(indiceActivo - 1, 0);
+      const opciones = [...listaSugerencias.querySelectorAll('[role="option"]')];
+      opciones.forEach((opcion, indice) => {
+        const activa = indice === indiceActivo;
+        opcion.classList.toggle('activo', activa);
+        opcion.setAttribute('aria-selected', String(activa));
+      });
+      campoCedula.setAttribute('aria-activedescendant', `opcionPaciente${indiceActivo}`);
+      opciones[indiceActivo]?.scrollIntoView({ block: 'nearest' });
+    } else if (evento.key === 'Enter') {
+      evento.preventDefault();
+      if (indiceActivo >= 0 && resultadosActuales[indiceActivo]) {
+        seleccionarPaciente(resultadosActuales[indiceActivo]);
+      } else {
+        const exacto = resultadosActuales.find((p) => p.cedula === campoCedula.value.trim());
+        if (exacto) seleccionarPaciente(exacto);
+      }
+    } else if (evento.key === 'Escape') {
+      cerrarSugerencias();
+    }
+  });
+
+  document.addEventListener('click', (evento) => {
+    if (!evento.target.closest('.buscador-paciente')) cerrarSugerencias();
+  });
+
+  document.querySelectorAll('input[name="categoria"], #ubicacion').forEach((control) => {
+    control.addEventListener('change', actualizarResumen);
   });
 
   formTriage.addEventListener('submit', async (evento) => {
@@ -141,7 +439,15 @@
     limpiarMensaje('mensajeTriage');
 
     if (!idPacienteEncontrado) {
-      mostrarMensaje('mensajeTriage', 'Busca un paciente valido por cedula antes de registrar la llegada', 'error');
+      mostrarMensaje('mensajeTriage', 'Selecciona un paciente válido por cédula antes de registrar la llegada.', 'error');
+      campoCedula.focus();
+      return;
+    }
+
+    const categoria = document.querySelector('input[name="categoria"]:checked');
+    if (!categoria) {
+      mostrarMensaje('mensajeTriage', 'Selecciona una categoría de triage.', 'error');
+      document.querySelector('input[name="categoria"]')?.focus();
       return;
     }
 
@@ -150,24 +456,58 @@
     boton.textContent = 'Registrando...';
 
     try {
-      await registrarTriage({
+      const resultado = await registrarTriage({
         idPaciente: idPacienteEncontrado,
-        idCategoriaTriage: Number(document.getElementById('categoria').value),
+        idCategoriaTriage: Number(categoria.value),
         ubicacion: document.getElementById('ubicacion').value.trim()
       });
 
-      mostrarMensaje('mensajeTriage', 'Llegada registrada correctamente', 'exito');
-      formTriage.reset();
-      campoPacienteEncontrado.style.display = 'none';
-      idPacienteEncontrado = null;
-      listaCedulas.innerHTML = '';
+      const ubicacion = document.getElementById('ubicacion').value;
+      document.getElementById('detalleResultado').textContent =
+        `${pacienteEncontrado.nombre} ${pacienteEncontrado.apellido} · CC ${pacienteEncontrado.cedula} · ${categoria.closest('label').querySelector('strong').textContent}${ubicacion ? ' · ' + ubicacion : ''}`;
+
+      const idRegistro = resultado && (resultado.idRegistro || resultado.id);
+      const enlace = document.getElementById('enlaceSeguimiento');
+      if (idRegistro) {
+        enlace.href = `seguimiento.html?idRegistro=${encodeURIComponent(idRegistro)}`;
+        enlace.hidden = false;
+      } else {
+        enlace.hidden = true;
+      }
+
+      tarjetaFormulario.hidden = true;
+      resultadoTriage.hidden = false;
+      resultadoTriage.focus();
     } catch (error) {
       mostrarMensaje('mensajeTriage', error.message, 'error');
+      document.getElementById('mensajeTriage').focus();
     } finally {
       boton.disabled = false;
       boton.textContent = 'Registrar llegada';
     }
   });
+
+  function registrarOtraLlegada() {
+    formTriage.reset();
+    limpiarSeleccion();
+    cerrarSugerencias();
+    limpiarAvisoBusqueda();
+    limpiarMensaje('mensajeTriage');
+    resultadosActuales = [];
+    listaSugerencias.innerHTML = '';
+    resultadoTriage.hidden = true;
+    tarjetaFormulario.hidden = false;
+    campoCedula.focus();
+    actualizarResumen();
+  }
+
+  const cedulaDesdeUrl = new URLSearchParams(window.location.search).get('cedula');
+  if (cedulaDesdeUrl) {
+    campoCedula.value = cedulaDesdeUrl;
+    buscarPaciente(cedulaDesdeUrl.trim());
+  }
+
+  actualizarResumen();
 </script>
 
 <script src="assets/copiloto.js"></script>

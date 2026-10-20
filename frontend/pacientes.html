@@ -4,127 +4,190 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>SOS · Pacientes</title>
+<meta name="description" content="Registro y búsqueda de pacientes de SOS Clinic.">
+<link rel="icon" href="favicon.ico">
 <link rel="stylesheet" href="assets/estilos.css">
 <script src="assets/movimiento.js"></script>
 <style>
   .grid-pacientes {
     display: grid;
-    grid-template-columns: 340px 1fr;
+    grid-template-columns: minmax(300px, 360px) 1fr;
     gap: 24px;
     align-items: start;
   }
 
   .barra-lista {
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     justify-content: space-between;
-    margin-bottom: 16px;
+    gap: 16px;
+    margin-bottom: 14px;
+    flex-wrap: wrap;
   }
 
-  .barra-lista .campo-busqueda {
+  .barra-lista h2 { margin: 5px 0 0; }
+
+  .campo-busqueda {
     display: flex;
     gap: 8px;
-    align-items: center;
+    align-items: flex-end;
+    flex-wrap: wrap;
   }
 
-  .barra-lista .campo-busqueda input {
-    width: 220px;
-  }
+  .campo-busqueda .campo { margin: 0; }
+  .campo-busqueda input { width: min(260px, 100%); }
+  .campo-busqueda .boton-secundario { min-height: 44px; }
 
-  .barra-lista .campo-busqueda button {
-    padding: 11px 14px;
-    font-size: 11px;
-  }
+  .celda-edad { white-space: nowrap; color: var(--texto-suave); }
+  .celda-acciones { text-align: right; }
 
-  @media (max-width: 900px) {
+  @media (max-width: 980px) {
     .grid-pacientes { grid-template-columns: 1fr; }
-    .barra-lista { flex-direction: column; align-items: flex-start; gap: 12px; }
+  }
+
+  @media (max-width: 720px) {
+    .barra-lista { align-items: flex-start; flex-direction: column; }
+    .campo-busqueda { width: 100%; }
+    .campo-busqueda .campo { flex: 1 1 180px; }
+    .campo-busqueda input { width: 100%; }
+
+    .tabla-scroll .tabla-pacientes { min-width: 0; }
+    .tabla-pacientes thead { display: none; }
+    .tabla-pacientes,
+    .tabla-pacientes tbody,
+    .tabla-pacientes tr,
+    .tabla-pacientes td { display: block; width: 100%; }
+    .tabla-pacientes tr {
+      margin: 0 0 10px;
+      padding: 10px 12px;
+      border: 1px solid var(--liquen);
+      border-radius: 12px;
+      background: var(--papel);
+    }
+    .tabla-pacientes td {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 6px 0;
+      border: 0;
+      text-align: right;
+    }
+    .tabla-pacientes td::before {
+      content: attr(data-label);
+      flex: none;
+      color: var(--texto-suave);
+      font-size: 12px;
+      font-weight: 600;
+      text-align: left;
+    }
+    .tabla-pacientes td.celda-acciones { justify-content: flex-end; padding-top: 10px; }
+    .tabla-pacientes td.celda-acciones::before { display: none; }
+    .tabla-pacientes td .boton-secundario { min-height: 44px; }
   }
 </style>
 </head>
 
-
 <body>
 
-<div class="topbar">
-  <div class="marca"><strong>SOS</strong> · Sistema de Triage Inteligente</div>
-  <nav id="navPrincipal"></nav>
-  <div style="display:flex; align-items:center; gap:14px;">
-    <span id="infoUsuario" class="usuario-info"></span>
-    <button class="salir" onclick="cerrarSesion()">Salir</button>
-  </div>
-</div>
+<a class="skip-link" href="#contenidoPrincipal">Saltar al contenido</a>
 
-<div class="contenido">
+<header class="topbar" role="banner">
+  <div class="marca" title="SOS Clinic · Sistema de Triage Inteligente"><strong>SOS</strong> · Triage</div>
+  <nav id="navPrincipal" aria-label="Navegación principal"></nav>
+  <div class="topbar-usuario">
+    <span id="infoUsuario" class="usuario-info"></span>
+    <button class="salir" type="button" onclick="cerrarSesion()">Salir</button>
+  </div>
+</header>
+
+<main class="contenido" id="contenidoPrincipal">
   <h1>Pacientes</h1>
   <p class="sub">Registra un paciente nuevo o búscalo por cédula antes de enviarlo a triage.</p>
 
   <div class="grid-pacientes">
 
-    <!-- Formulario de registro -->
-    <div class="tarjeta">
-      <h2>Registrar paciente</h2>
-      <p class="sub">Todos los campos son obligatorios.</p>
+    <section class="tarjeta" aria-labelledby="tituloRegistro">
+      <h2 id="tituloRegistro">Registrar paciente</h2>
+      <p class="sub">Nombre, apellido, cédula y fecha de nacimiento son obligatorios. El email es opcional y se usa para enviar la historia clínica al alta.</p>
 
-      <form id="formPaciente">
+      <form id="formPaciente" novalidate>
         <div class="campo">
           <label for="nombre">Nombre</label>
-          <input type="text" id="nombre" placeholder="Carlos" required>
+          <input type="text" id="nombre" name="nombre" placeholder="Carlos" autocomplete="given-name" required>
         </div>
 
         <div class="campo">
           <label for="apellido">Apellido</label>
-          <input type="text" id="apellido" placeholder="Ramírez" required>
+          <input type="text" id="apellido" name="apellido" placeholder="Ramírez" autocomplete="family-name" required>
         </div>
 
         <div class="campo">
           <label for="cedula">Cédula</label>
-          <input type="text" id="cedula" placeholder="1122334455" required>
+          <input type="text" id="cedula" name="cedula" placeholder="1122334455" inputmode="numeric" autocomplete="off" required>
+          <p class="ayuda">Debe ser única. Si ya existe, búscala en el listado.</p>
         </div>
 
         <div class="campo">
-          <label for="email">Email (para enviarle la historia clínica al alta)</label>
-          <input type="email" id="email" placeholder="paciente@correo.com">
+          <label for="email">Email <span class="solo-lectores">(opcional)</span></label>
+          <input type="email" id="email" name="email" placeholder="paciente@correo.com" autocomplete="email">
+          <p class="ayuda">Opcional. Sin email no se podrán enviar la cita ni la historia clínica.</p>
         </div>
 
         <div class="campo">
           <label for="fechaNacimiento">Fecha de nacimiento</label>
-          <input type="date" id="fechaNacimiento" required>
+          <input type="date" id="fechaNacimiento" name="fechaNacimiento" autocomplete="bday" required>
         </div>
 
         <button type="submit" id="btnRegistrar" class="boton-primario boton-full">Registrar paciente</button>
 
-        <div class="mensaje" id="mensajePaciente"></div>
+        <div class="mensaje" id="mensajePaciente" tabindex="-1"></div>
 
+        <div class="siguiente-paso" id="siguientePaso" hidden>
+          <p><strong>Paciente registrado.</strong> ¿Qué deseas hacer ahora?</p>
+          <div class="acciones">
+            <a class="boton-primario" id="enlaceNuevoTriage" href="triage-nuevo.html">Registrar llegada a triage</a>
+            <button type="button" class="boton-secundario" onclick="prepararOtroPaciente()">Registrar otro paciente</button>
+          </div>
+        </div>
       </form>
-    </div>
+    </section>
 
-    <!-- Listado de pacientes -->
-    <div class="tarjeta">
+    <section class="tarjeta" aria-labelledby="tituloListado">
       <div class="barra-lista">
-        <h2 style="margin:0;">Pacientes registrados</h2>
+        <h2 id="tituloListado">Pacientes registrados</h2>
         <div class="campo-busqueda">
-          <input type="text" id="buscarCedula" class="input-autocompletar" placeholder="Escribe para buscar..." autocomplete="off">
+          <div class="campo">
+            <label for="buscarCedula">Buscar por cédula</label>
+            <input type="search" id="buscarCedula" placeholder="Escribe la cédula..." autocomplete="off">
+          </div>
+          <button type="button" class="boton-secundario" id="btnLimpiarBusqueda" onclick="limpiarBusqueda()" hidden>Limpiar</button>
         </div>
       </div>
 
-      <table>
-        <thead>
-          <tr>
-            <th>ID</th>
-            <th>Nombre</th>
-            <th>Cédula</th>
-            <th>Fecha nacimiento</th>
-          </tr>
-        </thead>
-        <tbody id="cuerpoTablaPacientes">
-          <tr><td colspan="4" class="tabla-vacia">Cargando...</td></tr>
-        </tbody>
-      </table>
-    </div>
+      <p class="ayuda" id="resumenLista" role="status" aria-live="polite"></p>
+
+      <div class="tabla-scroll" id="contenedorTablaPacientes">
+        <table class="tabla-pacientes">
+          <caption class="solo-lectores">Pacientes registrados, con cédula, fecha de nacimiento y acción para iniciar triage</caption>
+          <thead>
+            <tr>
+              <th scope="col">ID</th>
+              <th scope="col">Nombre</th>
+              <th scope="col">Cédula</th>
+              <th scope="col">Nacimiento</th>
+              <th scope="col" class="celda-acciones">Acciones</th>
+            </tr>
+          </thead>
+          <tbody id="cuerpoTablaPacientes">
+            <tr><td colspan="5" class="tabla-vacia">Cargando pacientes...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
 
   </div>
-</div>
+</main>
 
 <script src="assets/api.js"></script>
 <script>
@@ -132,107 +195,168 @@
   pintarNav('navPrincipal', 'pacientes.html');
 
   const sesion = obtenerSesion();
+  if (!sesion) throw new Error('Sesión no disponible');
   document.getElementById('infoUsuario').textContent = `${sesion.usuario} · ${sesion.perfil}`;
 
-  function pintarPacientes(pacientes) {
-    const cuerpo = document.getElementById('cuerpoTablaPacientes');
+  const puedeCrearTriage = sesion.actividades.some((a) => a.nombreActividad === 'crear_triage');
+  const formPaciente = document.getElementById('formPaciente');
+  const cuerpoTabla = document.getElementById('cuerpoTablaPacientes');
+  const contenedorTabla = document.getElementById('contenedorTablaPacientes');
+  const entradaBusqueda = document.getElementById('buscarCedula');
+  const botonLimpiar = document.getElementById('btnLimpiarBusqueda');
+  const resumenLista = document.getElementById('resumenLista');
+  const siguientePaso = document.getElementById('siguientePaso');
+  const enlaceNuevoTriage = document.getElementById('enlaceNuevoTriage');
 
-    if (pacientes.length === 0) {
-      cuerpo.innerHTML = '<tr><td colspan="4" class="tabla-vacia">No hay pacientes registrados</td></tr>';
+  let temporizadorBusqueda = null;
+  let filtroActual = '';
+  let secuenciaBusqueda = 0;
+
+  const hoy = new Date();
+  document.getElementById('fechaNacimiento').max = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, '0')}-${String(hoy.getDate()).padStart(2, '0')}`;
+
+  function filaVacia(texto) {
+    return `<tr><td colspan="5" class="tabla-vacia">${escaparHtml(texto)}</td></tr>`;
+  }
+
+  function pintarPacientes(pacientes, filtro = '') {
+    if (!Array.isArray(pacientes) || pacientes.length === 0) {
+      if (filtro) {
+        cuerpoTabla.innerHTML = `<tr><td colspan="5" class="tabla-vacia">No hay coincidencias para «${escaparHtml(filtro)}». <button type="button" class="boton-secundario" onclick="limpiarBusqueda()">Ver todos</button></td></tr>`;
+        resumenLista.textContent = 'Sin coincidencias para la búsqueda.';
+      } else {
+        cuerpoTabla.innerHTML = filaVacia('No hay pacientes registrados. Usa el formulario para registrar el primero.');
+        resumenLista.textContent = 'No hay pacientes registrados.';
+      }
       return;
     }
 
-    cuerpo.innerHTML = pacientes.map((p) => `
-      <tr>
-        <td>${escaparHtml(p.idPaciente)}</td>
-        <td>${escaparHtml(p.nombre)} ${escaparHtml(p.apellido)}</td>
-        <td>${escaparHtml(p.cedula)}</td>
-        <td>${escaparHtml(p.fechaNacimiento)}</td>
-      </tr>
-    `).join('');
+    cuerpoTabla.innerHTML = pacientes.map((p) => {
+      const edad = calcularEdad(p.fechaNacimiento);
+      const edadTexto = edad === null ? '' : `<span class="celda-edad"> · ${edad} años</span>`;
+      const accion = puedeCrearTriage
+        ? `<a class="boton-secundario" href="triage-nuevo.html?cedula=${encodeURIComponent(p.cedula)}" aria-label="Registrar llegada a triage de ${escaparHtml(p.nombre)} ${escaparHtml(p.apellido)}">Nuevo triage</a>`
+        : '<span class="celda-edad">—</span>';
+      return `
+        <tr>
+          <td data-label="ID">${escaparHtml(p.idPaciente)}</td>
+          <td data-label="Nombre">${escaparHtml(p.nombre)} ${escaparHtml(p.apellido)}</td>
+          <td data-label="Cédula">${escaparHtml(p.cedula)}</td>
+          <td data-label="Nacimiento">${escaparHtml(formatearFechaSolo(p.fechaNacimiento))}${edadTexto}</td>
+          <td data-label="Acciones" class="celda-acciones">${accion}</td>
+        </tr>`;
+    }).join('');
+
+    resumenLista.textContent = filtro
+      ? `${pacientes.length} coincidencia(s) para «${filtro}».`
+      : `${pacientes.length} paciente(s) registrados.`;
   }
 
   async function cargarPacientes() {
-    const cuerpo = document.getElementById('cuerpoTablaPacientes');
+    contenedorTabla.setAttribute('aria-busy', 'true');
     try {
       const pacientes = await listarPacientes();
-      pintarPacientes(pacientes);
+      pintarPacientes(pacientes, filtroActual);
     } catch (error) {
-      cuerpo.innerHTML = `<tr><td colspan="4" class="tabla-vacia">${escaparHtml(error.message)}</td></tr>`;
+      cuerpoTabla.innerHTML = `<tr><td colspan="5" class="tabla-vacia">${escaparHtml(error.message)} <button type="button" class="boton-secundario" onclick="cargarPacientes()">Reintentar</button></td></tr>`;
+      resumenLista.textContent = 'No se pudo cargar el listado.';
+    } finally {
+      contenedorTabla.setAttribute('aria-busy', 'false');
     }
   }
-  let temporizadorBusquedaPacientes = null;
 
-  document.getElementById('buscarCedula').addEventListener('input', () => {
-    const valor = document.getElementById('buscarCedula').value.trim();
-    clearTimeout(temporizadorBusquedaPacientes);
+  function limpiarBusqueda() {
+    entradaBusqueda.value = '';
+    filtroActual = '';
+    botonLimpiar.hidden = true;
+    cargarPacientes();
+    entradaBusqueda.focus();
+  }
+
+  entradaBusqueda.addEventListener('input', () => {
+    const valor = entradaBusqueda.value.trim();
+    clearTimeout(temporizadorBusqueda);
+    filtroActual = valor;
+    botonLimpiar.hidden = !valor;
 
     if (!valor) {
       cargarPacientes();
       return;
     }
 
-    temporizadorBusquedaPacientes = setTimeout(async () => {
+    temporizadorBusqueda = setTimeout(async () => {
+      const secuencia = ++secuenciaBusqueda;
+      contenedorTabla.setAttribute('aria-busy', 'true');
       try {
         const resultados = await buscarPacientesPorCedula(valor);
-        pintarPacientes(resultados);
+        if (secuencia !== secuenciaBusqueda || entradaBusqueda.value.trim() !== valor) return;
+        pintarPacientes(resultados, valor);
       } catch (error) {
-        document.getElementById('cuerpoTablaPacientes').innerHTML = `<tr><td colspan="4" class="tabla-vacia">${escaparHtml(error.message)}</td></tr>`;
+        if (secuencia !== secuenciaBusqueda) return;
+        cuerpoTabla.innerHTML = `<tr><td colspan="5" class="tabla-vacia">${escaparHtml(error.message)} <button type="button" class="boton-secundario" onclick="limpiarBusqueda()">Ver todos</button></td></tr>`;
+        resumenLista.textContent = 'No se pudo completar la búsqueda.';
+      } finally {
+        if (secuencia === secuenciaBusqueda) contenedorTabla.setAttribute('aria-busy', 'false');
       }
     }, 300);
   });
 
-  // --- Formulario de registro ---
-
-  const formPaciente = document.getElementById('formPaciente');
+  function prepararOtroPaciente() {
+    siguientePaso.hidden = true;
+    formPaciente.reset();
+    document.getElementById('fechaNacimiento').max = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, '0')}-${String(hoy.getDate()).padStart(2, '0')}`;
+    document.getElementById('nombre').focus();
+  }
 
   formPaciente.addEventListener('submit', async (evento) => {
+    evento.preventDefault();
+    limpiarMensaje('mensajePaciente');
+    siguientePaso.hidden = true;
 
-      evento.preventDefault();
+    if (!formPaciente.reportValidity()) return;
 
-      limpiarMensaje('mensajePaciente');
+    const boton = document.getElementById('btnRegistrar');
+    const datos = {
+      nombre: document.getElementById('nombre').value.trim(),
+      apellido: document.getElementById('apellido').value.trim(),
+      cedula: document.getElementById('cedula').value.trim(),
+      email: document.getElementById('email').value.trim(),
+      fechaNacimiento: document.getElementById('fechaNacimiento').value
+    };
 
-      const boton = document.getElementById('btnRegistrar');
+    boton.disabled = true;
+    boton.textContent = 'Registrando...';
 
-      boton.disabled = true;
-      boton.textContent = 'Registrando...';
+    try {
+      const creado = (await crearPaciente(datos)) || datos;
+      const nombreCompleto = `${creado.nombre || datos.nombre} ${creado.apellido || datos.apellido}`.trim();
+      mostrarMensaje('mensajePaciente', `${nombreCompleto} quedó registrado correctamente.`, 'exito');
+      document.getElementById('mensajePaciente').focus();
+      formPaciente.reset();
+      document.getElementById('fechaNacimiento').max = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, '0')}-${String(hoy.getDate()).padStart(2, '0')}`;
+      entradaBusqueda.value = '';
+      filtroActual = '';
+      botonLimpiar.hidden = true;
+      await cargarPacientes();
 
-      try {
-
-          await crearPaciente({
-              nombre: document.getElementById('nombre').value.trim(),
-              apellido: document.getElementById('apellido').value.trim(),
-              cedula: document.getElementById('cedula').value.trim(),
-              email: document.getElementById('email').value.trim(),
-              fechaNacimiento: document.getElementById('fechaNacimiento').value
-          });
-
-          mostrarMensaje(
-              'mensajePaciente',
-              'Paciente registrado correctamente',
-              'exito'
-          );
-
-          formPaciente.reset();
-          cargarPacientes();
-
-      } catch (error) {
-
-          mostrarMensaje(
-              'mensajePaciente',
-              error.message,
-              'error'
-          );
-
-      } finally {
-
-          boton.disabled = false;
-          boton.textContent = 'Registrar paciente';
-
+      if (puedeCrearTriage) {
+        enlaceNuevoTriage.href = `triage-nuevo.html?cedula=${encodeURIComponent(creado.cedula || datos.cedula)}`;
+        siguientePaso.hidden = false;
       }
+    } catch (error) {
+      mostrarMensaje('mensajePaciente', error.message, 'error');
+      document.getElementById('mensajePaciente').focus();
+    } finally {
+      boton.disabled = false;
+      boton.textContent = 'Registrar paciente';
+    }
   });
 
-  // --- Carga inicial ---
+  const cedulaDesdeUrl = new URLSearchParams(window.location.search).get('cedula');
+  if (cedulaDesdeUrl) {
+    document.getElementById('cedula').value = cedulaDesdeUrl;
+    document.getElementById('nombre').focus();
+  }
 
   cargarPacientes();
 </script>

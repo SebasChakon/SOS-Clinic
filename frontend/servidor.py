@@ -33,6 +33,15 @@ class Handler(SimpleHTTPRequestHandler):
     server_version = "SOS-Clinic"
     sys_version = ""
 
+    def do_GET(self):
+        # La landing antigua redirige de forma permanente al índice actual.
+        if self.path.split("?", 1)[0] == "/landing.html":
+            self.send_response(301)
+            self.send_header("Location", "/index.html")
+            self.end_headers()
+            return
+        super().do_GET()
+
     def end_headers(self):
         self.send_header("X-Content-Type-Options", "nosniff")
         self.send_header("X-Frame-Options", "DENY")
@@ -41,7 +50,11 @@ class Handler(SimpleHTTPRequestHandler):
         self.send_header("Content-Security-Policy", CSP)
         self.send_header("Cross-Origin-Opener-Policy", "same-origin")
         self.send_header("Cross-Origin-Resource-Policy", "same-site")
-        if self.path.endswith(".html") or self.path == "/":
+
+        ruta = self.path.split("?", 1)[0]
+        if ruta.endswith((".css", ".js", ".ico", ".png", ".jpg", ".jpeg", ".svg", ".woff2", ".mp4")):
+            self.send_header("Cache-Control", "public, max-age=3600")
+        elif ruta.endswith(".html") or ruta == "/":
             self.send_header("Cache-Control", "no-store")
         super().end_headers()
 
