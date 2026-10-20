@@ -64,7 +64,8 @@ Aunque conceptualmente cada microservicio tiene tablas bajo su responsabilidad, 
 | Ruta | Responsabilidad |
 |---|---|
 | `README.md` | Guía de arquitectura, configuración, operación y limitaciones. |
-| `levantar-sistema.bat` | En Windows, carga las credenciales del archivo `.env` (si existe) en el entorno, levanta Docker Compose, abre consolas para todos los servicios de aplicación (gateway, seguridad, pacientes, triage, analítica y agente), define credenciales por defecto de MySQL para analítica si faltan y abre el login. Usa el comando global `mvn`; requiere Maven en `PATH`. Sus pausas son fijas, no comprobaciones de disponibilidad. |
+| `levantar-sistema.bat` | En Windows, carga `.env`, levanta Docker Compose, inicia Eureka, gateway, seguridad, pacientes, triage, analitica y agente con `mvnw.cmd`, detecta Java, omite servicios ya activos y espera los puertos antes de abrir el login. |
+| `detener-sistema.bat` | Detiene frontend, microservicios y contenedores del proyecto; conserva los datos de PostgreSQL. |
 | `infra/` | Infraestructura local PostgreSQL/pgAdmin y SQL inicial. |
 | `frontend/` | Interfaz estática que consume el gateway. |
 | `eureka-server/` | Registro y descubrimiento de servicios. |
@@ -120,7 +121,7 @@ Cada módulo Maven organiza normalmente su código en `src/main/java` así:
 
 - JDK 17.
 - Docker Desktop con Docker Compose.
-- Maven 3.9 o superior si se usa `levantar-sistema.bat` o `mvn`. También se puede usar `mvnw.cmd` incluido en cada módulo.
+- Java 17+; el arranque usa el wrapper incluido (`mvnw.cmd`), no requiere Maven en `PATH`.
 - Navegador moderno.
 - Para preparar los datos de analítica: MySQL Server iniciado, el cliente `mysql` en `PATH` y Python disponible como `python`.
 - Opcional: NetBeans para abrir/ejecutar los proyectos y pgAdmin para inspeccionar PostgreSQL.
@@ -138,7 +139,7 @@ Copy-Item .env.example .env
 notepad .env
 ```
 
-`levantar-sistema.bat` lo carga automáticamente, y además cada servicio lo importa al arrancar con un pequeño cargador propio (`EnvEnvironmentPostProcessor`, que busca `.env` en el directorio del módulo y en la raíz del repo), así que **lanzar desde NetBeans o `mvn spring-boot:run` también funciona sin exportar nada**. Sin `.env` el sistema igual levanta, pero los correos fallarán (el código 2FA se muestra en la consola como respaldo) y el agente IA responderá que no está configurado.
+`levantar-sistema.bat` lo carga automaticamente, y ademas cada servicio lo importa al arrancar con un pequeno cargador propio (`EnvEnvironmentPostProcessor`, que busca `.env` en el directorio del modulo y en la raiz del repo), asi que **lanzar desde NetBeans o `mvn spring-boot:run` tambien funciona sin exportar nada**. Sin `.env` el sistema no arranca: copia `.env.example`, define `APP_JWT_SECRET` y completa las credenciales.
 
 ### 1. Iniciar PostgreSQL
 
@@ -208,7 +209,15 @@ Repite en terminales separadas desde las carpetas `ms-gateway`, `ms-seguridad`, 
 .\levantar-sistema.bat
 ```
 
-El script abre las consolas en el orden básico, pero no valida que PostgreSQL o cada servicio estén listos; si hay demoras, revisa la salida de la consola correspondiente.
+El script arranca los servicios, espera a que los puertos esten listos y abre el login. Si un puerto ya esta ocupado, omite ese servicio.
+
+Para detener todo:
+
+```powershell
+.\detener-sistema.bat
+```
+
+Detiene microservicios, frontend y contenedores del proyecto; no borra el volumen de PostgreSQL.
 
 `ms-analitica` corre como proceso local fuera de Docker y requiere que el MySQL sintético ya esté disponible. Prepara esa base manualmente en el paso 2; el arranque de servicios no ejecuta el generador. `levantar-sistema.bat` carga `.env` y exige `APP_JWT_SECRET`; no define credenciales por defecto. `ms-ia-agente` necesita `GROQ_API_KEY` (definida en `.env`; `levantar-sistema.bat` la expone a las consolas) para responder; sin ella el asistente indica que no está configurado.
 
@@ -496,3 +505,4 @@ Si algo aparece fuera de `.env`, la credencial estuvo versionada: rótala. Para 
 gitleaks protect --staged
 ```
 
+
