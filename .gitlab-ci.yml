@@ -1,0 +1,11 @@
+stages:
+  - security
+
+gitleaks:
+  stage: security
+  image:
+    name: ghcr.io/gitleaks/gitleaks:latest
+    entrypoint: [""]
+  script:
+    - gitleaks detect --source . --config .gitleaks.toml --redact --no-git --verbose
+  allow_failure: false
