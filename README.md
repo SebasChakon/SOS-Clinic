@@ -505,4 +505,3 @@ Si algo aparece fuera de `.env`, la credencial estuvo versionada: rótala. Para 
 gitleaks protect --staged
 ```
 
-
