@@ -132,7 +132,7 @@ if not errorlevel 1 (
 ) else (
   if defined PY_FRONT (
     echo Sirviendo frontend en http://127.0.0.1:5500 ...
-    start "frontend-sos" /D "%BASE%frontend" cmd /k "%PY_FRONT% servidor.py 5500"
+    start "frontend-sos" /D "%BASE%frontend" cmd /k "title SOS-frontend && %PY_FRONT% servidor.py 5500"
     call :wait_port 5500 30
   ) else (
     echo ADVERTENCIA: Python no esta disponible; se abren los archivos directamente.
@@ -185,5 +185,5 @@ if not errorlevel 1 (
   exit /b 0
 )
 echo Iniciando %S_NAME%...
-start "%S_NAME%" /D "%BASE%%S_DIR%" cmd /k "mvnw.cmd spring-boot:run"
+start "%S_NAME%" /D "%BASE%%S_DIR%" cmd /k "title SOS-%S_NAME% && mvnw.cmd spring-boot:run"
 exit /b 0
