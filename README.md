@@ -266,24 +266,18 @@ Endpoints nuevos en `ms-pacientes`:
 
 Los endpoints antiguos (`enviar-historia`, `enviar-cita-teleconsulta`, `PUT .../atendido`) se mantienen por compatibilidad.
 
-### Probar los correos sin enviar mensajes reales
+### Probar los correos con Gmail
 
-Para desarrollo usa **Mailpit**, que captura todo el SMTP en un contenedor y lo muestra en un navegador:
+El sistema usa SMTP real. Configura en `.env`:
 
-```bash
-docker run -d --name mailpit -p 1025:1025 -p 8025:8025 axllent/mailpit
+```properties
+MAIL_SMTP_HOST=smtp.gmail.com
+MAIL_SMTP_PORT=587
+MAIL_USERNAME=tu-cuenta@gmail.com
+MAIL_PASSWORD=contrasena-de-aplicacion
 ```
 
-Luego exporta el SMTP de prueba antes de arrancar los servicios (o agrégalas a `.env`):
-
-```bat
-set MAIL_SMTP_HOST=localhost
-set MAIL_SMTP_PORT=1025
-set MAIL_USERNAME=
-set MAIL_PASSWORD=
-```
-
-Abre `http://localhost:8025` para ver cada correo con sus adjuntos (PDF e `.ics`). Recuerda volver a las variables reales para enviar de verdad.
+Gmail exige verificacion en dos pasos y una contrasena de aplicacion; no uses la clave normal de la cuenta. Para pruebas usa una cuenta y destinatarios de prueba, y no envies datos clinicos reales. La entrega queda sujeta a los limites y filtros de Gmail; revisa la bandeja de enviados o la del destinatario. No hay captura local de correo.
 
 ## Perfiles, actividades y turnos
 
@@ -427,7 +421,7 @@ Añadir `-v` borra el volumen, por lo que debe hacerse solo de forma intencional
 1. **SQL y entidades JPA no están sincronizados.** `schema-postgres.sql` define diez tablas, pero las entidades actuales también esperan `turno`, `codigo_verificacion` y columnas como `personal.requiere_2fa`, `paciente.email`, `registro_triage.diagnostico_final` y `registro_triage.tratamiento`. Con `ddl-auto=validate`, una base creada solo con ese SQL puede impedir el arranque de los servicios afectados. Actualiza el esquema mediante una migración controlada; no uses `ddl-auto=update` como sustituto de una migración revisada.
 2. **Faltan datos iniciales de acceso.** No se inserta usuario ni turnos. El esquema inicial registra la actividad CRUE y la asigna a todos los perfiles base; en una base existente, ejecuta `infra/activar-enfermedades-crue.sql` una vez porque los scripts de inicialización no corren de nuevo sobre volúmenes existentes.
 3. **Historia clínica y teleconsulta por correo.** El alta se hace en una sola llamada desde el backend, que persiste diagnóstico y tratamiento en `registro_triage` **antes** de notificar y devuelve el estado de cada correo por separado. Los envíos siguen siendo de mejor esfuerzo dependientes de SMTP: revisa el estado devuelto y usa el botón de reintento en lugar de asumir que la historia clínica llegó porque el alta concluyó. Si el PDF o el mapa de farmacias fallan, el correo se envía igual sin ese elemento.
-4. **Autorización por rol incompleta.** JWT se valida dentro de `ms-seguridad`, pero las APIs de pacientes y triage no instalan ese filtro; el gateway tampoco valida token globalmente. Las rutas administrativas solo requieren autenticación, no un rol específico.
+4. **Autorizacion por rol.** El gateway valida el JWT y cada servicio vuelve a validarlo; `/admin/**` exige `ADMINISTRADOR`; pacientes y triage exigen roles clinicos. Queda pendiente la autorizacion por propietario de cada episodio.
 5. **Secretos fuera del repositorio.** El SMTP y la API key de Groq se leen desde el archivo `.env` (ignorado por git) o variables de entorno; `application.properties` solo conserva `${MAIL_USERNAME}` y similares. El secreto JWT se exige por la variable de entorno `APP_JWT_SECRET`; no hay fallback versionado. Genera uno nuevo, guardalo en `.env` y reinicia todos los servicios. Revisa el historial de git (los secretos antiguos ya estaban publicados) y sigue la seccion Credenciales y secretos para rotarlos. No los uses en produccion.
 6. **Configuración de desarrollo sin endurecer.** PostgreSQL y pgAdmin publican puertos locales con credenciales de desarrollo; CORS debe limitarse al origen real del frontend. El repositorio no contiene un despliegue productivo completo para Azure.
 7. **Auditoría de mejor esfuerzo.** Parte de los eventos se solicita desde JavaScript y los errores de auditoría se silencian. No es una bitácora inmutable ni registra automáticamente todos los accesos a datos clínicos.
