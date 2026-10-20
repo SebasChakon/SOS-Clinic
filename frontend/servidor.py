@@ -16,9 +16,9 @@ from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 CSP = (
     "default-src 'self'; "
     "script-src 'self' 'unsafe-inline' https://www.youtube.com; "
-    "style-src 'self' 'unsafe-inline'; "
+    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
     "img-src 'self' data: https:; "
-    "font-src 'self' data:; "
+    "font-src 'self' data: https://fonts.gstatic.com; "
     "connect-src 'self' http://localhost:8080 http://127.0.0.1:8080; "
     "frame-src https://www.youtube.com https://app.powerbi.com; "
     "media-src 'self' blob:; "
