@@ -1,0 +1,105 @@
+% ============================================================================
+%  Informe ejecutivo de pruebas de seguridad — SOS Clinic
+%  Autor: Sebastian Chacón Mantilla
+%  Fuente: rama pruebas-seguridad-2 del repositorio SOS-Clinic
+%  Compilar: latexmk -pdf main.tex
+% ============================================================================
+\documentclass[11pt,a4paper,oneside]{article}
+\input{preambulo}
+
+\begin{document}
+
+% ---------------------------------------------------------------------------
+%  PORTADA
+% ---------------------------------------------------------------------------
+\begin{titlepage}
+\thispagestyle{empty}
+\begin{tikzpicture}[remember picture,overlay]
+  % Banda superior
+  \fill[usborange] (current page.north west) rectangle ([yshift=-5.35cm]current page.north east);
+  \fill[slate] ([yshift=-5.35cm]current page.north west) rectangle ([yshift=-5.5cm]current page.north east);
+
+  \node[anchor=north west,text=slate,font=\sffamily\bfseries\fontsize{30}{34}\selectfont]
+    at ([xshift=2.3cm,yshift=-1.9cm]current page.north west) {SOS CLINIC};
+  \node[anchor=north west,text=slate!85,font=\sffamily\large]
+    at ([xshift=2.3cm,yshift=-3.05cm]current page.north west) {Sistema de apoyo al triage};
+  \node[anchor=north west,text=slate!70,font=\sffamily\small]
+    at ([xshift=2.3cm,yshift=-3.85cm]current page.north west) {Documento académico · Entorno local · Datos sintéticos};
+
+  \node[anchor=north east,text=slate,font=\sffamily\small,align=right]
+    at ([xshift=-2.3cm,yshift=-2.0cm]current page.north east) {Informe ejecutivo\\Versión 1.0};
+  \node[anchor=north east,text=slate!70,font=\sffamily\small]
+    at ([xshift=-2.3cm,yshift=-3.3cm]current page.north east) {19 de octubre de 2026};
+\end{tikzpicture}
+
+\vspace*{6.7cm}
+
+\begin{flushleft}
+{\sffamily\bfseries\fontsize{28}{34}\selectfont\color{slate}
+Pruebas de seguridad\\[0.18em]
+de la aplicación\par}
+\vspace{0.55em}
+{\sffamily\Large\color{teal}
+Informe ejecutivo de hallazgos y recomendaciones\par}
+\vspace{0.75em}
+{\color{usborange}\rule{0.32\linewidth}{1.4pt}}\par
+\end{flushleft}
+
+\vspace{1.2cm}
+
+\begin{tabular}{@{}L{3.1cm}L{11.2cm}@{}}
+\textbf{\color{slate}Autores} & Sebastian Chacón Mantilla\\
+ & Oscar Castellanos López\\
+ & Santiago Ramírez Cubillos\\
+\textbf{\color{slate}Institución} & Universidad de San Buenaventura\\
+\textbf{\color{slate}Programa} & Ingeniería de Sistemas\\
+\textbf{\color{slate}Asignatura} & Sistemas de Gestión de la Seguridad\\
+\textbf{\color{slate}Docente} & Msc. José Eduardo Patiño Santafé\\
+\textbf{\color{slate}Repositorio} & \url{https://gitlab.com/SebasChakon/sos-clinic}\\
+\textbf{\color{slate}Rama} & \texttt{pruebas-seguridad-2}\\
+\textbf{\color{slate}Commit de evidencia} & \texttt{c6012950}\\
+\end{tabular}
+
+\vfill
+
+\begin{tcolorbox}[enhanced,colback=teallight,colframe=teal,boxrule=0pt,
+  leftrule=3pt,arc=0pt,left=10pt,right=10pt,top=7pt,bottom=7pt]
+\small
+\textbf{Alcance.} Evaluación de seguridad del prototipo SOS Clinic sobre un entorno
+local, con datos sintéticos y correo capturado en Mailpit. Incluye análisis
+estático, composición de dependencias, pentest manual de API, DAST sobre el
+frontend y revisión de infraestructura. No se utilizaron datos clínicos reales ni
+se atacaron sistemas externos.
+\end{tcolorbox}
+
+\end{titlepage}
+
+% ---------------------------------------------------------------------------
+%  PÁGINAS PRELIMINARES
+% ---------------------------------------------------------------------------
+\pagenumbering{roman}
+\setcounter{page}{1}
+
+\tableofcontents
+\clearpage
+
+\pagenumbering{arabic}
+\setcounter{page}{1}
+
+% ---------------------------------------------------------------------------
+%  CONTENIDO
+% ---------------------------------------------------------------------------
+\input{secciones/01-resumen}
+\input{secciones/02-alcance}
+\input{secciones/03-arquitectura}
+\input{secciones/04-pruebas}
+\input{secciones/05-hallazgos}
+\input{secciones/06-remediacion}
+\input{secciones/07-estado-remediacion}
+\input{secciones/08-conclusiones}
+\input{secciones/09-bibliografia}
+
+\appendix
+\input{secciones/10-anexos}
+
+\end{document}
