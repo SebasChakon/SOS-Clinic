@@ -1,0 +1,131 @@
+\section{Alcance y metodología}
+\label{sec:alcance}
+
+\subsection{Objetivo}
+
+El objetivo general fue evaluar la seguridad del prototipo SOS Clinic, documentar
+cada hallazgo con evidencia reproducible y proponer una remediación verificable.
+Los objetivos específicos fueron:
+
+\begin{itemize}
+  \item Identificar secretos, configuraciones inseguras y vulnerabilidades en las
+  dependencias de los siete módulos Java.
+  \item Verificar la autenticación, la autorización por rol y el control de acceso
+  a objetos en las APIs de negocio.
+  \item Evaluar el frontend estático frente a XSS, control de navegación y
+  almacenamiento de sesión.
+  \item Revisar la exposición de la infraestructura local y el comportamiento del
+  agente de IA.
+  \item Consolidar los resultados en una matriz única de hallazgos y un plan de
+  remediación priorizado.
+\end{itemize}
+
+\subsection{Alcance}
+
+\begin{table}[htbp]
+\centering
+\caption{Alcance incluido y excluido de la evaluación.}
+\label{tab:alcance}
+\begin{tabular}{@{}L{7.6cm}L{7.6cm}@{}}
+\toprule
+\textbf{Incluido} & \textbf{Excluido}\\
+\midrule
+\texttt{ms-gateway}, \texttt{ms-seguridad}, \texttt{ms-pacientes},
+\texttt{ms-triage}, \texttt{ms-analitica} y \texttt{ms-ia-agente}. &
+\texttt{legacy/} (prototipo Java EE fuera del arranque actual).\\
+Frontend estático: sesión, navegación, XSS y consumo de APIs. &
+Datos clínicos reales y cualquier entorno de producción.\\
+Infraestructura local: PostgreSQL, pgAdmin, Eureka, Mailpit y puertos publicados. &
+Redes externas al equipo local y servicios de terceros distintos de Groq.\\
+Datos sintéticos y usuarios de prueba creados para la evaluación. &
+Ingeniería social, pruebas físicas y denegación de servicio sostenida.\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+La autorización fue otorgada por el responsable del repositorio para ejecutar las
+pruebas sobre su entorno local. No se realizaron pruebas contra producción, redes
+de terceros ni correo real. El entorno incluye los seis microservicios, el gateway,
+el frontend, PostgreSQL, pgAdmin, Eureka y Mailpit; los puertos y las relaciones se
+resumen en la figura~\ref{fig:arquitectura}.
+
+\subsection{Metodología}
+
+La evaluación siguió la estructura de PTES y se apoyó en marcos de verificación y
+catálogos de debilidades. La tabla~\ref{tab:marcos} resume el uso de cada marco.
+
+\begin{table}[htbp]
+\centering
+\caption{Marcos de referencia utilizados.}
+\label{tab:marcos}
+\begin{tabular}{@{}L{5.2cm}L{9.8cm}@{}}
+\toprule
+\textbf{Marco} & \textbf{Uso en la evaluación}\\
+\midrule
+PTES & Estructura general de las fases de preparación, análisis, explotación y reporte.\\
+OWASP WSTG v4.2 & Casos de prueba web: autenticación, sesión, entrada, errores y configuración.\\
+OWASP API Security Top 10 2023 & BOLA, autenticación, mass assignment, BFLA y consumo de recursos.\\
+OWASP ASVS 4.0 & Verificación de requisitos de autenticación, sesión, control de acceso y validación.\\
+ISO/IEC 27002:2022 & Controles de referencia para la lectura académica y la remediación.\\
+CVSS 4.0 & Referencia conceptual para la severidad; el informe fuente no incluye vectores formales por hallazgo.\\
+STRIDE/DREAD & Modelado de amenazas por componente y priorización cualitativa.\\
+CWE & Clasificación de la debilidad subyacente en cada hallazgo.\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Criterios de severidad}
+
+\begin{table}[htbp]
+\centering
+\caption{Criterios cualitativos usados para asignar severidad.}
+\label{tab:criterios}
+\begin{tabular}{@{}L{2.3cm}L{12.6cm}@{}}
+\toprule
+\textbf{Nivel} & \textbf{Criterio}\\
+\midrule
+\crit{Crítica} & Compromiso directo de confidencialidad, integridad o autenticación; explotación sin credenciales o con acceso mínimo; afecta datos clínicos o permite administración total.\\
+\alta{Alta} & Explotación viable con impacto significativo; requiere una condición razonable (sesión, interacción o acceso a una ruta) y puede derivar en fuga o alteración de datos.\\
+\media{Media} & Debilidad de configuración, exposición acotada o abuso limitado; contribuye a una cadena de ataque o reduce la defensa en profundidad.\\
+\baja{Baja} & Problema de robustez, manejo de errores o control defensivo; impacto limitado por sí solo.\\
+\obs{Observación} & Desajuste funcional, comportamiento esperado mal documentado o falso positivo de una herramienta.\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Reglas de evidencia y ética}
+
+\begin{itemize}
+  \item Todas las pruebas se ejecutaron contra \texttt{localhost} y con datos
+  sintéticos. El correo se capturó en Mailpit; nunca se usó SMTP real.
+  \item Las capturas se sanearon antes de versionarse: tokens, contraseñas,
+  cédulas, nombres, correos y códigos 2FA fueron omitidos o enmascarados.
+  \item Cada evidencia conserva la fecha, la rama y el commit probado. Los
+  archivos crudos se guardaron en \texttt{seguridad/resultados/}.
+  \item No se publicaron secretos reales. Los valores sensibles se describen por
+  su ubicación y efecto, no por su contenido.
+  \item Las pruebas se limitaron a demostrar el hallazgo; no se persistieron
+  datos reales ni se degradó el servicio de forma sostenida.
+\end{itemize}
+
+\subsection{Limitaciones}
+
+\begin{itemize}
+  \item El entorno es de desarrollo y los resultados no equivalen a una auditoría
+  de producción. Las cabeceras y la configuración del servidor definitivo pueden
+  variar.
+  \item ZAP se ejecutó en modo \textit{baseline} (pasivo) sobre el frontend; la API
+  se probó de forma manual con scripts reproducibles.
+  \item El SCA utilizó el caché local de Maven porque Maven Central respondió
+  \texttt{429 Too Many Requests} durante la ejecución inicial.
+  \item Trivy no detectó \texttt{docker-compose.yml}; la configuración de
+  infraestructura se revisó manualmente.
+  \item El informe fuente no calcula vectores CVSS individuales. Las correcciones
+  posteriores en \texttt{main} se verificaron con \texttt{mvn test}, Trivy,
+  gitleaks y pruebas E2E (sección~\ref{sec:estado-remediacion}), pero no
+  constituyen una auditoría independiente ni una re-ejecución completa de todos
+  los casos.
+  \item No se evaluó \texttt{legacy/} ni se realizaron pruebas de denegación de
+  servicio sostenidas, ingeniería social o acceso físico.
+\end{itemize}
+

@@ -4,72 +4,297 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>SOS · Auditoría</title>
+<meta name="description" content="Consulta de acciones registradas en SOS Clinic.">
+<link rel="icon" href="favicon.ico">
 <link rel="stylesheet" href="assets/estilos.css">
 <script src="assets/movimiento.js"></script>
 <style>
-  .accion-badge { padding: 3px 10px; border-radius: 9999px; font-size: 11.5px; font-weight: 500; }
-  .accion-crear { background: var(--verde-fondo); color: var(--teal-hover); }
-  .accion-actualizar { background: #fff4e0; color: #a9670a; }
+  .cabecera-auditoria {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    gap: 20px;
+    flex-wrap: wrap;
+    margin-bottom: 18px;
+  }
+  .cabecera-auditoria h1 { margin-bottom: 4px; }
+  .cabecera-auditoria .sub { margin: 0; }
+
+  .filtros-auditoria {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(140px, 1fr)) auto;
+    gap: 12px;
+    align-items: end;
+    padding: 16px 0;
+    margin-bottom: 12px;
+    border-top: 1px solid var(--gris-linea);
+    border-bottom: 1px solid var(--gris-linea);
+  }
+  .filtros-auditoria .campo { margin: 0; }
+  .filtros-auditoria .acciones-filtros { display: flex; gap: 8px; flex-wrap: wrap; }
+  .filtros-auditoria .acciones-filtros button { min-height: 44px; }
+
+  .linea-estado-auditoria {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-bottom: 12px;
+  }
+  .estado-auditoria { margin: 0; color: var(--texto-suave); font-size: 13px; }
+  .estado-auditoria.error { color: var(--rojo-alerta); }
+
+  .accion-badge { padding: 4px 10px; border-radius: 9999px; font-size: 12px; font-weight: 600; white-space: nowrap; }
+  .accion-crear, .accion-activar, .accion-login { background: var(--verde-fondo); color: var(--teal-hover); }
+  .accion-actualizar, .accion-asistente { background: #fff4e0; color: #8a5308; }
   .accion-eliminar, .accion-desactivar { background: var(--rojo-fondo); color: var(--rojo-alerta); }
-  .accion-activar { background: var(--verde-fondo); color: var(--teal-hover); }
+  .accion-otra { background: var(--tejido); color: var(--texto); }
+
+  .detalle-auditoria { max-width: 520px; overflow-wrap: anywhere; }
+  .celda-fecha { white-space: nowrap; font-variant-numeric: tabular-nums; }
+
+  .paginacion {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-top: 14px;
+  }
+  .paginacion .boton-secundario { min-height: 44px; }
+
+  @media (max-width: 980px) {
+    .filtros-auditoria { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .filtros-auditoria .acciones-filtros { grid-column: 1 / -1; }
+  }
+  @media (max-width: 620px) {
+    .cabecera-auditoria { align-items: flex-start; flex-direction: column; }
+    .filtros-auditoria { grid-template-columns: 1fr; }
+    .filtros-auditoria .acciones-filtros { grid-column: auto; }
+    .filtros-auditoria .acciones-filtros button { flex: 1 1 140px; }
+    .paginacion .boton-secundario { flex: 1 1 140px; }
+  }
 </style>
 </head>
 
-
 <body>
 
-<div class="topbar">
-  <div class="marca"><strong>SOS</strong> · Sistema de Triage Inteligente</div>
-  <nav id="navPrincipal"></nav>
-  <div style="display:flex; align-items:center; gap:14px;">
-    <span id="infoUsuario" class="usuario-info"></span>
-    <button class="salir" onclick="cerrarSesion()">Salir</button>
-  </div>
-</div>
+<a class="skip-link" href="#contenidoPrincipal">Saltar al contenido</a>
 
-<div class="contenido">
-  <div style="display:flex; justify-content:space-between; align-items:center;">
+<header class="topbar" role="banner">
+  <div class="marca" title="SOS Clinic · Sistema de Triage Inteligente"><strong>SOS</strong> · Triage</div>
+  <nav id="navPrincipal" aria-label="Navegación principal"></nav>
+  <div class="topbar-usuario">
+    <span id="infoUsuario" class="usuario-info"></span>
+    <button class="salir" type="button" onclick="cerrarSesion()">Salir</button>
+  </div>
+</header>
+
+<main class="contenido" id="contenidoPrincipal">
+  <div class="cabecera-auditoria">
     <div>
       <h1>Auditoría</h1>
-      <p class="sub" style="margin:0;">Registro de acciones administrativas del sistema.</p>
+      <p class="sub">Registro de acciones administrativas y clínicas del sistema.</p>
     </div>
-    <button class="boton-secundario" onclick="cargarAuditoria()">Actualizar</button>
+    <button type="button" class="boton-secundario" id="btnActualizarAuditoria" onclick="cargarAuditoria(true)">Actualizar</button>
   </div>
 
-  <div class="tarjeta" style="margin-top:20px;">
-    <table>
-      <thead><tr><th>Fecha</th><th>Usuario</th><th>Acción</th><th>Detalle</th></tr></thead>
-      <tbody id="tablaAuditoria"><tr><td colspan="4" class="tabla-vacia">Cargando...</td></tr></tbody>
-    </table>
+  <form class="filtros-auditoria" id="filtrosAuditoria">
+    <div class="campo">
+      <label for="auditoriaDesde">Desde</label>
+      <input type="date" id="auditoriaDesde" name="desde">
+    </div>
+    <div class="campo">
+      <label for="auditoriaHasta">Hasta</label>
+      <input type="date" id="auditoriaHasta" name="hasta">
+    </div>
+    <div class="campo">
+      <label for="auditoriaUsuario">Usuario</label>
+      <input type="search" id="auditoriaUsuario" name="usuario" placeholder="Buscar por usuario..." autocomplete="off">
+    </div>
+    <div class="campo">
+      <label for="auditoriaAccion">Acción</label>
+      <select id="auditoriaAccion" name="accion">
+        <option value="">Todas</option>
+      </select>
+    </div>
+    <div class="acciones-filtros">
+      <button type="submit" class="boton-primario">Filtrar</button>
+      <button type="button" class="boton-secundario" onclick="limpiarFiltrosAuditoria()">Limpiar</button>
+    </div>
+  </form>
+
+  <div class="linea-estado-auditoria">
+    <p class="estado-auditoria" id="estadoAuditoria" role="status" aria-live="polite">Cargando registros...</p>
   </div>
-</div>
+
+  <section class="tarjeta" aria-labelledby="tituloTablaAuditoria">
+    <h2 class="solo-lectores" id="tituloTablaAuditoria">Registros de auditoría</h2>
+    <div class="tabla-scroll" id="contenedorTablaAuditoria">
+      <table>
+        <caption class="solo-lectores">Acciones registradas, con fecha, usuario, tipo de acción y detalle</caption>
+        <thead>
+          <tr>
+            <th scope="col">Fecha</th>
+            <th scope="col">Usuario</th>
+            <th scope="col">Acción</th>
+            <th scope="col">Detalle</th>
+          </tr>
+        </thead>
+        <tbody id="tablaAuditoria">
+          <tr><td colspan="4" class="tabla-vacia">Cargando...</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <nav class="paginacion" aria-label="Paginación de auditoría">
+      <button type="button" class="boton-secundario" id="btnPaginaAnterior" onclick="cambiarPagina(-1)">Anterior</button>
+      <span class="estado-auditoria" id="infoPagina"></span>
+      <button type="button" class="boton-secundario" id="btnPaginaSiguiente" onclick="cambiarPagina(1)">Siguiente</button>
+    </nav>
+  </section>
+</main>
 
 <script src="assets/api.js"></script>
 <script>
   exigirSesion();
   pintarNav('navPrincipal', 'auditoria.html');
-  const sesion = obtenerSesion();
-  document.getElementById('infoUsuario').textContent = `${sesion.usuario} · ${sesion.perfil}`;
 
-  function formatearFecha(iso) {
-    return new Date(iso).toLocaleString('es-CO', { dateStyle: 'medium', timeStyle: 'short' });
+  const sesion = obtenerSesion();
+  if (sesion) document.getElementById('infoUsuario').textContent = `${sesion.usuario} · ${sesion.perfil}`;
+
+  const cuerpo = document.getElementById('tablaAuditoria');
+  const estado = document.getElementById('estadoAuditoria');
+  const infoPagina = document.getElementById('infoPagina');
+  const btnAnterior = document.getElementById('btnPaginaAnterior');
+  const btnSiguiente = document.getElementById('btnPaginaSiguiente');
+  const btnActualizar = document.getElementById('btnActualizarAuditoria');
+  const selectAccion = document.getElementById('auditoriaAccion');
+  const POR_PAGINA = 25;
+
+  let registros = [];
+  let filtrados = [];
+  let pagina = 1;
+
+  function normalizarAccion(accion) {
+    return String(accion || '')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .trim();
   }
 
-  async function cargarAuditoria() {
-    const cuerpo = document.getElementById('tablaAuditoria');
-    try {
-      const logs = await listarAuditoria();
-      cuerpo.innerHTML = logs.map(l => `
+  function claseAccion(accion) {
+    const nombre = normalizarAccion(accion);
+    if (nombre.includes('crear') || nombre.includes('activar') || nombre.includes('login')) return 'accion-crear';
+    if (nombre.includes('actualizar') || nombre.includes('asistente')) return 'accion-actualizar';
+    if (nombre.includes('eliminar') || nombre.includes('desactivar')) return 'accion-eliminar';
+    return 'accion-otra';
+  }
+
+  function fechaDeRegistro(registro) {
+    return String(registro.fechaHora || '').slice(0, 10);
+  }
+
+  function aplicarFiltros() {
+    const desde = document.getElementById('auditoriaDesde').value;
+    const hasta = document.getElementById('auditoriaHasta').value;
+    const usuario = document.getElementById('auditoriaUsuario').value.trim().toLowerCase();
+    const accion = selectAccion.value;
+
+    filtrados = registros.filter((registro) => {
+      const fecha = fechaDeRegistro(registro);
+      if (desde && fecha < desde) return false;
+      if (hasta && fecha > hasta) return false;
+      if (usuario && !String(registro.usuario || '').toLowerCase().includes(usuario)) return false;
+      if (accion && String(registro.accion || '') !== accion) return false;
+      return true;
+    }).sort((a, b) => new Date(b.fechaHora) - new Date(a.fechaHora));
+
+    pagina = 1;
+    renderizar();
+  }
+
+  function renderizar() {
+    const totalPaginas = Math.max(1, Math.ceil(filtrados.length / POR_PAGINA));
+    pagina = Math.min(pagina, totalPaginas);
+    const inicio = (pagina - 1) * POR_PAGINA;
+    const visibles = filtrados.slice(inicio, inicio + POR_PAGINA);
+
+    if (visibles.length === 0) {
+      cuerpo.innerHTML = '<tr><td colspan="4" class="tabla-vacia">No hay registros que coincidan con los filtros.</td></tr>';
+    } else {
+      cuerpo.innerHTML = visibles.map((registro) => `
         <tr>
-          <td>${formatearFecha(l.fechaHora)}</td>
-          <td>${escaparHtml(l.usuario)}</td>
-          <td><span class="accion-badge accion-${escaparHtml(l.accion.toLowerCase())}">${escaparHtml(l.accion)}</span></td>
-          <td>${escaparHtml(l.detalle || '—')}</td>
-        </tr>`).join('') || '<tr><td colspan="4" class="tabla-vacia">Sin registros todavía</td></tr>';
+          <td class="celda-fecha">${escaparHtml(formatearFechaHora(registro.fechaHora))}</td>
+          <td>${escaparHtml(registro.usuario || '—')}</td>
+          <td><span class="accion-badge ${claseAccion(registro.accion)}">${escaparHtml(registro.accion || '—')}</span></td>
+          <td class="detalle-auditoria">${escaparHtml(registro.detalle || '—')}</td>
+        </tr>`).join('');
+    }
+
+    estado.textContent = `${filtrados.length} registro(s) · Página ${pagina} de ${totalPaginas}`;
+    estado.className = 'estado-auditoria';
+    infoPagina.textContent = `Página ${pagina} de ${totalPaginas}`;
+    btnAnterior.disabled = pagina <= 1;
+    btnSiguiente.disabled = pagina >= totalPaginas;
+  }
+
+  function cargarOpcionesAcciones() {
+    const valorActual = selectAccion.value;
+    const acciones = [...new Set(registros.map((r) => r.accion).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'es'));
+    selectAccion.innerHTML = '<option value="">Todas</option>' + acciones
+      .map((accion) => `<option value="${escaparHtml(accion)}">${escaparHtml(accion)}</option>`)
+      .join('');
+    if (acciones.includes(valorActual)) selectAccion.value = valorActual;
+  }
+
+  async function cargarAuditoria(manual = false) {
+    btnActualizar.disabled = true;
+    btnActualizar.textContent = 'Actualizando...';
+    estado.textContent = 'Consultando registros...';
+    estado.className = 'estado-auditoria';
+    try {
+      registros = await listarAuditoria();
+      cargarOpcionesAcciones();
+      aplicarFiltros();
     } catch (error) {
-      cuerpo.innerHTML = `<tr><td colspan="4" class="tabla-vacia">${escaparHtml(error.message)}</td></tr>`;
+      estado.textContent = error.message;
+      estado.className = 'estado-auditoria error';
+      if (registros.length === 0) {
+        cuerpo.innerHTML = `<tr><td colspan="4" class="tabla-vacia">${escaparHtml(error.message)} <button type="button" class="boton-secundario" onclick="cargarAuditoria(true)">Reintentar</button></td></tr>`;
+      }
+    } finally {
+      btnActualizar.disabled = false;
+      btnActualizar.textContent = 'Actualizar';
+      if (manual && registros.length) aplicarFiltros();
     }
   }
+
+  function cambiarPagina(delta) {
+    const totalPaginas = Math.max(1, Math.ceil(filtrados.length / POR_PAGINA));
+    pagina = Math.min(totalPaginas, Math.max(1, pagina + delta));
+    renderizar();
+  }
+
+  function limpiarFiltrosAuditoria() {
+    document.getElementById('filtrosAuditoria').reset();
+    aplicarFiltros();
+  }
+
+  document.getElementById('filtrosAuditoria').addEventListener('submit', (evento) => {
+    evento.preventDefault();
+    const desde = document.getElementById('auditoriaDesde').value;
+    const hasta = document.getElementById('auditoriaHasta').value;
+    if (desde && hasta && desde > hasta) {
+      estado.textContent = 'La fecha inicial debe ser anterior o igual a la fecha final.';
+      estado.className = 'estado-auditoria error';
+      document.getElementById('auditoriaDesde').focus();
+      return;
+    }
+    aplicarFiltros();
+  });
 
   cargarAuditoria();
 </script>

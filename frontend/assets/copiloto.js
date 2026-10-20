@@ -24,25 +24,31 @@
   const estilo = document.createElement('style');
   estilo.textContent = `
     #sos-copiloto{position:fixed;right:20px;bottom:20px;z-index:9999}
-    #sos-copiloto .cop-boton{background:var(--acento);color:#fff;border-radius:999px;padding:11px 20px;font-family:var(--mono);font-size:12px;text-transform:uppercase;letter-spacing:.05em;animation:copFlota 3.2s ease-in-out infinite alternate}
+    #sos-copiloto .cop-boton{min-height:44px;background:var(--acento);color:#fff;border-radius:999px;padding:10px 20px;font-family:var(--fuente);font-size:14px;letter-spacing:0;animation:copFlota 3.2s ease-in-out infinite alternate}
     #sos-copiloto .cop-boton:hover{background:var(--acento-hover)}
-    #sos-copiloto .cop-panel{position:absolute;right:0;bottom:56px;width:340px;height:440px;background:#fff;border:1px solid var(--liquen);border-radius:16px;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 18px 44px rgba(34,47,48,.22);animation:copAparece .3s cubic-bezier(.2,.7,.3,1) both}
+    #sos-copiloto .cop-panel{position:absolute;right:0;bottom:56px;width:min(360px,calc(100vw - 24px));height:min(460px,calc(100vh - 100px));background:#fff;border:1px solid var(--liquen);border-radius:16px;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 18px 44px rgba(34,47,48,.22);animation:copAparece .3s cubic-bezier(.2,.7,.3,1) both}
     #sos-copiloto .cop-panel[hidden]{display:none}
-    .cop-cabecera{background:var(--tinta);color:#fff;padding:12px 14px;display:flex;justify-content:space-between;align-items:center;font-family:var(--mono);font-size:12.5px;text-transform:uppercase;letter-spacing:.05em}
+    .cop-cabecera{background:var(--tinta);color:#fff;padding:12px 14px;display:flex;justify-content:space-between;align-items:center;gap:8px;font-family:var(--fuente);font-size:14px;letter-spacing:0}
     .cop-titulo{display:flex;align-items:center;gap:8px}
     .cop-luz{width:7px;height:7px;border-radius:50%;background:var(--acento-claro);animation:copPulso 1.8s ease-in-out infinite}
-    .cop-cerrar{background:none;color:#fff;padding:0 6px;font-size:20px}
+    .cop-cerrar,.cop-detener{min-height:32px;background:none;color:#fff;padding:4px 8px;font-size:13px}
+    .cop-cerrar{font-size:20px;line-height:1}
     .cop-mensajes{flex:1;overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:8px;background:var(--hueso)}
-    .cop-msg{max-width:85%;padding:8px 11px;border-radius:12px;font-size:13.5px;line-height:1.45;white-space:pre-wrap}
+    .cop-msg{max-width:85%;padding:8px 11px;border-radius:12px;font-size:14px;line-height:1.45;white-space:pre-wrap}
     .cop-msg.user{align-self:flex-end;background:var(--acento);color:#fff}
     .cop-msg.assistant{align-self:flex-start;background:#fff;border:1px solid var(--liquen)}
-    .cop-msg.nota{align-self:center;color:var(--texto-suave);font-family:var(--mono);font-size:11.5px;text-align:center}
+    .cop-msg.nota{align-self:center;color:var(--texto-suave);font-family:var(--mono);font-size:12px;text-align:center}
     .cop-form{display:flex;gap:6px;padding:10px;border-top:1px solid var(--liquen)}
-    .cop-form input{flex:1;width:auto;padding:9px 11px;font-size:13.5px}
-    .cop-form button{padding:9px 14px;background:var(--acento);color:#fff;font-size:11.5px}
+    .cop-form input{flex:1;width:auto;padding:9px 11px;font-size:16px;min-height:44px}
+    .cop-form button{padding:9px 14px;background:var(--acento);color:#fff;font-size:13px;min-height:44px}
     .cop-form button:hover{background:var(--acento-hover)}
-    #sos-copiloto .cop-mic{background:var(--gris-fondo);color:var(--texto);padding:9px 10px;display:flex;align-items:center}
+    #sos-copiloto .cop-mic{background:var(--gris-fondo);color:var(--texto);padding:9px 10px;display:flex;align-items:center;min-width:44px}
     #sos-copiloto .cop-mic.grabando{background:var(--rojo-alerta);color:#fff;animation:copPulso 1s infinite}
+    @media (max-width:720px){
+      #sos-copiloto{right:12px;bottom:12px}
+      #sos-copiloto .cop-boton{width:48px;height:48px;min-height:48px;padding:0;border-radius:50%;font-size:12px}
+      #sos-copiloto .cop-panel{bottom:58px}
+    }
     @keyframes copPulso{50%{opacity:.6}}
     @keyframes copAparece{from{opacity:0;transform:translateY(14px) scale(.97)}to{opacity:1;transform:none}}
     @keyframes copFlota{from{translate:0 0}to{translate:0 -4px}}
@@ -52,18 +58,24 @@
   const raiz = document.createElement('div');
   raiz.id = 'sos-copiloto';
   raiz.innerHTML = `
-    <div class="cop-panel" hidden>
-      <div class="cop-cabecera"><span class="cop-titulo"><span class="cop-luz"></span>SosIA</span><button class="cop-cerrar" title="Cerrar">×</button></div>
-      <div class="cop-mensajes"></div>
+    <div class="cop-panel" id="copPanelSosIA" role="region" aria-label="Asistente SosIA" hidden>
+      <div class="cop-cabecera">
+        <span class="cop-titulo"><span class="cop-luz" aria-hidden="true"></span>SosIA</span>
+        <span>
+          <button class="cop-detener" type="button" hidden>Detener</button>
+          <button class="cop-cerrar" type="button" aria-label="Cerrar asistente">×</button>
+        </span>
+      </div>
+      <div class="cop-mensajes" role="log" aria-live="polite" aria-relevant="additions"></div>
       <form class="cop-form">
-        <button type="button" class="cop-mic" title="Hablar">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v4"/></svg>
+        <button type="button" class="cop-mic" aria-label="Grabar mensaje de voz" aria-pressed="false" title="Hablar">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v4"/></svg>
         </button>
-        <input type="text" placeholder="Escribe o habla..." maxlength="600" autocomplete="off">
+        <input type="text" placeholder="Escribe o habla..." maxlength="600" autocomplete="off" aria-label="Mensaje para SosIA">
         <button type="submit">Enviar</button>
       </form>
     </div>
-    <button class="cop-boton">SosIA</button>`;
+    <button class="cop-boton" type="button" aria-expanded="false" aria-controls="copPanelSosIA">SosIA</button>`;
   document.body.appendChild(raiz);
 
   const panel = raiz.querySelector('.cop-panel');
@@ -71,11 +83,34 @@
   const form = raiz.querySelector('.cop-form');
   const input = form.querySelector('input');
   const mic = form.querySelector('.cop-mic');
+  const botonFlotante = raiz.querySelector('.cop-boton');
+  const botonDetener = raiz.querySelector('.cop-detener');
 
-  function abrirPanel() { panel.hidden = false; sessionStorage.setItem('sos_copiloto_abierto', '1'); input.focus(); }
-  function cerrarPanel() { panel.hidden = true; sessionStorage.removeItem('sos_copiloto_abierto'); }
-  raiz.querySelector('.cop-boton').onclick = () => (panel.hidden ? abrirPanel() : cerrarPanel());
+  function abrirPanel() {
+    panel.hidden = false;
+    botonFlotante.setAttribute('aria-expanded', 'true');
+    sessionStorage.setItem('sos_copiloto_abierto', '1');
+    input.focus();
+  }
+
+  function cerrarPanel() {
+    panel.hidden = true;
+    botonFlotante.setAttribute('aria-expanded', 'false');
+    sessionStorage.removeItem('sos_copiloto_abierto');
+    botonFlotante.focus();
+  }
+
+  botonFlotante.onclick = () => (panel.hidden ? abrirPanel() : cerrarPanel());
   raiz.querySelector('.cop-cerrar').onclick = cerrarPanel;
+  botonDetener.onclick = () => {
+    cancelado = true;
+    descartarAudio = true;
+    sessionStorage.removeItem(CLAVE_PLAN);
+    if ('speechSynthesis' in window) speechSynthesis.cancel();
+    if (detener) detener();
+    botonDetener.hidden = true;
+    agregar('nota', 'Plan detenido.');
+  };
 
   function pintar(rol, texto) {
     const d = document.createElement('div');
@@ -101,7 +136,11 @@
 
   function elementosInteractivos() {
     return [...document.querySelectorAll('button, a[href], input:not([type=hidden]), select, textarea')]
-      .filter(visible).slice(0, 70);
+      .filter((el) => visible(el)
+        && el.type !== 'password'
+        && el.type !== 'file'
+        && !el.closest('[data-ia-privado]'))
+      .slice(0, 70);
   }
 
   function etiqueta(el) {
@@ -109,7 +148,8 @@
       const l = document.querySelector(`label[for="${el.id}"]`);
       if (l) return l.textContent.trim();
     }
-    return (el.getAttribute('aria-label') || el.placeholder || el.innerText || el.value || el.title || '').trim().slice(0, 50);
+    // Nunca se envía el valor escrito en un campo: puede contener datos clínicos.
+    return (el.getAttribute('aria-label') || el.placeholder || el.innerText || el.title || '').trim().slice(0, 50);
   }
 
   function describirPantalla() {
@@ -170,11 +210,19 @@
       return { mensaje: `Elegí «${op.text}»` };
     }
 
-    // clic (tambien "elegir" sobre pestañas o botones)
+    // clic (también "elegir" sobre pestañas o botones)
     const texto = etiqueta(el);
+    if (/salir|cerrar sesi[oó]n|logout/i.test(texto)) {
+      return { fallo: 'Por seguridad, SosIA no puede cerrar la sesión.' };
+    }
     const critico = el.type === 'submit' || CRITICO.test(texto);
-    if (critico && !confirm(`SosIA quiere pulsar «${texto || p.objetivo}». ¿Continuar?`)) {
-      return { fallo: 'Cancelado por ti.' };
+    if (critico) {
+      const continuar = await confirmarAccion({
+        titulo: 'Confirmar acción de SosIA',
+        mensaje: `SosIA quiere pulsar «${texto || p.objetivo}». Revisa que sea la acción correcta.`,
+        textoConfirmar: 'Continuar'
+      });
+      if (!continuar) return { fallo: 'Cancelado por ti.' };
     }
     el.click();
     return { mensaje: `Clic en «${texto || p.objetivo}»` };
@@ -182,22 +230,27 @@
 
   async function ejecutarPlan(pasos) {
     cancelado = false;
-    for (let i = 0; i < pasos.length; i++) {
-      if (cancelado) { agregar('nota', 'Plan detenido.'); return; }
-      const p = pasos[i];
+    botonDetener.hidden = false;
+    try {
+      for (let i = 0; i < pasos.length; i++) {
+        if (cancelado) { agregar('nota', 'Plan detenido.'); return; }
+        const p = pasos[i];
 
-      if (p.accion === 'navegar') {
-        const resto = pasos.slice(i + 1);
-        if (resto.length) sessionStorage.setItem(CLAVE_PLAN, JSON.stringify({ pasos: resto, expira: Date.now() + 60000 }));
-        agregar('nota', 'Abriendo ' + p.objetivo + '...');
-        location.href = p.objetivo;
-        return;
+        if (p.accion === 'navegar') {
+          const resto = pasos.slice(i + 1);
+          if (resto.length) sessionStorage.setItem(CLAVE_PLAN, JSON.stringify({ pasos: resto, expira: Date.now() + 60000 }));
+          agregar('nota', 'Abriendo ' + p.objetivo + '...');
+          location.href = p.objetivo;
+          return;
+        }
+
+        const r = await ejecutarPaso(p);
+        if (r.fallo) { agregar('nota', '⚠ ' + r.fallo); return; }
+        agregar('nota', '✓ ' + r.mensaje);
+        await esperar(350);
       }
-
-      const r = await ejecutarPaso(p);
-      if (r.fallo) { agregar('nota', '⚠ ' + r.fallo); return; }
-      agregar('nota', '✓ ' + r.mensaje);
-      await esperar(350);
+    } finally {
+      botonDetener.hidden = true;
     }
   }
 
@@ -210,6 +263,16 @@
     if (Date.now() > plan.expira) return;
     abrirPanel();
     await esperar(700);
+    const continuar = await confirmarAccion({
+      titulo: 'Continuar plan de SosIA',
+      mensaje: 'SosIA tiene pasos pendientes para esta pantalla. ¿Deseas continuar?',
+      textoConfirmar: 'Continuar plan',
+      peligro: false
+    });
+    if (!continuar) {
+      agregar('nota', 'Plan cancelado.');
+      return;
+    }
     await ejecutarPlan(plan.pasos);
   }
 
@@ -219,6 +282,7 @@
     descartarAudio = true;
     sessionStorage.removeItem(CLAVE_PLAN);
     clearTimeout(temporizadorEnvio);
+    botonDetener.hidden = true;
     if ('speechSynthesis' in window) speechSynthesis.cancel();
     if (detener) detener();
   });
@@ -300,6 +364,8 @@
       grabando = false;
       detener = null;
       mic.classList.remove('grabando');
+      mic.setAttribute('aria-pressed', 'false');
+      mic.setAttribute('aria-label', 'Grabar mensaje de voz');
 
       if (descartarAudio || !hablo) { agregar('nota', 'No te escuché. Intenta de nuevo.'); return; }
       await transcribirYConfirmar(new Blob(trozos, { type: grabadora.mimeType || 'audio/webm' }));
@@ -307,6 +373,8 @@
 
     grabando = true;
     mic.classList.add('grabando');
+    mic.setAttribute('aria-pressed', 'true');
+    mic.setAttribute('aria-label', 'Detener grabación de voz');
     grabadora.start();
   }
 
@@ -318,12 +386,12 @@
       const texto = (r.texto || '').trim();
       if (!texto) { agregar('nota', 'No logré entender el audio.'); return; }
 
-      // Se muestra lo entendido y se envia solo si no lo corriges
+      // Se muestra lo entendido y el usuario decide cuándo enviarlo.
       input.value = texto;
       vinoPorVoz = true;
-      pintar('nota', 'Entendí lo de abajo. Se envía en 2 s: edítalo si hay un error (Esc cancela).');
+      input.focus();
+      pintar('nota', 'Entendí el mensaje. Revísalo y pulsa Enviar para confirmar.');
       clearTimeout(temporizadorEnvio);
-      temporizadorEnvio = setTimeout(() => form.requestSubmit(), 1800);
     } catch (error) {
       espera.remove();
       agregar('nota', error.message);
@@ -366,6 +434,9 @@
 
   /* ---------- arranque ---------- */
   historial.forEach((m) => pintar(m.role, m.content));
-  if (sessionStorage.getItem('sos_copiloto_abierto')) panel.hidden = false;
+  if (sessionStorage.getItem('sos_copiloto_abierto')) {
+    panel.hidden = false;
+    botonFlotante.setAttribute('aria-expanded', 'true');
+  }
   reanudar();
 })();

@@ -9,47 +9,55 @@
 <style>
   .tabs { display: flex; gap: 8px; margin-bottom: 20px; flex-wrap: wrap; }
   .tabs button {
-    background: none; padding: 8px 14px; letter-spacing: 0.03em;
+    min-height: 44px; background: none; padding: 9px 14px; letter-spacing: 0;
     color: var(--texto-suave); cursor: pointer; border: 1px solid var(--liquen); border-radius: var(--radio-nav);
   }
   .tabs button:hover { border-color: var(--acento); color: var(--acento-hover); }
-  .tabs button.activo { background: var(--acento); border-color: var(--acento); color: #ffffff; font-weight: 500; }
+  .tabs button.activo { background: var(--acento); border-color: var(--acento); color: #ffffff; font-weight: 600; }
   .panel { display: none; }
   .panel.activo { display: block; }
-  .grid-admin { display: grid; grid-template-columns: 320px 1fr; gap: 24px; align-items: start; }
-  .fila-acciones button { padding: 7px 10px; font-size: 10.5px; margin-right: 4px; }
-  .estado-badge { padding: 3px 10px; border-radius: 9999px; font-size: 11.5px; font-weight: 500; }
+  .grid-admin { display: grid; grid-template-columns: minmax(300px, 340px) 1fr; gap: 24px; align-items: start; }
+  .fila-acciones { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+  .fila-acciones button { min-height: 44px; padding: 8px 12px; font-size: 13px; }
+  .estado-badge { display: inline-block; padding: 4px 10px; border-radius: 9999px; font-size: 12px; font-weight: 600; }
   .estado-activo { background: var(--verde-fondo); color: var(--teal-hover); }
   .estado-inactivo { background: var(--rojo-fondo); color: var(--rojo-alerta); }
-  @media (max-width: 900px) { .grid-admin { grid-template-columns: 1fr; } }
+  .nota-form { margin: -4px 0 14px; color: var(--texto-suave); font-size: 13px; line-height: 1.5; }
+  @media (max-width: 980px) { .grid-admin { grid-template-columns: 1fr; } }
+  @media (max-width: 620px) {
+    .tabs button { flex: 1 1 140px; }
+    .fila-acciones { justify-content: flex-start; }
+  }
 </style>
 </head>
 
 
 <body>
 
-<div class="topbar">
-  <div class="marca"><strong>SOS</strong> · Sistema de Triage Inteligente</div>
-  <nav id="navPrincipal"></nav>
-  <div style="display:flex; align-items:center; gap:14px;">
-    <span id="infoUsuario" class="usuario-info"></span>
-    <button class="salir" onclick="cerrarSesion()">Salir</button>
-  </div>
-</div>
+<a class="skip-link" href="#contenidoPrincipal">Saltar al contenido</a>
 
-<div class="contenido">
+<header class="topbar" role="banner">
+  <div class="marca" title="SOS Clinic · Sistema de Triage Inteligente"><strong>SOS</strong> · Triage</div>
+  <nav id="navPrincipal" aria-label="Navegación principal"></nav>
+  <div class="topbar-usuario">
+    <span id="infoUsuario" class="usuario-info"></span>
+    <button class="salir" type="button" onclick="cerrarSesion()">Salir</button>
+  </div>
+</header>
+
+<main class="contenido" id="contenidoPrincipal">
   <h1>Administración</h1>
   <p class="sub">Gestiona perfiles, actividades, asignaciones, usuarios y turnos del sistema.</p>
 
-  <div class="tabs">
-    <button class="activo" data-tab="perfiles" onclick="cambiarTab('perfiles')">Perfiles</button>
-    <button data-tab="actividades" onclick="cambiarTab('actividades')">Actividades</button>
-    <button data-tab="asignacion" onclick="cambiarTab('asignacion')">Asignación por perfil</button>
-    <button data-tab="usuarios" onclick="cambiarTab('usuarios')">Usuarios</button>
+  <div class="tabs" role="tablist" aria-label="Secciones de administración">
+    <button class="activo" id="tab-perfiles" role="tab" aria-selected="true" aria-controls="panel-perfiles" tabindex="0" data-tab="perfiles" onclick="cambiarTab('perfiles')">Perfiles</button>
+    <button id="tab-actividades" role="tab" aria-selected="false" aria-controls="panel-actividades" tabindex="-1" data-tab="actividades" onclick="cambiarTab('actividades')">Actividades</button>
+    <button id="tab-asignacion" role="tab" aria-selected="false" aria-controls="panel-asignacion" tabindex="-1" data-tab="asignacion" onclick="cambiarTab('asignacion')">Asignación por perfil</button>
+    <button id="tab-usuarios" role="tab" aria-selected="false" aria-controls="panel-usuarios" tabindex="-1" data-tab="usuarios" onclick="cambiarTab('usuarios')">Usuarios</button>
   </div>
 
   <!-- TAB: PERFILES -->
-  <div class="panel activo" id="panel-perfiles">
+  <div class="panel activo" id="panel-perfiles" role="tabpanel" aria-labelledby="tab-perfiles">
     <div class="grid-admin">
       <div class="tarjeta">
         <h2 id="tituloFormPerfil">Nuevo perfil</h2>
@@ -65,16 +73,19 @@
         </form>
       </div>
       <div class="tarjeta">
+        <div class="tabla-scroll">
         <table>
-          <thead><tr><th>ID</th><th>Perfil</th><th>Acciones</th></tr></thead>
+          <caption class="solo-lectores">Perfiles del sistema y acciones de edición o eliminación</caption>
+          <thead><tr><th scope="col">ID</th><th scope="col">Perfil</th><th scope="col">Acciones</th></tr></thead>
           <tbody id="tablaPerfiles"><tr><td colspan="3" class="tabla-vacia">Cargando...</td></tr></tbody>
         </table>
+        </div>
       </div>
     </div>
   </div>
 
   <!-- TAB: ACTIVIDADES -->
-  <div class="panel" id="panel-actividades">
+  <div class="panel" id="panel-actividades" role="tabpanel" aria-labelledby="tab-actividades">
     <div class="grid-admin">
       <div class="tarjeta">
         <h2 id="tituloFormActividad">Nueva actividad</h2>
@@ -94,16 +105,19 @@
         </form>
       </div>
       <div class="tarjeta">
+        <div class="tabla-scroll">
         <table>
-          <thead><tr><th>ID</th><th>Nombre</th><th>Enlace</th><th>Acciones</th></tr></thead>
+          <caption class="solo-lectores">Actividades disponibles y acciones de edición o eliminación</caption>
+          <thead><tr><th scope="col">ID</th><th scope="col">Nombre</th><th scope="col">Enlace</th><th scope="col">Acciones</th></tr></thead>
           <tbody id="tablaActividades"><tr><td colspan="4" class="tabla-vacia">Cargando...</td></tr></tbody>
         </table>
+        </div>
       </div>
     </div>
   </div>
 
   <!-- TAB: ASIGNACION -->
-  <div class="panel" id="panel-asignacion">
+  <div class="panel" id="panel-asignacion" role="tabpanel" aria-labelledby="tab-asignacion">
     <div class="grid-admin">
       <div class="tarjeta">
         <h2>Asignar actividad a perfil</h2>
@@ -121,44 +135,48 @@
         </form>
       </div>
       <div class="tarjeta">
+        <div class="tabla-scroll">
         <table>
-          <thead><tr><th>Perfil</th><th>Actividad</th><th>Acciones</th></tr></thead>
+          <caption class="solo-lectores">Actividades asignadas a cada perfil</caption>
+          <thead><tr><th scope="col">Perfil</th><th scope="col">Actividad</th><th scope="col">Acciones</th></tr></thead>
           <tbody id="tablaAsignacion"><tr><td colspan="3" class="tabla-vacia">Cargando...</td></tr></tbody>
         </table>
+        </div>
       </div>
     </div>
   </div>
 
   <!-- TAB: USUARIOS -->
-  <div class="panel" id="panel-usuarios">
+  <div class="panel" id="panel-usuarios" role="tabpanel" aria-labelledby="tab-usuarios">
     <div class="grid-admin">
       <div class="tarjeta">
         <h2 id="tituloFormUsuario">Nuevo usuario</h2>
         <form id="formUsuario">
           <input type="hidden" id="usuarioId">
           <div class="fila-campos">
-            <div class="campo"><label for="usuarioNombre">Nombre</label><input type="text" id="usuarioNombre" required></div>
-            <div class="campo"><label for="usuarioApellido">Apellido</label><input type="text" id="usuarioApellido" required></div>
+            <div class="campo"><label for="usuarioNombre">Nombre</label><input type="text" id="usuarioNombre" autocomplete="given-name" required></div>
+            <div class="campo"><label for="usuarioApellido">Apellido</label><input type="text" id="usuarioApellido" autocomplete="family-name" required></div>
           </div>
-          <div class="campo"><label for="usuarioEmail">Email</label><input type="email" id="usuarioEmail" required></div>
+          <div class="campo"><label for="usuarioEmail">Email</label><input type="email" id="usuarioEmail" autocomplete="email" required></div>
           <div class="fila-campos">
-            <div class="campo"><label for="usuarioCedula">Cédula</label><input type="text" id="usuarioCedula" required></div>
-            <div class="campo"><label for="usuarioTelefono">Teléfono</label><input type="text" id="usuarioTelefono"></div>
+            <div class="campo"><label for="usuarioCedula">Cédula</label><input type="text" id="usuarioCedula" inputmode="numeric" autocomplete="off" required></div>
+            <div class="campo"><label for="usuarioTelefono">Teléfono</label><input type="tel" id="usuarioTelefono" inputmode="tel" autocomplete="tel"></div>
           </div>
-          <div class="campo"><label for="usuarioLogin">Usuario (login)</label><input type="text" id="usuarioLogin" required></div>
+          <div class="campo"><label for="usuarioLogin">Usuario (login)</label><input type="text" id="usuarioLogin" autocomplete="username" autocapitalize="none" spellcheck="false" required></div>
           <div class="campo">
             <label for="usuarioClave">Clave <span id="etiquetaClaveOpcional" style="display:none; font-weight:400;">(dejar en blanco para no cambiarla)</span></label>
-            <input type="password" id="usuarioClave">
+            <input type="password" id="usuarioClave" autocomplete="new-password" required aria-describedby="ayudaClave">
+            <p class="ayuda" id="ayudaClave">Obligatoria al crear el usuario. Al editar, déjala vacía para conservar la actual.</p>
           </div>
           <div class="campo">
             <label for="usuarioPerfil">Perfil</label>
             <select id="usuarioPerfil" required></select>
           </div>
           <div class="fila-campos">
-            <div class="campo"><label for="usuarioHoraInicio">Turno - inicio</label><input type="time" id="usuarioHoraInicio"></div>
-            <div class="campo"><label for="usuarioHoraFin">Turno - fin</label><input type="time" id="usuarioHoraFin"></div>
+            <div class="campo"><label for="usuarioHoraInicio">Turno - inicio</label><input type="time" id="usuarioHoraInicio" aria-describedby="notaTurno"></div>
+            <div class="campo"><label for="usuarioHoraFin">Turno - fin</label><input type="time" id="usuarioHoraFin" aria-describedby="notaTurno"></div>
           </div>
-          <p class="sub" id="notaTurno" style="margin-top:-8px;">El turno es obligatorio al crear un usuario. Al editar, se actualiza el turno activo del usuario (o se crea uno si no tenía).</p>
+          <p class="sub" id="notaTurno" style="margin-top:-8px;">El turno es obligatorio al crear un usuario. Al editar, se actualiza el turno activo. Si el fin es menor que el inicio, el turno cruza la medianoche.</p>
           <div class="campo">
             <label><input type="checkbox" id="usuarioRequiere2fa" style="width:auto; margin-right:6px;"> Requiere verificación en dos pasos</label>
           </div>
@@ -168,25 +186,71 @@
         </form>
       </div>
       <div class="tarjeta">
+        <div class="tabla-scroll">
         <table>
-          <thead><tr><th>Usuario</th><th>Nombre</th><th>Perfil</th><th>Estado</th><th>Acciones</th></tr></thead>
+          <caption class="solo-lectores">Usuarios del sistema, perfil, estado y acciones de edición</caption>
+          <thead><tr><th scope="col">Usuario</th><th scope="col">Nombre</th><th scope="col">Perfil</th><th scope="col">Estado</th><th scope="col">Acciones</th></tr></thead>
           <tbody id="tablaUsuarios"><tr><td colspan="5" class="tabla-vacia">Cargando...</td></tr></tbody>
         </table>
+        </div>
       </div>
     </div>
   </div>
-</div>
+</main>
 
 <script src="assets/api.js"></script>
 <script>
   exigirSesion();
   pintarNav('navPrincipal', 'roles.html');
   const sesion = obtenerSesion();
-  document.getElementById('infoUsuario').textContent = `${sesion.usuario} · ${sesion.perfil}`;
+  if (sesion) document.getElementById('infoUsuario').textContent = `${sesion.usuario} · ${sesion.perfil}`;
 
   function cambiarTab(nombre) {
-    document.querySelectorAll('.tabs button').forEach(b => b.classList.toggle('activo', b.dataset.tab === nombre));
-    document.querySelectorAll('.panel').forEach(p => p.classList.toggle('activo', p.id === `panel-${nombre}`));
+    document.querySelectorAll('.tabs button').forEach((boton) => {
+      const activo = boton.dataset.tab === nombre;
+      boton.classList.toggle('activo', activo);
+      boton.setAttribute('aria-selected', String(activo));
+      boton.tabIndex = activo ? 0 : -1;
+    });
+    document.querySelectorAll('.panel').forEach((panel) => {
+      panel.classList.toggle('activo', panel.id === `panel-${nombre}`);
+    });
+  }
+
+  document.querySelector('.tabs').addEventListener('keydown', (evento) => {
+    const botones = [...document.querySelectorAll('.tabs button')];
+    const indice = botones.indexOf(document.activeElement);
+    if (indice < 0) return;
+    let destino = null;
+    if (evento.key === 'ArrowRight') destino = botones[(indice + 1) % botones.length];
+    if (evento.key === 'ArrowLeft') destino = botones[(indice - 1 + botones.length) % botones.length];
+    if (evento.key === 'Home') destino = botones[0];
+    if (evento.key === 'End') destino = botones[botones.length - 1];
+    if (!destino) return;
+    evento.preventDefault();
+    cambiarTab(destino.dataset.tab);
+    destino.focus();
+  });
+
+  function enfocarFormulario(idCampo) {
+    const campo = document.getElementById(idCampo);
+    if (!campo) return;
+    campo.scrollIntoView({ block: 'center' });
+    campo.focus({ preventScroll: true });
+  }
+
+  async function conBotonOcupado(formulario, texto, accion) {
+    const boton = formulario.querySelector('button[type="submit"]');
+    if (!boton) return accion();
+    const textoOriginal = boton.textContent;
+    boton.disabled = true;
+    boton.textContent = texto;
+    try {
+      return await accion();
+    } finally {
+      boton.disabled = false;
+      boton.textContent = textoOriginal;
+    }
   }
 
   let cachePerfiles = [];
@@ -201,8 +265,8 @@
         <tr>
           <td>${escaparHtml(p.idPerfil)}</td><td>${escaparHtml(p.perfil)}</td>
           <td class="fila-acciones">
-            <button class="boton-secundario" onclick="editarPerfil(${p.idPerfil})">Editar</button>
-            <button class="boton-secundario" onclick="borrarPerfil(${p.idPerfil})">Eliminar</button>
+            <button class="boton-secundario" onclick="editarPerfil(${p.idPerfil})" aria-label="Editar perfil ${escaparHtml(p.perfil)}">Editar</button>
+            <button class="boton-peligro" onclick="borrarPerfil(${p.idPerfil})" aria-label="Eliminar perfil ${escaparHtml(p.perfil)}">Eliminar</button>
           </td>
         </tr>`).join('') || '<tr><td colspan="3" class="tabla-vacia">Sin perfiles</td></tr>';
 
@@ -215,10 +279,12 @@
 
   function editarPerfil(id) {
     const p = cachePerfiles.find(x => x.idPerfil === id);
+    if (!p) return;
     document.getElementById('perfilId').value = p.idPerfil;
     document.getElementById('perfilNombre').value = p.perfil;
     document.getElementById('tituloFormPerfil').textContent = 'Editar perfil';
     document.getElementById('btnCancelarPerfil').style.display = 'block';
+    enfocarFormulario('perfilNombre');
   }
 
   function resetFormPerfil() {
@@ -230,24 +296,34 @@
   }
 
   async function borrarPerfil(id) {
-    if (!confirm('¿Eliminar este perfil?')) return;
+    const perfil = cachePerfiles.find((p) => p.idPerfil === id);
+    const confirmado = await confirmarAccion({
+      titulo: 'Eliminar perfil',
+      mensaje: `¿Eliminar el perfil «${perfil?.perfil || id}»? Los usuarios y asignaciones que dependan de él pueden quedar sin acceso.`,
+      textoConfirmar: 'Eliminar perfil'
+    });
+    if (!confirmado) return;
     try {
       await eliminarPerfil(id);
+      avisar('Perfil eliminado.', 'exito');
       cargarPerfiles();
-    } catch (error) { alert(error.message); }
+    } catch (error) { avisar(error.message, 'error'); }
   }
 
   document.getElementById('formPerfil').addEventListener('submit', async (e) => {
     e.preventDefault();
     limpiarMensaje('mensajePerfil');
+    if (!e.currentTarget.reportValidity()) return;
     const id = document.getElementById('perfilId').value;
     const datos = { perfil: document.getElementById('perfilNombre').value.trim() };
-    try {
-      if (id) await actualizarPerfil(id, datos); else await crearPerfil(datos);
-      mostrarMensaje('mensajePerfil', 'Guardado correctamente', 'exito');
-      resetFormPerfil();
-      cargarPerfiles();
-    } catch (error) { mostrarMensaje('mensajePerfil', error.message, 'error'); }
+    await conBotonOcupado(e.currentTarget, 'Guardando...', async () => {
+      try {
+        if (id) await actualizarPerfil(id, datos); else await crearPerfil(datos);
+        resetFormPerfil();
+        mostrarMensaje('mensajePerfil', 'Perfil guardado correctamente.', 'exito');
+        cargarPerfiles();
+      } catch (error) { mostrarMensaje('mensajePerfil', error.message, 'error'); }
+    });
   });
 
   /* ---------- ACTIVIDADES ---------- */
@@ -259,8 +335,8 @@
         <tr>
           <td>${escaparHtml(a.idActividad)}</td><td>${escaparHtml(a.nombreActividad)}</td><td>${escaparHtml(a.enlace || '—')}</td>
           <td class="fila-acciones">
-            <button class="boton-secundario" onclick="editarActividad(${a.idActividad})">Editar</button>
-            <button class="boton-secundario" onclick="borrarActividad(${a.idActividad})">Eliminar</button>
+            <button class="boton-secundario" onclick="editarActividad(${a.idActividad})" aria-label="Editar actividad ${escaparHtml(a.nombreActividad)}">Editar</button>
+            <button class="boton-peligro" onclick="borrarActividad(${a.idActividad})" aria-label="Eliminar actividad ${escaparHtml(a.nombreActividad)}">Eliminar</button>
           </td>
         </tr>`).join('') || '<tr><td colspan="4" class="tabla-vacia">Sin actividades</td></tr>';
 
@@ -272,11 +348,13 @@
 
   function editarActividad(id) {
     const a = cacheActividades.find(x => x.idActividad === id);
+    if (!a) return;
     document.getElementById('actividadId').value = a.idActividad;
     document.getElementById('actividadNombre').value = a.nombreActividad;
     document.getElementById('actividadEnlace').value = a.enlace || '';
     document.getElementById('tituloFormActividad').textContent = 'Editar actividad';
     document.getElementById('btnCancelarActividad').style.display = 'block';
+    enfocarFormulario('actividadNombre');
   }
 
   function resetFormActividad() {
@@ -288,11 +366,17 @@
   }
 
   async function borrarActividad(id) {
-    if (!confirm('¿Eliminar esta actividad?')) return;
+    const actividad = cacheActividades.find((a) => a.idActividad === id);
+    const confirmado = await confirmarAccion({
+      titulo: 'Eliminar actividad',
+      mensaje: `¿Eliminar la actividad «${actividad?.nombreActividad || id}»? Si está asignada a un perfil, el sistema puede impedir la operación y pedirte que la desasignes primero.`,
+      textoConfirmar: 'Eliminar actividad'
+    });
+    if (!confirmado) return;
     limpiarMensaje('mensajeActividad');
     try {
       await eliminarActividad(id);
-      mostrarMensaje('mensajeActividad', 'Actividad eliminada correctamente', 'exito');
+      mostrarMensaje('mensajeActividad', 'Actividad eliminada correctamente.', 'exito');
       cargarActividades();
     } catch (error) { mostrarMensaje('mensajeActividad', error.message, 'error'); }
   }
@@ -300,17 +384,20 @@
   document.getElementById('formActividad').addEventListener('submit', async (e) => {
     e.preventDefault();
     limpiarMensaje('mensajeActividad');
+    if (!e.currentTarget.reportValidity()) return;
     const id = document.getElementById('actividadId').value;
     const datos = {
       nombreActividad: document.getElementById('actividadNombre').value.trim(),
       enlace: document.getElementById('actividadEnlace').value.trim()
     };
-    try {
-      if (id) await actualizarActividad(id, datos); else await crearActividad(datos);
-      mostrarMensaje('mensajeActividad', 'Guardado correctamente', 'exito');
-      resetFormActividad();
-      cargarActividades();
-    } catch (error) { mostrarMensaje('mensajeActividad', error.message, 'error'); }
+    await conBotonOcupado(e.currentTarget, 'Guardando...', async () => {
+      try {
+        if (id) await actualizarActividad(id, datos); else await crearActividad(datos);
+        resetFormActividad();
+        mostrarMensaje('mensajeActividad', 'Actividad guardada correctamente.', 'exito');
+        cargarActividades();
+      } catch (error) { mostrarMensaje('mensajeActividad', error.message, 'error'); }
+    });
   });
 
   /* ---------- ASIGNACION ---------- */
@@ -321,7 +408,7 @@
       document.getElementById('tablaAsignacion').innerHTML = lista.map(pa => `
         <tr>
           <td>${escaparHtml(pa.perfil.perfil)}</td><td>${escaparHtml(pa.actividad.nombreActividad)}</td>
-          <td class="fila-acciones"><button class="boton-secundario" onclick="quitarAsignacion(${pa.idPerfilActividad})">Quitar</button></td>
+          <td class="fila-acciones"><button class="boton-peligro" onclick="quitarAsignacion(${pa.idPerfilActividad})" aria-label="Quitar ${escaparHtml(pa.actividad.nombreActividad)} del perfil ${escaparHtml(pa.perfil.perfil)}">Quitar</button></td>
         </tr>`).join('') || '<tr><td colspan="3" class="tabla-vacia">Sin asignaciones</td></tr>';
     } catch (error) {
       document.getElementById('tablaAsignacion').innerHTML = `<tr><td colspan="3" class="tabla-vacia">${escaparHtml(error.message)}</td></tr>`;
@@ -329,11 +416,16 @@
   }
 
   async function quitarAsignacion(id) {
-    if (!confirm('¿Quitar esta actividad del perfil?')) return;
+    const confirmado = await confirmarAccion({
+      titulo: 'Quitar actividad del perfil',
+      mensaje: '¿Quitar esta actividad del perfil? El perfil perderá acceso a esa pantalla en el próximo inicio de sesión.',
+      textoConfirmar: 'Quitar actividad'
+    });
+    if (!confirmado) return;
     limpiarMensaje('mensajeAsignacion');
     try {
       await quitarActividad(id);
-      mostrarMensaje('mensajeAsignacion', 'Actividad quitada del perfil correctamente', 'exito');
+      mostrarMensaje('mensajeAsignacion', 'Actividad quitada del perfil correctamente.', 'exito');
       cargarAsignaciones();
     } catch (error) { mostrarMensaje('mensajeAsignacion', error.message, 'error'); }
   }
@@ -341,16 +433,21 @@
   document.getElementById('formAsignacion').addEventListener('submit', async (e) => {
     e.preventDefault();
     limpiarMensaje('mensajeAsignacion');
-    try {
-      await asignarActividad(Number(document.getElementById('asignarPerfil').value), Number(document.getElementById('asignarActividad').value));
-      mostrarMensaje('mensajeAsignacion', 'Asignado correctamente', 'exito');
-      cargarAsignaciones();
-    } catch (error) { mostrarMensaje('mensajeAsignacion', error.message, 'error'); }
+    if (!e.currentTarget.reportValidity()) return;
+    await conBotonOcupado(e.currentTarget, 'Asignando...', async () => {
+      try {
+        await asignarActividad(Number(document.getElementById('asignarPerfil').value), Number(document.getElementById('asignarActividad').value));
+        mostrarMensaje('mensajeAsignacion', 'Asignado correctamente.', 'exito');
+        cargarAsignaciones();
+      } catch (error) { mostrarMensaje('mensajeAsignacion', error.message, 'error'); }
+    });
   });
 
   /* ---------- USUARIOS ---------- */
 
   let cacheUsuarios = [];
+  let cacheTurnos = [];
+  let turnosCargados = false;
 
   async function cargarUsuarios() {
     try {
@@ -360,8 +457,8 @@
           <td>${escaparHtml(u.usuario)}</td><td>${escaparHtml(u.nombre)} ${escaparHtml(u.apellido)}</td><td>${escaparHtml(u.perfil)}</td>
           <td><span class="estado-badge ${u.idEstado === 1 ? 'estado-activo' : 'estado-inactivo'}">${u.idEstado === 1 ? 'Activo' : 'Inactivo'}</span></td>
           <td class="fila-acciones">
-            <button class="boton-secundario" onclick="editarUsuario(${u.idPersonal})">Editar</button>
-            <button class="boton-secundario" onclick="toggleEstadoUsuario(${u.idPersonal}, ${u.idEstado})">${u.idEstado === 1 ? 'Desactivar' : 'Activar'}</button>
+            <button class="boton-secundario" onclick="editarUsuario(${u.idPersonal})" aria-label="Editar usuario ${escaparHtml(u.usuario)}">Editar</button>
+            <button class="${u.idEstado === 1 ? 'boton-peligro' : 'boton-secundario'}" onclick="toggleEstadoUsuario(${u.idPersonal}, ${u.idEstado})" aria-label="${u.idEstado === 1 ? 'Desactivar' : 'Activar'} usuario ${escaparHtml(u.usuario)}">${u.idEstado === 1 ? 'Desactivar' : 'Activar'}</button>
           </td>
         </tr>`).join('') || '<tr><td colspan="5" class="tabla-vacia">Sin usuarios</td></tr>';
     } catch (error) {
@@ -369,8 +466,14 @@
     }
   }
 
-  function editarUsuario(id) {
+  async function editarUsuario(id) {
     const u = cacheUsuarios.find(x => x.idPersonal === id);
+    if (!u) return;
+
+    // El turno y los perfiles se necesitan para editar; si aún no llegaron, se consultan antes.
+    if (!cachePerfiles.length) await cargarPerfiles();
+    if (!turnosCargados) await cargarTurnos();
+
     document.getElementById('usuarioId').value = u.idPersonal;
     document.getElementById('usuarioNombre').value = u.nombre;
     document.getElementById('usuarioApellido').value = u.apellido;
@@ -379,6 +482,7 @@
     document.getElementById('usuarioTelefono').value = u.telefono || '';
     document.getElementById('usuarioLogin').value = u.usuario;
     document.getElementById('usuarioClave').value = '';
+    document.getElementById('usuarioClave').required = false;
     document.getElementById('usuarioPerfil').value = u.idPerfil;
     document.getElementById('usuarioRequiere2fa').checked = u.requiere2fa;
 
@@ -389,79 +493,95 @@
     document.getElementById('tituloFormUsuario').textContent = 'Editar usuario';
     document.getElementById('etiquetaClaveOpcional').style.display = 'inline';
     document.getElementById('btnCancelarUsuario').style.display = 'block';
+    enfocarFormulario('usuarioNombre');
   }
 
   function resetFormUsuario() {
     document.getElementById('formUsuario').reset();
     document.getElementById('usuarioId').value = '';
+    document.getElementById('usuarioClave').required = true;
     document.getElementById('tituloFormUsuario').textContent = 'Nuevo usuario';
     document.getElementById('etiquetaClaveOpcional').style.display = 'none';
-    document.getElementById('notaTurno').textContent = 'El turno es obligatorio al crear un usuario nuevo. Para editar el turno de un usuario existente, usa la pestaña "Turnos".';
+    document.getElementById('notaTurno').textContent = 'El turno es obligatorio al crear un usuario. Al editar, se actualiza el turno activo del usuario. Si el fin es menor que el inicio, el turno cruza la medianoche.';
     document.getElementById('btnCancelarUsuario').style.display = 'none';
     limpiarMensaje('mensajeUsuario');
   }
 
   async function toggleEstadoUsuario(id, idEstadoActual) {
+    const usuario = cacheUsuarios.find((u) => u.idPersonal === id);
     const nuevoEstado = idEstadoActual === 1 ? 0 : 1;
-    try { await cambiarEstadoPersonal(id, nuevoEstado); cargarUsuarios(); } catch (error) { alert(error.message); }
+    const accion = nuevoEstado === 1 ? 'Activar' : 'Desactivar';
+    const confirmado = await confirmarAccion({
+      titulo: `${accion} usuario`,
+      mensaje: `¿${accion} la cuenta de «${usuario?.usuario || id}»? ${nuevoEstado === 0 ? 'No podrá iniciar sesión hasta que la actives de nuevo.' : 'Podrá volver a iniciar sesión en su turno.'}`,
+      textoConfirmar: `${accion} usuario`,
+      peligro: nuevoEstado === 0
+    });
+    if (!confirmado) return;
+    try {
+      await cambiarEstadoPersonal(id, nuevoEstado);
+      avisar(`Usuario ${nuevoEstado === 1 ? 'activado' : 'desactivado'}.`, 'exito');
+      cargarUsuarios();
+    } catch (error) { avisar(error.message, 'error'); }
   }
 
   document.getElementById('formUsuario').addEventListener('submit', async (e) => {
-
     e.preventDefault();
-
     limpiarMensaje('mensajeUsuario');
+
+    if (!e.currentTarget.reportValidity()) return;
 
     const id = document.getElementById('usuarioId').value;
 
     if (!id && (!document.getElementById('usuarioHoraInicio').value || !document.getElementById('usuarioHoraFin').value)) {
-        mostrarMensaje('mensajeUsuario', 'El turno es obligatorio al crear un usuario nuevo', 'error');
-        return;
+      mostrarMensaje('mensajeUsuario', 'El turno es obligatorio al crear un usuario nuevo.', 'error');
+      document.getElementById('usuarioHoraInicio').focus();
+      return;
     }
 
     const datos = {
-        nombre: document.getElementById('usuarioNombre').value.trim(),
-        apellido: document.getElementById('usuarioApellido').value.trim(),
-        email: document.getElementById('usuarioEmail').value.trim(),
-        cedula: document.getElementById('usuarioCedula').value.trim(),
-        telefono: document.getElementById('usuarioTelefono').value.trim(),
-        usuario: document.getElementById('usuarioLogin').value.trim(),
-        clave: document.getElementById('usuarioClave').value,
-        idPerfil: Number(document.getElementById('usuarioPerfil').value),
-        requiere2fa: document.getElementById('usuarioRequiere2fa').checked,
-        horaInicio: document.getElementById('usuarioHoraInicio').value || null,
-        horaFin: document.getElementById('usuarioHoraFin').value || null
+      nombre: document.getElementById('usuarioNombre').value.trim(),
+      apellido: document.getElementById('usuarioApellido').value.trim(),
+      email: document.getElementById('usuarioEmail').value.trim(),
+      cedula: document.getElementById('usuarioCedula').value.trim(),
+      telefono: document.getElementById('usuarioTelefono').value.trim(),
+      usuario: document.getElementById('usuarioLogin').value.trim(),
+      idPerfil: Number(document.getElementById('usuarioPerfil').value),
+      requiere2fa: document.getElementById('usuarioRequiere2fa').checked,
+      horaInicio: document.getElementById('usuarioHoraInicio').value || null,
+      horaFin: document.getElementById('usuarioHoraFin').value || null
     };
 
-    try {
+    // Al editar, una clave vacía significa "no cambiarla"; se omite del payload.
+    const clave = document.getElementById('usuarioClave').value;
+    if (clave) datos.clave = clave;
 
+    await conBotonOcupado(e.currentTarget, 'Guardando...', async () => {
+      try {
         if (id) {
-            await actualizarPersonal(id, datos);
+          await actualizarPersonal(id, datos);
         } else {
-            await crearPersonal(datos);
+          await crearPersonal(datos);
         }
-
-        mostrarMensaje('mensajeUsuario', 'Guardado correctamente', 'exito');
-
         resetFormUsuario();
+        mostrarMensaje('mensajeUsuario', 'Usuario guardado correctamente.', 'exito');
         cargarUsuarios();
         cargarTurnos();
-
-    } catch (error) {
+      } catch (error) {
         mostrarMensaje('mensajeUsuario', error.message, 'error');
-    }
+      }
+    });
+  });
 
-});
-
-  /* ---------- TURNOS (solo cache, sin UI propia -- se gestiona desde Usuarios) ---------- */
-
-  let cacheTurnos = [];
+  /* ---------- TURNOS (se consultan para editar usuarios) ---------- */
 
   async function cargarTurnos() {
     try {
       cacheTurnos = await listarTurnos();
+      turnosCargados = true;
     } catch (error) {
       console.error('No se pudieron cargar los turnos:', error.message);
+      avisar('No se pudieron cargar los turnos. Al editar un usuario, sus horarios pueden aparecer vacíos.', 'error');
     }
   }
 
@@ -470,7 +590,9 @@
   function llenarSelect(idSelect, lista, campoId, campoTexto) {
     const select = document.getElementById(idSelect);
     const valorActual = select.value;
-    select.innerHTML = lista.map(item => `<option value="${escaparHtml(item[campoId])}">${escaparHtml(item[campoTexto])}</option>`).join('');
+    select.innerHTML = '<option value="">Selecciona una opción</option>' + lista
+      .map(item => `<option value="${escaparHtml(item[campoId])}">${escaparHtml(item[campoTexto])}</option>`)
+      .join('');
     if (valorActual) select.value = valorActual;
   }
 
@@ -479,7 +601,8 @@
   cargarPerfiles();
   cargarActividades();
   cargarAsignaciones();
-  cargarUsuarios().then(() => cargarTurnos());
+  cargarUsuarios();
+  cargarTurnos();
 </script>
 
 <script src="assets/copiloto.js"></script>

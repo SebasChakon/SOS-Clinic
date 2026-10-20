@@ -59,6 +59,16 @@ function enlaceSeguro(enlace) {
   return /^[A-Za-z0-9_-]+\.html(?:\?[^#]*)?$/.test(valor) ? valor : '#';
 }
 
+/** Solo permite enlaces externos HTTP(S), nunca javascript: ni data:. */
+function urlExternaSegura(valor) {
+  try {
+    const url = new URL(String(valor));
+    return ['http:', 'https:'].includes(url.protocol) ? url.href : '#';
+  } catch (error) {
+    return '#';
+  }
+}
+
 function cerrarSesion(destino = 'index.html') {
   sessionStorage.clear();
   window.location.href = destino;
@@ -70,8 +80,11 @@ function cerrarSesion(destino = 'index.html') {
  * por si sola (necesita un idRegistro en la URL para funcionar).
  */
 function primerDestinoValido(actividades) {
-  const candidato = actividades.find((a) => a.nombreActividad !== 'seguimiento_paciente');
-  return candidato ? candidato.enlace : (actividades[0] ? actividades[0].enlace : null);
+  const lista = Array.isArray(actividades) ? actividades : [];
+  const candidato = lista.find((a) => a.nombreActividad !== 'seguimiento_paciente' && enlaceSeguro(a.enlace) !== '#');
+  if (candidato) return enlaceSeguro(candidato.enlace);
+  const primero = lista.find((a) => enlaceSeguro(a.enlace) !== '#');
+  return primero ? enlaceSeguro(primero.enlace) : null;
 }
 
 /**
@@ -98,8 +111,7 @@ function exigirSesion() {
     if (destino) {
       window.location.href = destino;
     } else {
-      alert('Tu usuario no tiene ninguna pantalla asignada. Contacta al coordinador de turnos.');
-      cerrarSesion();
+      cerrarSesion('login.html?motivo=sin-actividades');
     }
   }
 }
@@ -107,6 +119,32 @@ function exigirSesion() {
 /* ---------------------------------------------------------------------
    Funcion base: todas las llamadas al backend pasan por aqui
    --------------------------------------------------------------------- */
+
+function mensajeDeError(datos, respuesta) {
+  const bruto = (datos && typeof datos === 'string')
+    ? datos.trim()
+    : String((datos && (datos.message || datos.detail || datos.error)) || '').trim();
+
+  // Los mensajes de validación del backend son útiles; los técnicos no.
+  if ([400, 401, 409, 422, 429].includes(respuesta.status) && bruto && bruto.length <= 240) {
+    return bruto;
+  }
+
+  const mensajes = {
+    400: 'Revisa los datos del formulario e inténtalo de nuevo.',
+    403: 'No tienes permisos para realizar esta acción.',
+    404: 'No encontramos el registro solicitado.',
+    409: 'El registro ya existe o entra en conflicto con otro dato.',
+    422: 'Hay datos que no cumplen las reglas del sistema.',
+    429: 'Demasiados intentos. Espera un momento y vuelve a intentarlo.',
+    500: 'El servidor tuvo un problema. Inténtalo de nuevo en unos segundos.',
+    502: 'El servicio no está disponible en este momento.',
+    503: 'El servicio no está disponible en este momento.',
+    504: 'El servidor tardó demasiado en responder.'
+  };
+
+  return mensajes[respuesta.status] || bruto || 'No se pudo completar la solicitud.';
+}
 
 async function llamarApi(ruta, opciones = {}) {
   const token = obtenerToken();
@@ -117,21 +155,40 @@ async function llamarApi(ruta, opciones = {}) {
     ...opciones.headers
   };
 
+  const controlador = new AbortController();
+  const senalExterna = opciones.signal;
+  const alCancelar = () => controlador.abort();
+  if (senalExterna) {
+    if (senalExterna.aborted) controlador.abort();
+    else senalExterna.addEventListener('abort', alCancelar, { once: true });
+  }
+  const temporizador = setTimeout(() => controlador.abort(), opciones.timeout || 20000);
+
   let respuesta;
   try {
-    respuesta = await fetch(`${BASE_URL}${ruta}`, { ...opciones, headers });
+    respuesta = await fetch(`${BASE_URL}${ruta}`, {
+      ...opciones,
+      headers,
+      signal: controlador.signal
+    });
   } catch (error) {
-    throw new Error('No se pudo contactar al servidor. Verifica que eureka-server, ms-gateway y los microservicios esten corriendo.');
+    if (error.name === 'AbortError') {
+      if (senalExterna && senalExterna.aborted) throw new Error('Solicitud cancelada.');
+      throw new Error('El servidor tardó demasiado en responder. Inténtalo de nuevo.');
+    }
+    throw new Error('No se pudo contactar al servidor. Verifica que eureka-server, ms-gateway y los microservicios estén corriendo.');
+  } finally {
+    clearTimeout(temporizador);
+    if (senalExterna) senalExterna.removeEventListener('abort', alCancelar);
   }
 
   if (respuesta.status === 401) {
     if (token) {
-      // Ya teniamos una sesion activa y el token dejo de ser valido: si expira de verdad
-      cerrarSesion('login.html');
-      throw new Error('Sesion expirada, vuelve a iniciar sesion');
+      // Ya teníamos una sesión activa y el token dejó de ser válido.
+      cerrarSesion('login.html?motivo=sesion-expirada');
+      throw new Error('Sesión expirada. Vuelve a iniciar sesión.');
     }
-    // No habia token (ej. intento de login fallido): dejamos que el flujo normal de abajo
-    // lea el mensaje real del backend ("Fuera de tu horario...", "Usuario o clave incorrectos", etc.)
+    // Sin token (por ejemplo, login fallido): mostramos el mensaje del backend.
   }
 
   const textoRespuesta = await respuesta.text();
@@ -139,10 +196,7 @@ async function llamarApi(ruta, opciones = {}) {
   try { datos = textoRespuesta ? JSON.parse(textoRespuesta) : null; } catch (e) { datos = textoRespuesta; }
 
   if (!respuesta.ok) {
-    const mensaje = (datos && typeof datos === 'string')
-      ? datos
-      : (datos && (datos.message || datos.detail)) || 'Error en la solicitud';
-    throw new Error(mensaje);
+    throw new Error(mensajeDeError(datos, respuesta));
   }
 
   return datos;
@@ -344,16 +398,130 @@ async function obtenerRegistroTriage(idRegistro) {
    Requiere un elemento <div class="mensaje" id="mensaje"></div> en el HTML
    --------------------------------------------------------------------- */
 
-function mostrarMensaje(idElemento, texto, tipo) {
+function mostrarMensaje(idElemento, texto, tipo = 'info') {
   const el = document.getElementById(idElemento);
+  if (!el) return;
   el.className = `mensaje ${tipo}`;
   el.textContent = texto;
+  el.setAttribute('role', tipo === 'error' ? 'alert' : 'status');
+  el.setAttribute('aria-live', tipo === 'error' ? 'assertive' : 'polite');
+  el.setAttribute('aria-atomic', 'true');
 }
 
 function limpiarMensaje(idElemento) {
   const el = document.getElementById(idElemento);
+  if (!el) return;
   el.className = 'mensaje';
   el.textContent = '';
+  el.removeAttribute('role');
+  el.removeAttribute('aria-live');
+  el.removeAttribute('aria-atomic');
+}
+
+function avisar(texto, tipo = 'exito') {
+  let contenedor = document.getElementById('sos-avisos');
+  if (!contenedor) {
+    contenedor = document.createElement('div');
+    contenedor.id = 'sos-avisos';
+    contenedor.setAttribute('role', 'status');
+    contenedor.setAttribute('aria-live', 'polite');
+    document.body.appendChild(contenedor);
+  }
+  const aviso = document.createElement('div');
+  aviso.className = `aviso-toast ${tipo}`;
+  aviso.setAttribute('role', tipo === 'error' ? 'alert' : 'status');
+  aviso.textContent = texto;
+  contenedor.appendChild(aviso);
+  setTimeout(() => aviso.remove(), 6000);
+}
+
+function confirmarAccion(opciones = {}) {
+  const titulo = opciones.titulo || 'Confirmar acción';
+  const mensaje = opciones.mensaje || '¿Deseas continuar?';
+  const textoConfirmar = opciones.textoConfirmar || 'Confirmar';
+  const peligro = opciones.peligro !== false;
+
+  return new Promise((resolver) => {
+    const dialogo = document.createElement('dialog');
+    dialogo.className = 'dialogo';
+
+    const cabecera = document.createElement('div');
+    cabecera.className = 'dialogo-cabecera';
+    const h2 = document.createElement('h2');
+    h2.textContent = titulo;
+    cabecera.appendChild(h2);
+
+    const cuerpo = document.createElement('div');
+    cuerpo.className = 'dialogo-cuerpo';
+    const parrafo = document.createElement('p');
+    parrafo.textContent = mensaje;
+    cuerpo.appendChild(parrafo);
+
+    const acciones = document.createElement('div');
+    acciones.className = 'dialogo-acciones';
+    const cancelar = document.createElement('button');
+    cancelar.type = 'button';
+    cancelar.className = 'boton-secundario';
+    cancelar.textContent = 'Cancelar';
+    const confirmar = document.createElement('button');
+    confirmar.type = 'button';
+    confirmar.className = peligro ? 'boton-peligro' : 'boton-primario';
+    confirmar.textContent = textoConfirmar;
+    acciones.append(cancelar, confirmar);
+    dialogo.append(cabecera, cuerpo, acciones);
+
+    const cerrar = (valor) => {
+      if (dialogo.open) dialogo.close();
+      dialogo.remove();
+      resolver(valor);
+    };
+
+    cancelar.addEventListener('click', () => cerrar(false));
+    confirmar.addEventListener('click', () => cerrar(true));
+    dialogo.addEventListener('cancel', (evento) => {
+      evento.preventDefault();
+      cerrar(false);
+    });
+
+    document.body.appendChild(dialogo);
+    dialogo.showModal();
+    cancelar.focus();
+  });
+}
+
+const ETIQUETAS_ESTADO = {
+  'En espera': 'En espera',
+  'En atencion': 'En atención',
+  'Atendido': 'Atendido'
+};
+
+function formatearEstado(estado) {
+  return ETIQUETAS_ESTADO[estado] || estado || '—';
+}
+
+function formatearFechaHora(iso) {
+  if (!iso) return '—';
+  const fecha = new Date(iso);
+  if (Number.isNaN(fecha.getTime())) return '—';
+  return fecha.toLocaleString('es-CO', { dateStyle: 'medium', timeStyle: 'short', hour12: false });
+}
+
+function formatearFechaSolo(iso) {
+  if (!iso) return '—';
+  const fecha = new Date(`${String(iso).slice(0, 10)}T00:00:00`);
+  if (Number.isNaN(fecha.getTime())) return '—';
+  return fecha.toLocaleDateString('es-CO', { dateStyle: 'medium' });
+}
+
+function calcularEdad(fechaNacimiento) {
+  if (!fechaNacimiento) return null;
+  const nacimiento = new Date(`${String(fechaNacimiento).slice(0, 10)}T00:00:00`);
+  if (Number.isNaN(nacimiento.getTime())) return null;
+  const hoy = new Date();
+  let edad = hoy.getFullYear() - nacimiento.getFullYear();
+  const mes = hoy.getMonth() - nacimiento.getMonth();
+  if (mes < 0 || (mes === 0 && hoy.getDate() < nacimiento.getDate())) edad--;
+  return edad >= 0 && edad < 130 ? edad : null;
 }
 
 /* ---------------------------------------------------------------------
@@ -366,7 +534,7 @@ const ETIQUETAS_ACTIVIDAD = {
   seguimiento_paciente: 'Seguimiento',
   lista_espera: 'Lista de espera',
   auditoria: 'Auditoría',
-  gestion_roles: 'Roles',
+  gestion_roles: 'Administración',
   enfermedades_crue: 'Enfermedades CRUE',
   dashboard_analitica: 'Analítica',
   dashboard: 'Analítica'
@@ -377,20 +545,48 @@ function pintarNav(idContenedor, enlaceActual) {
   const contenedor = document.getElementById(idContenedor);
   if (!sesion || !contenedor) return;
 
-  // 'Seguimiento' solo se muestra en el menu si es la pagina actual,
-  // porque no es un destino valido por si sola (necesita idRegistro en la URL)
-  const visibles = sesion.actividades.filter((a) => {
-    if (a.nombreActividad === 'seguimiento_paciente') {
-      return a.enlace === enlaceActual;
-    }
-    return true;
+  // 'Seguimiento' no se muestra en el menú: no es un destino válido por sí solo,
+  // necesita idRegistro en la URL. Se llega desde la lista de espera.
+  const visibles = sesion.actividades.filter((a) => a.nombreActividad !== 'seguimiento_paciente');
+
+  const enlaces = visibles.map((a) => {
+    const etiqueta = ETIQUETAS_ACTIVIDAD[a.nombreActividad] || a.nombreActividad;
+    const activo = a.enlace === enlaceActual;
+    return `<a href="${escaparHtml(enlaceSeguro(a.enlace))}"${activo ? ' class="activo" aria-current="page"' : ''}>${escaparHtml(etiqueta)}</a>`;
+  }).join('');
+
+  contenedor.innerHTML = `
+    <button type="button" class="menu-toggle" aria-expanded="false" aria-controls="navEnlaces">
+      <span aria-hidden="true">☰</span> Menú
+    </button>
+    <div class="nav-enlaces" id="navEnlaces">${enlaces}</div>`;
+
+  const boton = contenedor.querySelector('.menu-toggle');
+  const panel = contenedor.querySelector('.nav-enlaces');
+  if (!boton || !panel) return;
+
+  const cerrar = () => {
+    panel.classList.remove('abierto');
+    boton.setAttribute('aria-expanded', 'false');
+  };
+
+  boton.addEventListener('click', () => {
+    const abierto = panel.classList.toggle('abierto');
+    boton.setAttribute('aria-expanded', String(abierto));
+    if (abierto) panel.querySelector('a')?.focus();
   });
 
-  contenedor.innerHTML = visibles.map((a) => {
-    const etiqueta = ETIQUETAS_ACTIVIDAD[a.nombreActividad] || a.nombreActividad;
-    const clase = a.enlace === enlaceActual ? 'activo' : '';
-    return `<a href="${escaparHtml(enlaceSeguro(a.enlace))}" class="${clase}">${escaparHtml(etiqueta)}</a>`;
-  }).join('');
+  panel.addEventListener('click', (evento) => {
+    if (evento.target.closest('a')) cerrar();
+  });
+
+  document.addEventListener('keydown', (evento) => {
+    if (evento.key === 'Escape') cerrar();
+  });
+
+  document.addEventListener('click', (evento) => {
+    if (!contenedor.contains(evento.target)) cerrar();
+  });
 }
 
 /* ---------------------------------------------------------------------
@@ -404,16 +600,16 @@ function parametrosDashboard(filtros) {
   return parametros.toString();
 }
 
-async function obtenerResumenDashboard(filtros) {
-  return llamarApi(`/ms-analitica/dashboard/resumen?${parametrosDashboard(filtros)}`);
+async function obtenerResumenDashboard(filtros, signal) {
+  return llamarApi(`/ms-analitica/dashboard/resumen?${parametrosDashboard(filtros)}`, { signal });
 }
 
-async function obtenerLlegadasDashboard(filtros) {
-  return llamarApi(`/ms-analitica/dashboard/llegadas?${parametrosDashboard(filtros)}`);
+async function obtenerLlegadasDashboard(filtros, signal) {
+  return llamarApi(`/ms-analitica/dashboard/llegadas?${parametrosDashboard(filtros)}`, { signal });
 }
 
-async function obtenerCapacidadDashboard(filtros) {
-  return llamarApi(`/ms-analitica/dashboard/capacidad?${parametrosDashboard(filtros)}`);
+async function obtenerCapacidadDashboard(filtros, signal) {
+  return llamarApi(`/ms-analitica/dashboard/capacidad?${parametrosDashboard(filtros)}`, { signal });
 }
 
 /* ---------------------------------------------------------------------
