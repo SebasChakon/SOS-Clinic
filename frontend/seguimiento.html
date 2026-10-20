@@ -360,7 +360,7 @@
           <div class="cifra"><div class="valor">${toma.frecuenciaRespiratoria}</div><div class="etiqueta">FR</div></div>
           ${toma.glucemia ? `<div class="cifra"><div class="valor">${toma.glucemia}</div><div class="etiqueta">Glucemia</div></div>` : ''}
         </div>
-        ${toma.descripcionSintoma ? `<div class="motivo">${toma.descripcionSintoma}</div>` : ''}
+        ${toma.descripcionSintoma ? `<div class="motivo">${escaparHtml(toma.descripcionSintoma)}</div>` : ''}
       </div>`).join('');
   }
 
@@ -369,7 +369,7 @@
       const lista = await listarSignosVitalesPorRegistro(idRegistro);
       pintarHistorial(lista);
     } catch (error) {
-      document.getElementById('lineaTiempo').innerHTML = `<p class="tabla-vacia">${error.message}</p>`;
+      document.getElementById('lineaTiempo').innerHTML = `<p class="tabla-vacia">${escaparHtml(error.message)}</p>`;
     }
   }
 

@@ -1,7 +1,3 @@
-/*
- * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
- * Click nbfs://nbhost/SystemFileSystem/Templates/Classes/Class.java to edit this template
- */
 package com.sos.msseguridad.seguridad;
 
 import jakarta.servlet.FilterChain;
@@ -9,8 +5,8 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
@@ -43,19 +39,25 @@ public class JwtAuthFilter extends OncePerRequestFilter {
         try {
             final String usuario = jwtService.extraerUsuario(token);
 
-            if (usuario != null && SecurityContextHolder.getContext().getAuthentication() == null) {
-                if (jwtService.esTokenValido(token, usuario)) {
-                    String perfil = jwtService.extraerPerfil(token);
+            if (usuario != null && SecurityContextHolder.getContext().getAuthentication() == null
+                    && jwtService.esTokenValido(token, usuario)) {
 
-                    UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
-                            usuario, null, List.of(new SimpleGrantedAuthority("ROLE_" + perfil.toUpperCase()))
-                    );
+                String perfil = jwtService.extraerPerfil(token);
+                Integer idPersonal = jwtService.extraerIdPersonal(token);
+                List<String> actividades = jwtService.extraerActividades(token);
+                String rol = JwtService.rolDePerfil(perfil);
 
-                    SecurityContextHolder.getContext().setAuthentication(authToken);
-                }
+                UsuarioJwt principal = new UsuarioJwt(usuario, idPersonal, perfil, actividades);
+
+                UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
+                        principal, null, List.of(new SimpleGrantedAuthority("ROLE_" + rol))
+                );
+
+                SecurityContextHolder.getContext().setAuthentication(authToken);
             }
         } catch (Exception e) {
-            // Token invalido o corrupto: seguimos sin autenticar, Spring Security rechazara el request
+            // Token invalido o corrupto: seguimos sin autenticar.
+            SecurityContextHolder.clearContext();
         }
 
         filterChain.doFilter(request, response);

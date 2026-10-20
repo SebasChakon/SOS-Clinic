@@ -87,7 +87,7 @@ public class EmailService {
                 }
             }
             mailSender.send(mensaje);
-            log.info("Correo [{}] enviado a {}", asunto, destinatario);
+            log.info("Correo [{}] enviado", asunto);
         } catch (MessagingException e) {
             throw new EmailNoEnviadoException(
                     "No se pudo preparar el correo para " + destinatario + ": " + e.getMessage(), e);

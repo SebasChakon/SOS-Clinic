@@ -7,3 +7,16 @@ target/
 nbproject/private/ 
 *.log 
 .env 
+
+# Credenciales locales: nunca versionar
+env
+.env.*
+!.env.example
+
+# Artefactos locales de pruebas
+seguridad/utilidades/tools/
+seguridad/utilidades/capturas/node_modules/
+*.bundle
+__pycache__/
+*.pyc
+*.dump

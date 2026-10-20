@@ -2,7 +2,7 @@
 
 Sistema web de apoyo al registro y seguimiento de pacientes en el proceso de triage. El repositorio combina un frontend estático, servicios Java independientes, descubrimiento con Eureka y una base PostgreSQL local.
 
-> **Estado:** prototipo académico en desarrollo. No debe tratarse como un sistema clínico de producción. El esquema SQL inicial no coincide con todos los modelos JPA, la autorización entre servicios está incompleta y hay secretos de desarrollo en configuración. Revisa [Estado y limitaciones conocidas](#estado-y-limitaciones-conocidas) antes de levantarlo desde cero o exponerlo en una red.
+> **Estado:** prototipo academico en desarrollo. No debe tratarse como un sistema clinico de produccion. El esquema SQL inicial ya incluye turnos y codigos 2FA; en bases existentes aplica `infra/migraciones/2026-10-19-seguridad.sql`. La autenticacion y la autorizacion por rol estan implementadas en gateway, seguridad, pacientes, triage, analitica y agente. Revisa [Estado y limitaciones conocidas](#estado-y-limitaciones-conocidas) antes de levantarlo desde cero o exponerlo en una red.
 
 ## Contenido
 
@@ -100,6 +100,7 @@ Cada módulo Maven organiza normalmente su código en `src/main/java` así:
 | `infra/docker-compose.yml` | Contenedores `postgres` (PostgreSQL 16) y `pgadmin`, puertos, volumen y montaje del script inicial. |
 | `infra/schema-postgres.sql` | Esquema, perfiles base, actividad CRUE y asignación inicial a todos los perfiles. Solo se ejecuta automáticamente al crear un volumen vacío. |
 | `infra/activar-enfermedades-crue.sql` | Registra la actividad CRUE y la asigna idempotentemente a todos los perfiles de una base existente. |
+| `infra/migraciones/2026-10-19-seguridad.sql` | Migración para bases existentes: amplía el código 2FA a hash BCrypt y añade `requiere_2fa`/`turno` si faltan. |
 | `frontend/index.html` | Landing: presentación animada del proyecto, con el video y el acceso. |
 | `frontend/login.html` | Login y formulario de verificación 2FA. |
 | `frontend/pacientes.html` | Registro/listado de pacientes y entrada al flujo según actividades asignadas. |
@@ -152,8 +153,8 @@ Configuración local declarada en Compose:
 
 | Servicio | Dirección | Credenciales locales |
 |---|---|---|
-| PostgreSQL | `localhost:5432`, base `sosclinic` | Usuario `sos_admin`; contraseña de desarrollo en `docker-compose.yml`. |
-| pgAdmin | `http://localhost:5050` | Correo y contraseña de desarrollo en `docker-compose.yml`. |
+| PostgreSQL | `localhost:5433`, base `sosclinic` | Usuario `DB_USERNAME` y contrasena en `.env`; solo escucha en 127.0.0.1. |
+| pgAdmin | `http://localhost:5050` | Credenciales en `.env`; solo escucha en 127.0.0.1. |
 
 Para comprobar las tablas:
 
@@ -179,7 +180,7 @@ Este paso es independiente de PostgreSQL y es necesario para que `ms-analitica` 
 .\levantar-bd-local.bat
 ```
 
-El BAT ejecuta `bd_local.sql` con las credenciales locales `root:root` en `localhost:3306`. Ese SQL elimina y vuelve a crear `urgencias_hospital`. Después, el BAT verifica Python, instala `pandas`, `faker`, `sqlalchemy` y `pymysql`, y ejecuta `llenar_hospital.py`, que carga datos sintéticos de localidades, días, turnos y 50.000 llegadas.
+El BAT ejecuta `bd_local.sql` con las credenciales `ANALITICA_DB_USERNAME`/`ANALITICA_DB_PASSWORD` de `.env` en `localhost:3306`. Ese SQL elimina y vuelve a crear `urgencias_hospital`. Después, el BAT verifica Python, instala `pandas`, `faker`, `sqlalchemy` y `pymysql`, y ejecuta `llenar_hospital.py`, que carga datos sintéticos de localidades, días, turnos y 50.000 llegadas.
 
 > **Importante:** cada ejecución borra todos los datos previos de `urgencias_hospital` antes de volver a generarlos. El SQL se ejecuta antes de comprobar Python, por lo que la base también se reinicia si Python no está instalado y el BAT luego se detiene con el aviso correspondiente.
 
@@ -191,7 +192,7 @@ Orden recomendado: Eureka, gateway y luego servicios de negocio:
 2. `ms-gateway`
 3. `ms-seguridad`, `ms-pacientes`, `ms-triage` y `ms-analitica`
 
-Antes de arrancar, configura en el entorno local `ANALITICA_DB_USERNAME` y `ANALITICA_DB_PASSWORD` para MySQL; opcionalmente, `ANALITICA_DB_URL` (por defecto `jdbc:mysql://localhost:3306/urgencias_hospital`). `ms-seguridad` y `ms-analitica` comparten el fallback JWT local existente para desarrollo, por lo que no hace falta configurar una variable para el arranque actual. Puedes definir `APP_JWT_SECRET` para reemplazarlo, pero debe tener el mismo valor en ambos procesos. El fallback no es apropiado para producción.
+Antes de arrancar, configura en el entorno local `ANALITICA_DB_USERNAME`, `ANALITICA_DB_PASSWORD` y, opcionalmente, `ANALITICA_DB_URL` para MySQL. Todos los servicios comparten el secreto HS256 `APP_JWT_SECRET`; no hay fallback versionado. Genera un valor aleatorio de al menos 32 bytes y guardalo en `.env`. El mismo valor debe estar en gateway, seguridad, pacientes, triage, analitica y agente.
 
 Abre una terminal por servicio desde la raíz:
 
@@ -208,7 +209,7 @@ Repite en terminales separadas desde las carpetas `ms-gateway`, `ms-seguridad`, 
 
 El script abre las consolas en el orden básico, pero no valida que PostgreSQL o cada servicio estén listos; si hay demoras, revisa la salida de la consola correspondiente.
 
-`ms-analitica` corre como proceso local fuera de Docker y requiere que el MySQL sintético ya esté disponible. Prepara esa base manualmente en el paso 2; el arranque de servicios no ejecuta el generador. `levantar-sistema.bat` define `ANALITICA_DB_USERNAME` y `ANALITICA_DB_PASSWORD` en `root` solo si no están definidas; para otro usuario o clave, expórtalas antes de ejecutarlo. `ms-ia-agente` necesita `GROQ_API_KEY` (definida en `.env`; `levantar-sistema.bat` la expone a las consolas) para responder; sin ella el asistente indica que no está configurado.
+`ms-analitica` corre como proceso local fuera de Docker y requiere que el MySQL sintético ya esté disponible. Prepara esa base manualmente en el paso 2; el arranque de servicios no ejecuta el generador. `levantar-sistema.bat` carga `.env` y exige `APP_JWT_SECRET`; no define credenciales por defecto. `ms-ia-agente` necesita `GROQ_API_KEY` (definida en `.env`; `levantar-sistema.bat` la expone a las consolas) para responder; sin ella el asistente indica que no está configurado.
 
 Comprobaciones:
 
@@ -218,13 +219,13 @@ Comprobaciones:
 
 ### 4. Preparar datos de aplicación
 
-El SQL incluido crea cuatro perfiles base (`triage`, `medico`, `coordinacion`, `seguridad`), cinco categorías de triage y tres estados de episodio. **No crea administrador, usuarios, actividades ni asignaciones `perfil_actividad`.** El esquema tampoco contiene hoy varias columnas/tablas que necesitan los modelos actuales; primero alinea la base de datos.
+El SQL incluido crea cuatro perfiles base (`triage`, `medico`, `coordinacion`, `seguridad`), cinco categorias de triage, tres estados de episodio, la tabla `turno` y `codigo_verificacion`. **No crea administrador, usuarios, actividades ni asignaciones `perfil_actividad`.** En bases existentes aplica `infra/migraciones/2026-10-19-seguridad.sql` para ampliar el codigo 2FA y anadir las columnas/tablas nuevas.
 
 Una vez actualizado el esquema, crea la primera cuenta de forma controlada. La clave debe guardarse como BCrypt, nunca en texto plano. La opción normal es crear usuarios desde `roles.html`, ya que el backend codifica la clave y exige asignar un turno. Para el primer acceso administrativo se necesita un proceso de bootstrap controlado (por ejemplo, una inserción revisada con un hash BCrypt generado localmente). No compartas cuentas o hashes de demostración.
 
 Después del primer acceso, asigna actividades con enlaces válidos al perfil correspondiente. Sin actividades, el usuario puede autenticarse pero el frontend no tendrá una pantalla de destino.
 
-Para registrar `dashboard_analitica` y asignarla al perfil `coordinacion`, ejecuta una sola vez `infra/analytics-dashboard-activity.sql` contra PostgreSQL `sosclinic`. La actividad controla navegación; la API también valida el JWT compartido y exige el rol `COORDINACION` o `ADMINISTRADOR`.
+Para registrar `dashboard_analitica` y asignarla al perfil `coordinacion`, ejecuta una sola vez `infra/analytics-dashboard-activity.sql` contra PostgreSQL `sosclinic`. La actividad controla navegacion; la API tambien valida el JWT compartido y exige el rol `COORDINACION` (incluye el perfil historico `coordinador_turnos`) o `ADMINISTRADOR`.
 
 ### 5. Abrir el frontend
 
@@ -234,7 +235,7 @@ El script de Windows sirve `frontend/` en `http://localhost:5500` con Python y a
 
 1. **Acceso del personal.** Se envían usuario y clave a `ms-seguridad`. El servicio comprueba que la cuenta esté activa, compara BCrypt y, excepto para el perfil llamado exactamente `administrador`, verifica que la hora esté dentro de un turno activo. Si se requiere 2FA, envía un código de seis dígitos al correo; vence en cinco minutos. Tras autenticar, devuelve JWT y actividades del perfil.
 2. **Registro del paciente.** Se guardan nombre, apellido, cédula, fecha de nacimiento y, opcionalmente, correo. La cédula debe ser única. Un paciente existente puede localizarse por cédula desde el formulario de nuevo triage.
-3. **Llegada a triage.** El operador selecciona paciente, categoría y, opcionalmente, ubicación. El backend crea el episodio en estado `En espera` y define la hora de llegada con el reloj del servidor. La categoría no se determina automáticamente.
+3. **L�mite de autorizaci�n:** las actividades siguen controlando el men� y la navegaci�n del navegador, pero la autorizaci�n real se aplica en el backend. El gateway valida el JWT y cada servicio vuelve a validarlo. `ms-seguridad` exige `ADMINISTRADOR` para `/admin/**` (salvo auditor�a, que tambi�n admite `SEGURIDAD`); `ms-pacientes` y `ms-triage` exigen roles cl�nicos; `ms-analitica` exige `COORDINACION` o `ADMINISTRADOR`; `ms-ia-agente` exige un usuario autenticado y deriva sus permisos del token. Las actividades ya no son la �nica barrera para los datos cl�nicos.
 4. **Priorización.** `GET /ms-triage/triage/prioridad` devuelve la lista priorizada. La prioridad numérica 1 es la más urgente; el tiempo de espera en minutos se calcula al consultar y no se mantiene como contador en segundo plano.
 5. **Atención y seguimiento.** Desde la lista se abre `seguimiento.html?idRegistro=...`. Se puede actualizar ubicación, marcar `En atencion` y guardar tomas sucesivas de signos vitales. Las tomas anteriores se conservan.
 6. **Cierre y notificaciones.** La interfaz exige diagnóstico, tratamiento y la dirección del paciente; el alta se completa con **una sola llamada** a `POST /ms-pacientes/pacientes/atenciones/{idRegistro}/finalizar`. El backend persiste primero el alta en `ms-triage` (si eso falla, no se envía nada) y en seguida envía las notificaciones: confirmación de teleconsulta al profesional (`ms-seguridad`), cita de teleconsulta al paciente (con archivo de calendario `.ics`) e historia clínica en PDF (más farmacias cercanas a la dirección; si no se puede ubicar, farmacias de Bogotá en general). Cada correo se evalúa por separado y la respuesta informa ✅ enviado / ⚠️ fallido / ⏭️ omitido; la pantalla ofrece un botón de reintento que llama a `reenviar-correos` sin volver a tocar el alta.
@@ -295,7 +296,7 @@ El sistema separa estos conceptos:
 
 Los turnos son intervalos horarios diarios, no calendarios por fecha. La comprobación admite intervalos que cruzan medianoche. El backend de seguridad omite la comprobación horaria para el perfil cuyo nombre sea exactamente `administrador`.
 
-**Límite de autorización actual:** las actividades controlan principalmente el menú y navegación del navegador. `ms-seguridad` exige JWT para rutas protegidas, pero no restringe las operaciones administrativas a un perfil determinado. `ms-pacientes` y `ms-triage` no tienen filtros propios de autenticación y el gateway no valida globalmente el JWT. Por ello, las actividades asignadas no son autorización de API ni protección suficiente para datos clínicos.
+**Limite de autorizacion:** las actividades siguen controlando el menu y la navegacion del navegador, pero la autorizacion real se aplica en el backend. El gateway valida el JWT y cada servicio vuelve a validarlo. `ms-seguridad` exige `ADMINISTRADOR` para `/admin/**` (salvo auditoria, que tambien admite `SEGURIDAD`); `ms-pacientes` y `ms-triage` exigen roles clinicos; `ms-analitica` exige `COORDINACION` o `ADMINISTRADOR`; `ms-ia-agente` exige un usuario autenticado y deriva sus permisos del token. Las actividades ya no son la unica barrera para los datos clinicos.
 
 ## Datos y persistencia
 
@@ -383,7 +384,7 @@ Las operaciones administrativas de `ms-seguridad` requieren token, pero actualme
 
 ### Analítica sintética
 
-Las rutas requieren un JWT firmado con `APP_JWT_SECRET` y perfil `coordinacion` o `administrador`. Todas reciben fechas ISO inclusivas `desde=AAAA-MM-DD` y `hasta=AAAA-MM-DD`.
+Las rutas requieren un JWT firmado con `APP_JWT_SECRET` y perfil `coordinacion`, `coordinador_turnos` o `administrador`. Todas reciben fechas ISO inclusivas `desde=AAAA-MM-DD` y `hasta=AAAA-MM-DD`.
 
 | Método | Ruta | Descripción |
 |---|---|---|
@@ -426,7 +427,7 @@ Añadir `-v` borra el volumen, por lo que debe hacerse solo de forma intencional
 2. **Faltan datos iniciales de acceso.** No se inserta usuario ni turnos. El esquema inicial registra la actividad CRUE y la asigna a todos los perfiles base; en una base existente, ejecuta `infra/activar-enfermedades-crue.sql` una vez porque los scripts de inicialización no corren de nuevo sobre volúmenes existentes.
 3. **Historia clínica y teleconsulta por correo.** El alta se hace en una sola llamada desde el backend, que persiste diagnóstico y tratamiento en `registro_triage` **antes** de notificar y devuelve el estado de cada correo por separado. Los envíos siguen siendo de mejor esfuerzo dependientes de SMTP: revisa el estado devuelto y usa el botón de reintento en lugar de asumir que la historia clínica llegó porque el alta concluyó. Si el PDF o el mapa de farmacias fallan, el correo se envía igual sin ese elemento.
 4. **Autorización por rol incompleta.** JWT se valida dentro de `ms-seguridad`, pero las APIs de pacientes y triage no instalan ese filtro; el gateway tampoco valida token globalmente. Las rutas administrativas solo requieren autenticación, no un rol específico.
-5. **Secretos fuera del repositorio.** El SMTP y la API key de Groq se leen desde el archivo `.env` (ignorado por git) o variables de entorno; `application.properties` solo conserva `${MAIL_USERNAME}` y similares. La clave JWT por defecto de `ms-seguridad` sigue versionada y debe considerarse expuesta: rótala y ponla en `.env`. Revisa el historial de git (los secretos antiguos ya estaban publicados) y sigue la sección «Credenciales y secretos» para rotarlos. No los uses en producción.
+5. **Secretos fuera del repositorio.** El SMTP y la API key de Groq se leen desde el archivo `.env` (ignorado por git) o variables de entorno; `application.properties` solo conserva `${MAIL_USERNAME}` y similares. El secreto JWT se exige por la variable de entorno `APP_JWT_SECRET`; no hay fallback versionado. Genera uno nuevo, guardalo en `.env` y reinicia todos los servicios. Revisa el historial de git (los secretos antiguos ya estaban publicados) y sigue la seccion Credenciales y secretos para rotarlos. No los uses en produccion.
 6. **Configuración de desarrollo sin endurecer.** PostgreSQL y pgAdmin publican puertos locales con credenciales de desarrollo; CORS debe limitarse al origen real del frontend. El repositorio no contiene un despliegue productivo completo para Azure.
 7. **Auditoría de mejor esfuerzo.** Parte de los eventos se solicita desde JavaScript y los errores de auditoría se silencian. No es una bitácora inmutable ni registra automáticamente todos los accesos a datos clínicos.
 8. **Analítica y agente IA en modo prototipo.** `ms-analitica` consulta una base MySQL sintética y `ms-ia-agente` usa la API de Groq para chat y voz; siguen sin existir módulos de Big Data, ISO 27005/STRIDE/DREAD o recomendaciones clínicas automáticas.
@@ -446,10 +447,10 @@ Verifica que el servicio aparezca en Eureka y tenga ruta explícita en `ms-gatew
 **No se puede contactar al servidor**
 Comprueba Docker/PostgreSQL, Eureka, gateway y servicio destino, en ese orden. Revisa puertos y URL JDBC.
 
-**Login correcto pero sin pantalla de destino**
+**L�mite de autorizaci�n:** las actividades siguen controlando el men� y la navegaci�n del navegador, pero la autorizaci�n real se aplica en el backend. El gateway valida el JWT y cada servicio vuelve a validarlo. `ms-seguridad` exige `ADMINISTRADOR` para `/admin/**` (salvo auditor�a, que tambi�n admite `SEGURIDAD`); `ms-pacientes` y `ms-triage` exigen roles cl�nicos; `ms-analitica` exige `COORDINACION` o `ADMINISTRADOR`; `ms-ia-agente` exige un usuario autenticado y deriva sus permisos del token. Las actividades ya no son la �nica barrera para los datos cl�nicos.
 Asigna al perfil una actividad cuyo enlace exista. `seguimiento.html` además necesita `idRegistro` en la URL.
 
-**Login rechazado por horario**
+**L�mite de autorizaci�n:** las actividades siguen controlando el men� y la navegaci�n del navegador, pero la autorizaci�n real se aplica en el backend. El gateway valida el JWT y cada servicio vuelve a validarlo. `ms-seguridad` exige `ADMINISTRADOR` para `/admin/**` (salvo auditor�a, que tambi�n admite `SEGURIDAD`); `ms-pacientes` y `ms-triage` exigen roles cl�nicos; `ms-analitica` exige `COORDINACION` o `ADMINISTRADOR`; `ms-ia-agente` exige un usuario autenticado y deriva sus permisos del token. Las actividades ya no son la �nica barrera para los datos cl�nicos.
 Comprueba que la cuenta esté activa, que tenga turno con `id_estado = 1` y que la hora local esté dentro del intervalo. El perfil `administrador` es una excepción del código.
 
 **No llega el correo o código 2FA**
@@ -472,7 +473,7 @@ copy .env.example .env
 notepad .env
 ```
 
-Completa `MAIL_USERNAME`, `MAIL_PASSWORD` (contraseña de aplicación de Gmail, no la clave normal), `ANALITICA_DB_*` y `GROQ_API_KEY`. `levantar-sistema.bat` carga `.env` automáticamente antes de abrir las consolas de cada servicio; si lo corres a mano, exporta las variables antes de arrancar.
+Completa `APP_JWT_SECRET`, `DB_PASSWORD` (y `POSTGRES_PASSWORD`/`PGADMIN_DEFAULT_PASSWORD` si usas Docker), `MAIL_USERNAME`, `MAIL_PASSWORD` (contrasena de aplicacion de Gmail, no la clave normal), `ANALITICA_DB_*` y `GROQ_API_KEY`. `levantar-sistema.bat` carga `.env` automaticamente antes de abrir las consolas de cada servicio; si lo corres a mano, exporta las variables antes de arrancar.
 
 ### Cómo compartir las credenciales con el equipo (sin exponerlas)
 
@@ -484,14 +485,14 @@ Completa `MAIL_USERNAME`, `MAIL_PASSWORD` (contraseña de aplicación de Gmail, 
 
 Las credenciales antiguas de este proyecto **ya están en el historial de git** (una contraseña de aplicación de Gmail y una API key de Groq), así que deben considerarse comprometidas aunque las borres del código actual:
 
-- **Gmail:** en [Cuenta de Google → Seguridad → Contraseñas de aplicaciones](https://myaccount.google.com/apppasswords), revoca la contraseña `yynivaijhnpibuqk` y genera una nueva. Actualiza `MAIL_PASSWORD` en tu `.env`.
-- **Groq:** en [console.groq.com/keys](https://console.groq.com/keys), elimina la key `gsk_jWC...` y crea otra; actualiza `GROQ_API_KEY` en tu `.env`. La clave vieja sigue siendo válida hasta que la revokes: borrarla del README no la desactiva.
-- **Clave JWT de `ms-seguridad`:** si el repositorio es público o se hizo fork, cambia `app.jwt.secret` por una cadena larga aleatoria propia en tu `.env` (todas las sesiones activas se invalidan).
+- **Gmail:** en [Cuenta de Google → Seguridad → Contraseñas de aplicaciones](https://myaccount.google.com/apppasswords), revoca la contraseña `TU_CONTRASENA_DE_APLICACION` y genera una nueva. Actualiza `MAIL_PASSWORD` en tu `.env`.
+- **Groq:** en [console.groq.com/keys](https://console.groq.com/keys), elimina la key `gsk_...` y crea otra; actualiza `GROQ_API_KEY` en tu `.env`. La clave vieja sigue siendo válida hasta que la revokes: borrarla del README no la desactiva.
+- **Clave JWT:** genera un valor aleatorio de al menos 32 bytes, guardalo como `APP_JWT_SECRET` en `.env` y reinicia todos los servicios. Al rotarlo se invalidan todas las sesiones activas.
 
 ### Comprobación y prevención
 
 ```bat
-git log -p | findstr /i "gsk_ yynivaijhnpibuqk"
+git log -p | findstr /i "gsk_ TU_CONTRASENA_DE_APLICACION"
 ```
 
 Si algo aparece fuera de `.env`, la credencial estuvo versionada: rótala. Para evitar repeticiones, instala [gitleaks](https://github.com/gitleaks/gitleaks) como hook:

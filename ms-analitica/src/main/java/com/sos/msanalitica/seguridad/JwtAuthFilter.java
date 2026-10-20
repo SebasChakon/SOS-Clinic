@@ -26,6 +26,10 @@ public class JwtAuthFilter extends OncePerRequestFilter {
     private final SecretKey signingKey;
 
     public JwtAuthFilter(@Value("${app.jwt.secret}") String secret) {
+        if (secret == null || secret.getBytes(StandardCharsets.UTF_8).length < 32) {
+            throw new IllegalStateException(
+                    "APP_JWT_SECRET no esta configurado o tiene menos de 32 bytes");
+        }
         this.signingKey = Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
     }
 
@@ -42,7 +46,8 @@ public class JwtAuthFilter extends OncePerRequestFilter {
                 if (usuario != null && perfil != null && !perfil.isBlank()) {
                     var autenticacion = new UsernamePasswordAuthenticationToken(
                             usuario, null,
-                            List.of(new SimpleGrantedAuthority("ROLE_" + perfil.toUpperCase(Locale.ROOT))));
+                            List.of(new SimpleGrantedAuthority(
+                                    "ROLE_" + rolDePerfil(perfil))));
                     SecurityContextHolder.getContext().setAuthentication(autenticacion);
                 }
             } catch (Exception ignored) {
@@ -50,5 +55,21 @@ public class JwtAuthFilter extends OncePerRequestFilter {
             }
         }
         filterChain.doFilter(request, response);
+    }
+
+    /**
+     * Los datos historicos usan "coordinador_turnos"; el esquema base usa
+     * "coordinacion". Ambos deben resolver al mismo rol.
+     */
+    static String rolDePerfil(String perfil) {
+        String p = perfil == null ? "" : perfil.trim().toLowerCase(Locale.ROOT);
+        return switch (p) {
+            case "administrador" -> "ADMINISTRADOR";
+            case "coordinacion", "coordinador_turnos" -> "COORDINACION";
+            case "medico", "doctor_triage" -> "MEDICO";
+            case "triage" -> "TRIAGE";
+            case "seguridad" -> "SEGURIDAD";
+            default -> p.isEmpty() ? "USUARIO" : p.toUpperCase(Locale.ROOT).replace(' ', '_');
+        };
     }
 }

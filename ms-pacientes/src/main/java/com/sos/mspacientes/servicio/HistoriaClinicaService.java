@@ -47,8 +47,8 @@ public class HistoriaClinicaService {
     }
 
     /** Modelo que consume la plantilla del PDF (y el resumen del correo). */
-    public Map<String, Object> construirModelo(Integer idRegistro) {
-        RegistroTriageDTO registro = triageGateway.obtenerRegistro(idRegistro);
+    public Map<String, Object> construirModelo(Integer idRegistro, String authorization) {
+        RegistroTriageDTO registro = triageGateway.obtenerRegistro(idRegistro, authorization);
         Paciente paciente = pacienteRepository.findById(registro.idPaciente())
                 .orElseThrow(() -> new EpisodioNoEncontradoException(
                         "No existe el paciente #" + registro.idPaciente() + " del episodio #" + idRegistro));
@@ -96,14 +96,14 @@ public class HistoriaClinicaService {
     }
 
     /** PDF completo de la historia clinica del episodio, con su nombre de archivo. */
-    public PdfHistoria generarPdf(Integer idRegistro) {
-        HistoriaConPdf historia = generarHistoriaCompleta(idRegistro);
+    public PdfHistoria generarPdf(Integer idRegistro, String authorization) {
+        HistoriaConPdf historia = generarHistoriaCompleta(idRegistro, authorization);
         return new PdfHistoria(historia.contenidoPdf(), historia.nombreArchivo());
     }
 
     /** Modelo + PDF + nombre de archivo con una sola consulta a ms-triage. */
-    public HistoriaConPdf generarHistoriaCompleta(Integer idRegistro) {
-        Map<String, Object> modelo = construirModelo(idRegistro);
+    public HistoriaConPdf generarHistoriaCompleta(Integer idRegistro, String authorization) {
+        Map<String, Object> modelo = construirModelo(idRegistro, authorization);
         byte[] contenido = pdfService.generarDesdePlantilla("plantillas/historia-clinica-pdf", modelo);
         String nombre = "historia_clinica_" + modelo.get("cedula") + "_" + LocalDate.now() + ".pdf";
         return new HistoriaConPdf(modelo, contenido, nombre);

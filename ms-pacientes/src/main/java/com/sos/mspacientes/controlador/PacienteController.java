@@ -7,19 +7,24 @@ package com.sos.mspacientes.controlador;
 import com.sos.mspacientes.dto.EnviarHistoriaRequest;
 import com.sos.mspacientes.dto.ConfirmacionTeleconsultaRequest;
 import com.sos.mspacientes.dto.PacienteRequest;
+import com.sos.mspacientes.dto.SignosVitalesRequest;
 import com.sos.mspacientes.modelo.EstadoPaciente;
 import com.sos.mspacientes.modelo.Paciente;
 import com.sos.mspacientes.repositorio.EstadoPacienteRepository;
 import com.sos.mspacientes.repositorio.PacienteRepository;
+import com.sos.mspacientes.seguridad.UsuarioJwt;
 import com.sos.mspacientes.servicio.EmailNoEnviadoException;
 import com.sos.mspacientes.servicio.EmailService;
 import com.sos.mspacientes.servicio.EpisodioNoEncontradoException;
 import com.sos.mspacientes.servicio.HistoriaClinicaService;
 import com.sos.mspacientes.servicio.NotificacionesService;
 import com.sos.mspacientes.servicio.PdfNoGeneradoException;
+import com.sos.mspacientes.servicio.TriageGateway;
 import com.sos.mspacientes.servicio.TriageNoDisponibleException;
 import jakarta.validation.Valid;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -33,17 +38,20 @@ public class PacienteController {
     private final EmailService emailService;
     private final HistoriaClinicaService historiaClinicaService;
     private final NotificacionesService notificacionesService;
+    private final TriageGateway triageGateway;
 
     public PacienteController(PacienteRepository pacienteRepository,
                                EstadoPacienteRepository estadoPacienteRepository,
                                EmailService emailService,
                                HistoriaClinicaService historiaClinicaService,
-                               NotificacionesService notificacionesService) {
+                               NotificacionesService notificacionesService,
+                               TriageGateway triageGateway) {
         this.pacienteRepository = pacienteRepository;
         this.estadoPacienteRepository = estadoPacienteRepository;
         this.emailService = emailService;
         this.historiaClinicaService = historiaClinicaService;
         this.notificacionesService = notificacionesService;
+        this.triageGateway = triageGateway;
     }
 
     @PostMapping
@@ -83,9 +91,38 @@ public class PacienteController {
     }
 
     @PostMapping("/signos-vitales")
-    public ResponseEntity<?> registrarSignosVitales(@RequestBody EstadoPaciente estadoPaciente) {
+    public ResponseEntity<?> registrarSignosVitales(
+            @Valid @RequestBody SignosVitalesRequest request,
+            @AuthenticationPrincipal UsuarioJwt usuario,
+            @RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String authorization) {
+
+        if (usuario == null || usuario.idPersonal() == null) {
+            return ResponseEntity.status(401).body("No autenticado");
+        }
+
+        try {
+            // El episodio debe existir en ms-triage antes de aceptar la toma.
+            triageGateway.obtenerRegistro(request.getIdRegistro(), authorization);
+        } catch (EpisodioNoEncontradoException e) {
+            return ResponseEntity.status(404).body(e.getMessage());
+        } catch (TriageNoDisponibleException e) {
+            return ResponseEntity.status(502).body(e.getMessage());
+        }
+
+        EstadoPaciente estadoPaciente = new EstadoPaciente();
+        estadoPaciente.setIdRegistro(request.getIdRegistro());
+        estadoPaciente.setFrecuenciaCardiaca(request.getFrecuenciaCardiaca());
+        estadoPaciente.setPresionSistolica(request.getPresionSistolica());
+        estadoPaciente.setPresionDiastolica(request.getPresionDiastolica());
+        estadoPaciente.setTemperatura(request.getTemperatura());
+        estadoPaciente.setSaturacion(request.getSaturacion());
+        estadoPaciente.setFrecuenciaRespiratoria(request.getFrecuenciaRespiratoria());
+        estadoPaciente.setGlucemia(request.getGlucemia());
+        estadoPaciente.setDescripcionSintoma(request.getDescripcionSintoma());
+        estadoPaciente.setIdPersonal(usuario.idPersonal());
         estadoPaciente.setFechaHoraToma(java.time.LocalDateTime.now());
         estadoPaciente.setIdEstado(1);
+
         return ResponseEntity.ok(estadoPacienteRepository.save(estadoPaciente));
     }
 
@@ -95,7 +132,10 @@ public class PacienteController {
     }
 
     @PostMapping("/{id}/enviar-historia")
-    public ResponseEntity<?> enviarHistoria(@PathVariable Integer id, @RequestBody EnviarHistoriaRequest request) {
+    public ResponseEntity<?> enviarHistoria(@PathVariable Integer id,
+                                            @RequestBody EnviarHistoriaRequest request,
+                                            @RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false)
+                                            String authorization) {
         return pacienteRepository.findById(id).map(paciente -> {
             if (paciente.getEmail() == null || paciente.getEmail().isBlank()) {
                 return ResponseEntity.badRequest().body("Este paciente no tiene correo registrado");
@@ -103,7 +143,8 @@ public class PacienteController {
             try {
                 if (request.getIdRegistro() != null) {
                     // Flujo nuevo: el backend arma la historia clinica y adjunta el PDF.
-                    notificacionesService.enviarHistoriaClinica(paciente, request.getIdRegistro());
+                    notificacionesService.enviarHistoriaClinica(paciente, request.getIdRegistro(),
+                            null, authorization);
                 } else {
                     // Compatibilidad con el frontend antiguo que enviaba texto armado en el navegador.
                     java.util.Map<String, Object> modelo = new java.util.LinkedHashMap<>();
@@ -143,9 +184,11 @@ public class PacienteController {
      * desde la pantalla de seguimiento y tambien lo usa el correo.
      */
     @GetMapping("/historias/{idRegistro}/pdf")
-    public ResponseEntity<?> descargarHistoriaPdf(@PathVariable Integer idRegistro) {
+    public ResponseEntity<?> descargarHistoriaPdf(
+            @PathVariable Integer idRegistro,
+            @RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String authorization) {
         try {
-            HistoriaClinicaService.PdfHistoria pdf = historiaClinicaService.generarPdf(idRegistro);
+            HistoriaClinicaService.PdfHistoria pdf = historiaClinicaService.generarPdf(idRegistro, authorization);
             return ResponseEntity.ok()
                     .header("Content-Disposition", "attachment; filename=\"" + pdf.nombreArchivo() + "\"")
                     .contentType(org.springframework.http.MediaType.APPLICATION_PDF)

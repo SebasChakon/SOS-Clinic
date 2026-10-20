@@ -58,7 +58,7 @@ public class AtencionService {
     /** Reintento de correos de un episodio ya atendido (el alta no se toca). */
     public FinalizarAtencionResponse reenviarCorreos(Integer idRegistro, ReenviarCorreosRequest request,
                                                      String authorization) {
-        RegistroTriageDTO registro = triageGateway.obtenerRegistro(idRegistro);
+        RegistroTriageDTO registro = triageGateway.obtenerRegistro(idRegistro, authorization);
         if (registro == null || !registro.estaAtendido()) {
             throw new EpisodioNoEncontradoException(
                     "El episodio #" + idRegistro + " no esta dado de alta; primero completa el alta.");
@@ -70,7 +70,7 @@ public class AtencionService {
                                                            String authorization) {
         List<ResultadoEnvioCorreo> resultados = new ArrayList<>();
 
-        RegistroTriageDTO registro = triageGateway.obtenerRegistro(idRegistro);
+        RegistroTriageDTO registro = triageGateway.obtenerRegistro(idRegistro, authorization);
         Paciente paciente = pacienteRepository.findById(registro.idPaciente())
                 .orElseThrow(() -> new EpisodioNoEncontradoException(
                         "No existe el paciente #" + registro.idPaciente()));
@@ -113,7 +113,7 @@ public class AtencionService {
                     "El paciente no tiene correo registrado."));
         } else {
             try {
-                notificacionesService.enviarHistoriaClinica(paciente, idRegistro, direccion);
+                notificacionesService.enviarHistoriaClinica(paciente, idRegistro, direccion, authorization);
                 resultados.add(new ResultadoEnvioCorreo("historia-pdf", ResultadoEnvioCorreo.ENVIADO, null));
             } catch (Exception e) {
                 log.error("Fallo el correo de historia clinica del episodio #{}", idRegistro, e);

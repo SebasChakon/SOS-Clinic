@@ -7,6 +7,7 @@ package com.sos.msiaagente.ms_ia_agente.servicio;
 import com.sos.msiaagente.ms_ia_agente.groq.GroqCliente;
 import com.sos.msiaagente.ms_ia_agente.herramientas.HerramientasSos;
 import com.sos.msiaagente.ms_ia_agente.herramientas.HerramientasSos.Resultado;
+import com.sos.msiaagente.ms_ia_agente.seguridad.UsuarioJwt;
 import org.springframework.stereotype.Service;
 import tools.jackson.databind.json.JsonMapper;
 
@@ -37,9 +38,19 @@ public class AgenteService {
     }
 
     @SuppressWarnings("unchecked")
-    public Respuesta responder(Pregunta p, String auth) {
+    public Respuesta responder(Pregunta p, String auth, UsuarioJwt usuario) {
         String mensaje = recortar(p.mensaje(), 600);
-        Contexto ctx = p.contexto();
+
+        // La identidad y los permisos salen del JWT, nunca del contexto que
+        // envia el navegador. El cliente solo aporta la pagina y los elementos.
+        Contexto original = p.contexto();
+        Contexto ctx = new Contexto(
+                original == null ? null : original.pagina(),
+                usuario.usuario(),
+                usuario.perfil(),
+                usuario.actividades() == null ? List.of() : usuario.actividades(),
+                original == null || original.elementos() == null
+                        ? List.of() : original.elementos());
 
         List<Map<String, Object>> mensajes = new ArrayList<>();
         mensajes.add(Map.of("role", "system", "content", prompt(ctx, mensaje)));

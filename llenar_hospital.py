@@ -1,14 +1,27 @@
+import os
 import pandas as pd
 import random
 from faker import Faker
 from sqlalchemy import create_engine
 from datetime import timedelta, date, datetime
+from urllib.parse import quote_plus
 
 # --- 1. CONFIGURACIÓN INICIAL ---
 fake = Faker('es_CO')
 
-# Reemplaza con tus credenciales
-url_bd = 'mysql+pymysql://root:root@localhost:3306/urgencias_hospital'
+# Las credenciales se leen del entorno o del .env cargado por el .bat.
+usuario_bd = os.environ.get('ANALITICA_DB_USERNAME')
+clave_bd = os.environ.get('ANALITICA_DB_PASSWORD')
+if not usuario_bd or not clave_bd:
+    raise SystemExit(
+        'Configura ANALITICA_DB_USERNAME y ANALITICA_DB_PASSWORD '
+        'en el entorno o en el archivo .env antes de ejecutar este script.'
+    )
+
+url_bd = (
+    f'mysql+pymysql://{quote_plus(usuario_bd)}:{quote_plus(clave_bd)}'
+    '@localhost:3306/urgencias_hospital'
+)
 engine = create_engine(url_bd)
 
 print("Generando datos sintéticos con aleatoriedad ponderada...")

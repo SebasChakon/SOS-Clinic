@@ -62,12 +62,12 @@
       cuerpo.innerHTML = logs.map(l => `
         <tr>
           <td>${formatearFecha(l.fechaHora)}</td>
-          <td>${l.usuario}</td>
-          <td><span class="accion-badge accion-${l.accion.toLowerCase()}">${l.accion}</span></td>
-          <td>${l.detalle || '—'}</td>
+          <td>${escaparHtml(l.usuario)}</td>
+          <td><span class="accion-badge accion-${escaparHtml(l.accion.toLowerCase())}">${escaparHtml(l.accion)}</span></td>
+          <td>${escaparHtml(l.detalle || '—')}</td>
         </tr>`).join('') || '<tr><td colspan="4" class="tabla-vacia">Sin registros todavía</td></tr>';
     } catch (error) {
-      cuerpo.innerHTML = `<tr><td colspan="4" class="tabla-vacia">${error.message}</td></tr>`;
+      cuerpo.innerHTML = `<tr><td colspan="4" class="tabla-vacia">${escaparHtml(error.message)}</td></tr>`;
     }
   }
 

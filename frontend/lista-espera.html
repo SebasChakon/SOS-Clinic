@@ -97,16 +97,16 @@
         const filas = await Promise.all(lista.map(async (registro) => {
           const nombre = await nombrePaciente(registro.idPaciente);
           const nombreMostrado = nombre
-            ? nombre
-            : `<span class="paciente-desconocido">Paciente #${registro.idPaciente}</span>`;
+            ? escaparHtml(nombre)
+            : `<span class="paciente-desconocido">Paciente #${escaparHtml(registro.idPaciente)}</span>`;
 
           return `
             <tr>
-              <td><span class="insignia insignia-p${registro.categoriaTriage.prioridad}">${registro.categoriaTriage.nombreCategoria}</span></td>
+              <td><span class="insignia insignia-p${escaparHtml(registro.categoriaTriage.prioridad)}">${escaparHtml(registro.categoriaTriage.nombreCategoria)}</span></td>
               <td>${nombreMostrado}</td>
-              <td>${registro.ubicacion || '—'}</td>
+              <td>${escaparHtml(registro.ubicacion || '—')}</td>
               <td>${formatearEspera(registro.tiempoEsperaMinutos)}</td>
-              <td>${registro.estadoTriage.nombreEstado}</td>
+              <td>${escaparHtml(registro.estadoTriage.nombreEstado)}</td>
               <td><div class="acciones-fila"><a href="seguimiento.html?idRegistro=${registro.idRegistro}" class="boton-secundario" style="text-decoration:none; display:inline-block;">Ver</a></div></td>
             </tr>
           `;
@@ -117,7 +117,7 @@
       indicador.textContent = `Actualizado ${new Date().toLocaleTimeString()}`;
     } catch (error) {
       indicador.textContent = 'Error al actualizar';
-      cuerpo.innerHTML = `<tr><td colspan="6" class="tabla-vacia">${error.message}</td></tr>`;
+      cuerpo.innerHTML = `<tr><td colspan="6" class="tabla-vacia">${escaparHtml(error.message)}</td></tr>`;
     }
   }
 

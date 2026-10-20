@@ -20,7 +20,24 @@ CREATE TABLE personal (
     usuario       VARCHAR(20) NOT NULL UNIQUE,
     clave         VARCHAR(255) NOT NULL,           -- hash BCrypt, nunca texto plano
     id_perfil     INT NOT NULL REFERENCES perfil(id_perfil),
-    id_estado     INT NOT NULL DEFAULT 1 CHECK (id_estado IN (0, 1))
+    id_estado     INT NOT NULL DEFAULT 1 CHECK (id_estado IN (0, 1)),
+    requiere_2fa  BOOLEAN NOT NULL DEFAULT FALSE
+);
+
+CREATE TABLE turno (
+    id_turno     INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    id_personal  INT NOT NULL REFERENCES personal(id_personal) ON DELETE CASCADE,
+    hora_inicio  TIME NOT NULL,
+    hora_fin     TIME NOT NULL,
+    id_estado    INT NOT NULL DEFAULT 1 CHECK (id_estado IN (0, 1))
+);
+
+CREATE TABLE codigo_verificacion (
+    id_codigo    INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    id_personal  INT NOT NULL REFERENCES personal(id_personal) ON DELETE CASCADE,
+    codigo       VARCHAR(255) NOT NULL,            -- hash BCrypt del codigo
+    fecha_expira TIMESTAMP NOT NULL,
+    usado        BOOLEAN NOT NULL DEFAULT FALSE
 );
 
 CREATE TABLE actividades (

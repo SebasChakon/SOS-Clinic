@@ -38,6 +38,27 @@ function haySesion() {
   return obtenerToken() !== null;
 }
 
+/**
+ * Codifica texto para insertarlo en HTML. Se usa en las plantillas que
+ * construyen filas con innerHTML para que los datos del paciente o del
+ * usuario nunca se interpreten como etiquetas.
+ */
+function escaparHtml(valor) {
+  return String(valor ?? '').replace(/[&<>"']/g, (c) => ({
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#39;'
+  }[c]));
+}
+
+/** Solo acepta enlaces relativos a paginas .html del propio frontend. */
+function enlaceSeguro(enlace) {
+  const valor = String(enlace ?? '');
+  return /^[A-Za-z0-9_-]+\.html(?:\?[^#]*)?$/.test(valor) ? valor : '#';
+}
+
 function cerrarSesion(destino = 'index.html') {
   sessionStorage.clear();
   window.location.href = destino;
@@ -368,7 +389,7 @@ function pintarNav(idContenedor, enlaceActual) {
   contenedor.innerHTML = visibles.map((a) => {
     const etiqueta = ETIQUETAS_ACTIVIDAD[a.nombreActividad] || a.nombreActividad;
     const clase = a.enlace === enlaceActual ? 'activo' : '';
-    return `<a href="${a.enlace}" class="${clase}">${etiqueta}</a>`;
+    return `<a href="${escaparHtml(enlaceSeguro(a.enlace))}" class="${clase}">${escaparHtml(etiqueta)}</a>`;
   }).join('');
 }
 

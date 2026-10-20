@@ -199,7 +199,7 @@
       cachePerfiles = await listarPerfiles();
       document.getElementById('tablaPerfiles').innerHTML = cachePerfiles.map(p => `
         <tr>
-          <td>${p.idPerfil}</td><td>${p.perfil}</td>
+          <td>${escaparHtml(p.idPerfil)}</td><td>${escaparHtml(p.perfil)}</td>
           <td class="fila-acciones">
             <button class="boton-secundario" onclick="editarPerfil(${p.idPerfil})">Editar</button>
             <button class="boton-secundario" onclick="borrarPerfil(${p.idPerfil})">Eliminar</button>
@@ -209,7 +209,7 @@
       llenarSelect('asignarPerfil', cachePerfiles, 'idPerfil', 'perfil');
       llenarSelect('usuarioPerfil', cachePerfiles, 'idPerfil', 'perfil');
     } catch (error) {
-      document.getElementById('tablaPerfiles').innerHTML = `<tr><td colspan="3" class="tabla-vacia">${error.message}</td></tr>`;
+      document.getElementById('tablaPerfiles').innerHTML = `<tr><td colspan="3" class="tabla-vacia">${escaparHtml(error.message)}</td></tr>`;
     }
   }
 
@@ -257,7 +257,7 @@
       cacheActividades = await listarActividades();
       document.getElementById('tablaActividades').innerHTML = cacheActividades.map(a => `
         <tr>
-          <td>${a.idActividad}</td><td>${a.nombreActividad}</td><td>${a.enlace || '—'}</td>
+          <td>${escaparHtml(a.idActividad)}</td><td>${escaparHtml(a.nombreActividad)}</td><td>${escaparHtml(a.enlace || '—')}</td>
           <td class="fila-acciones">
             <button class="boton-secundario" onclick="editarActividad(${a.idActividad})">Editar</button>
             <button class="boton-secundario" onclick="borrarActividad(${a.idActividad})">Eliminar</button>
@@ -266,7 +266,7 @@
 
       llenarSelect('asignarActividad', cacheActividades, 'idActividad', 'nombreActividad');
     } catch (error) {
-      document.getElementById('tablaActividades').innerHTML = `<tr><td colspan="4" class="tabla-vacia">${error.message}</td></tr>`;
+      document.getElementById('tablaActividades').innerHTML = `<tr><td colspan="4" class="tabla-vacia">${escaparHtml(error.message)}</td></tr>`;
     }
   }
 
@@ -320,11 +320,11 @@
       const lista = await listarPerfilActividad();
       document.getElementById('tablaAsignacion').innerHTML = lista.map(pa => `
         <tr>
-          <td>${pa.perfil.perfil}</td><td>${pa.actividad.nombreActividad}</td>
+          <td>${escaparHtml(pa.perfil.perfil)}</td><td>${escaparHtml(pa.actividad.nombreActividad)}</td>
           <td class="fila-acciones"><button class="boton-secundario" onclick="quitarAsignacion(${pa.idPerfilActividad})">Quitar</button></td>
         </tr>`).join('') || '<tr><td colspan="3" class="tabla-vacia">Sin asignaciones</td></tr>';
     } catch (error) {
-      document.getElementById('tablaAsignacion').innerHTML = `<tr><td colspan="3" class="tabla-vacia">${error.message}</td></tr>`;
+      document.getElementById('tablaAsignacion').innerHTML = `<tr><td colspan="3" class="tabla-vacia">${escaparHtml(error.message)}</td></tr>`;
     }
   }
 
@@ -357,7 +357,7 @@
       cacheUsuarios = await listarPersonal();
       document.getElementById('tablaUsuarios').innerHTML = cacheUsuarios.map(u => `
         <tr>
-          <td>${u.usuario}</td><td>${u.nombre} ${u.apellido}</td><td>${u.perfil}</td>
+          <td>${escaparHtml(u.usuario)}</td><td>${escaparHtml(u.nombre)} ${escaparHtml(u.apellido)}</td><td>${escaparHtml(u.perfil)}</td>
           <td><span class="estado-badge ${u.idEstado === 1 ? 'estado-activo' : 'estado-inactivo'}">${u.idEstado === 1 ? 'Activo' : 'Inactivo'}</span></td>
           <td class="fila-acciones">
             <button class="boton-secundario" onclick="editarUsuario(${u.idPersonal})">Editar</button>
@@ -365,7 +365,7 @@
           </td>
         </tr>`).join('') || '<tr><td colspan="5" class="tabla-vacia">Sin usuarios</td></tr>';
     } catch (error) {
-      document.getElementById('tablaUsuarios').innerHTML = `<tr><td colspan="5" class="tabla-vacia">${error.message}</td></tr>`;
+      document.getElementById('tablaUsuarios').innerHTML = `<tr><td colspan="5" class="tabla-vacia">${escaparHtml(error.message)}</td></tr>`;
     }
   }
 
@@ -470,7 +470,7 @@
   function llenarSelect(idSelect, lista, campoId, campoTexto) {
     const select = document.getElementById(idSelect);
     const valorActual = select.value;
-    select.innerHTML = lista.map(item => `<option value="${item[campoId]}">${item[campoTexto]}</option>`).join('');
+    select.innerHTML = lista.map(item => `<option value="${escaparHtml(item[campoId])}">${escaparHtml(item[campoTexto])}</option>`).join('');
     if (valorActual) select.value = valorActual;
   }
 

@@ -105,7 +105,7 @@
 
         resultadosActuales = resultados;
         listaCedulas.innerHTML = resultados.map(p =>
-          `<option value="${p.cedula}">${p.nombre} ${p.apellido}</option>`
+          `<option value="${escaparHtml(p.cedula)}">${escaparHtml(p.nombre)} ${escaparHtml(p.apellido)}</option>`
         ).join('');
 
         const exacto = resultados.find(p => p.cedula === valor);
@@ -130,7 +130,7 @@
     if (exacto) {
       seleccionarPaciente(exacto);
     } else if (valor) {
-      nombrePacienteEncontrado.innerHTML = 'No encontrado — regístralo primero en la pantalla de Pacientes';
+      nombrePacienteEncontrado.textContent = 'No encontrado — regístralo primero en la pantalla de Pacientes';
       nombrePacienteEncontrado.style.color = 'var(--rojo-alerta)';
       campoPacienteEncontrado.style.display = 'block';
     }

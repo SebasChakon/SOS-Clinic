@@ -8,24 +8,36 @@ rem Carga las credenciales de desarrollo desde el archivo .env (no versionado).
 rem Cada linea debe tener formato NOMBRE=VALOR. Las lineas vacias o que
 rem empiecen con # se ignoran. Si .env no existe, sigue con el entorno actual.
 rem ---------------------------------------------------------------------------
-if exist "%BASE%.env" (
-  echo Cargando credenciales desde .env ...
-  for /f "usebackq eol=# tokens=1,* delims==" %%A in ("%BASE%.env") do (
+set "ENV_FILE="
+if exist "%BASE%.env" set "ENV_FILE=%BASE%.env"
+if not defined ENV_FILE if exist "%BASE%env" set "ENV_FILE=%BASE%env"
+
+if defined ENV_FILE (
+  echo Cargando credenciales desde %ENV_FILE% ...
+  for /f "usebackq eol=# tokens=1,* delims==" %%A in ("%ENV_FILE%") do (
     if not "%%A"=="" if not "%%B"=="" set "%%A=%%B"
   )
 ) else (
-  echo ADVERTENCIA: no existe el archivo .env. Copia .env.example a .env y
+  echo ADVERTENCIA: no existe .env ni env. Copia .env.example a .env y
   echo              completa las credenciales antes de levantar el sistema.
 )
 
-if not defined ANALITICA_DB_USERNAME set ANALITICA_DB_USERNAME=root
-if not defined ANALITICA_DB_PASSWORD set ANALITICA_DB_PASSWORD=root
+if not defined APP_JWT_SECRET (
+  echo ERROR: APP_JWT_SECRET no esta definido. El sistema no arrancara sin el.
+  echo        Agrega APP_JWT_SECRET a tu .env.
+  pause
+  exit /b 1
+)
 
 echo ===============================================
 echo   Levantando infraestructura Docker...
 echo ===============================================
 cd /d "%BASE%infra"
-docker compose up -d
+if defined ENV_FILE (
+  docker compose --env-file "%ENV_FILE%" up -d
+) else (
+  docker compose up -d
+)
 
 echo Esperando a que Postgres este listo...
 timeout /t 8 /nobreak >nul
@@ -72,10 +84,10 @@ if not defined PY_FRONT (
   if not errorlevel 1 set "PY_FRONT=py -3"
 )
 if defined PY_FRONT (
-  echo Sirviendo frontend en http://localhost:5500 ...
-  start "frontend-sos" cmd /k "cd /d %BASE%frontend && %PY_FRONT% -m http.server 5500"
+  echo Sirviendo frontend en http://127.0.0.1:5500 ...
+  start "frontend-sos" cmd /k "cd /d %BASE%frontend && %PY_FRONT% servidor.py 5500"
   timeout /t 4 /nobreak >nul
-  start "" "http://localhost:5500/index.html"
+  start "" "http://127.0.0.1:5500/index.html"
 ) else (
   echo ADVERTENCIA: Python no esta disponible; se abren los archivos directamente.
   echo              El video de la landing mostrara solo la miniatura hacia YouTube.

@@ -30,6 +30,10 @@ public class AuthController {
         try {
             LoginResponse response = authService.login(request);
             return ResponseEntity.ok(response);
+        } catch (RateLimitExceededException e) {
+            return ResponseEntity.status(429)
+                    .header("Retry-After", String.valueOf(e.getRetryAfterSeconds()))
+                    .body(e.getMessage());
         } catch (BadCredentialsException e) {
             return ResponseEntity.status(401).body(e.getMessage());
         }
@@ -39,6 +43,10 @@ public class AuthController {
     public ResponseEntity<?> verificarCodigo(@Valid @RequestBody VerificarCodigoRequest request) {
         try {
             return ResponseEntity.ok(authService.verificarCodigo(request));
+        } catch (RateLimitExceededException e) {
+            return ResponseEntity.status(429)
+                    .header("Retry-After", String.valueOf(e.getRetryAfterSeconds()))
+                    .body(e.getMessage());
         } catch (BadCredentialsException e) {
             return ResponseEntity.status(401).body(e.getMessage());
         }

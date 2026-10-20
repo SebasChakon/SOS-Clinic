@@ -57,22 +57,19 @@ public class NotificacionesService {
                 html, adjuntos, List.of());
     }
 
-    /** Historia clinica completa en PDF + resumen en el cuerpo del correo. */
-    public void enviarHistoriaClinica(Paciente paciente, Integer idRegistro) {
-        enviarHistoriaClinica(paciente, idRegistro, null);
-    }
-
     /**
      * Historia clinica en PDF + resumen + farmacias cercanas a la
      * direccion del paciente; si falta o no se pudo ubicar, el correo
-     * incluye farmacias de Bogota en general.
+     * incluye farmacias de Bogota en general. Exige el JWT del profesional
+     * porque la historia se consulta en ms-triage.
      */
-    public void enviarHistoriaClinica(Paciente paciente, Integer idRegistro, String direccion) {
+    public void enviarHistoriaClinica(Paciente paciente, Integer idRegistro, String direccion,
+                                      String authorization) {
         // Las farmacias son best-effort: si fallan, el correo sale igual sin esa seccion.
         FarmaciasService.ResultadoFarmacias farmacias = farmaciasService.buscarPorDireccion(direccion);
 
         HistoriaClinicaService.HistoriaConPdf historia =
-                historiaClinicaService.generarHistoriaCompleta(idRegistro);
+                historiaClinicaService.generarHistoriaCompleta(idRegistro, authorization);
 
         Map<String, Object> modelo = new LinkedHashMap<>(historia.modelo());
         modelo.put("nombrePdf", historia.nombreArchivo());

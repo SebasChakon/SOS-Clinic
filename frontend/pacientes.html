@@ -144,10 +144,10 @@
 
     cuerpo.innerHTML = pacientes.map((p) => `
       <tr>
-        <td>${p.idPaciente}</td>
-        <td>${p.nombre} ${p.apellido}</td>
-        <td>${p.cedula}</td>
-        <td>${p.fechaNacimiento}</td>
+        <td>${escaparHtml(p.idPaciente)}</td>
+        <td>${escaparHtml(p.nombre)} ${escaparHtml(p.apellido)}</td>
+        <td>${escaparHtml(p.cedula)}</td>
+        <td>${escaparHtml(p.fechaNacimiento)}</td>
       </tr>
     `).join('');
   }
@@ -158,7 +158,7 @@
       const pacientes = await listarPacientes();
       pintarPacientes(pacientes);
     } catch (error) {
-      cuerpo.innerHTML = `<tr><td colspan="4" class="tabla-vacia">${error.message}</td></tr>`;
+      cuerpo.innerHTML = `<tr><td colspan="4" class="tabla-vacia">${escaparHtml(error.message)}</td></tr>`;
     }
   }
   let temporizadorBusquedaPacientes = null;
@@ -177,7 +177,7 @@
         const resultados = await buscarPacientesPorCedula(valor);
         pintarPacientes(resultados);
       } catch (error) {
-        document.getElementById('cuerpoTablaPacientes').innerHTML = `<tr><td colspan="4" class="tabla-vacia">${error.message}</td></tr>`;
+        document.getElementById('cuerpoTablaPacientes').innerHTML = `<tr><td colspan="4" class="tabla-vacia">${escaparHtml(error.message)}</td></tr>`;
       }
     }, 300);
   });

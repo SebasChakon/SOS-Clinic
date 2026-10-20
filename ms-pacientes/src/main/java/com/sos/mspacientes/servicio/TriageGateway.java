@@ -38,10 +38,11 @@ public class TriageGateway {
     }
 
     /** Episodio completo (categoria, estado, diagnostico, tratamiento). */
-    public RegistroTriageDTO obtenerRegistro(Integer idRegistro) {
+    public RegistroTriageDTO obtenerRegistro(Integer idRegistro, String authorization) {
         try {
             return restClient.get()
                     .uri("/triage/{id}", idRegistro)
+                    .headers(h -> encabezadoAutorizacion(h, authorization))
                     .retrieve()
                     .body(RegistroTriageDTO.class);
         } catch (HttpClientErrorException.NotFound e) {

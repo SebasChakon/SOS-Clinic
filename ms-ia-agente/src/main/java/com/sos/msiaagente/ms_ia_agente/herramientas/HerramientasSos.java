@@ -110,18 +110,9 @@ public class HerramientasSos {
 
         StringBuilder sb = new StringBuilder("Pacientes en lista: " + lista.size() + ". Por categoria: ");
         porCategoria.forEach((k, v) -> sb.append(k).append(" ").append(v).append("; "));
-        sb.append("Mayor espera: ").append(mayorEspera).append(" min (").append(descMayor).append("). Primeros de la fila: ");
-
-        for (int i = 0; i < Math.min(5, lista.size()); i++) {
-            Map<String, Object> r = (Map<String, Object>) lista.get(i);
-            Map<String, Object> cat = (Map<String, Object>) r.get("categoriaTriage");
-            Map<String, Object> est = (Map<String, Object>) r.get("estadoTriage");
-            Object p = get("/ms-pacientes/pacientes/" + r.get("idPaciente"), auth);
-            String nombrePaciente = (p instanceof Map<?, ?> pm) ? pm.get("nombre") + " " + pm.get("apellido") : "Paciente " + r.get("idPaciente");
-            sb.append(i + 1).append(") ").append(nombrePaciente).append(" - ").append(cat.get("nombreCategoria"))
-              .append(", espera ").append(r.get("tiempoEsperaMinutos")).append(" min, ")
-              .append(est.get("nombreEstado")).append("; ");
-        }
+        sb.append("Mayor espera: ").append(mayorEspera).append(" min (").append(descMayor).append("). ");
+        // Privacidad: los nombres y cedulas no se envian al proveedor del modelo.
+        sb.append("Por privacidad no se incluyen nombres de pacientes; revisa la lista en pantalla.");
         return new Resultado(sb.toString(), List.of());
     }
 
@@ -132,12 +123,9 @@ public class HerramientasSos {
         if (!(crudo instanceof List<?> lista) || lista.isEmpty()) {
             return new Resultado("No hay pacientes registrados con una cedula que contenga " + q + ".", List.of());
         }
-        StringBuilder sb = new StringBuilder("Pacientes encontrados: ");
-        for (int i = 0; i < Math.min(5, lista.size()); i++) {
-            Map<String, Object> p = (Map<String, Object>) lista.get(i);
-            sb.append(p.get("nombre")).append(" ").append(p.get("apellido")).append(" (cedula ").append(p.get("cedula")).append("); ");
-        }
-        return new Resultado(sb.toString(), List.of());
+        // Privacidad: no se envian nombres ni cedulas completas al modelo.
+        return new Resultado("Coincidencias encontradas: " + lista.size()
+                + ". Por privacidad, revisa la tabla de pacientes para ver los detalles.", List.of());
     }
 
     private Resultado actuar(Map<String, Object> args, List<String> paginasPermitidas) {

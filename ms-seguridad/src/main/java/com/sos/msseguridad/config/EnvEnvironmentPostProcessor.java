@@ -73,6 +73,10 @@ public class EnvEnvironmentPostProcessor implements EnvironmentPostProcessor, Or
             if (Files.isRegularFile(env)) {
                 return env;
             }
+            env = dir.resolve("env");
+            if (Files.isRegularFile(env)) {
+                return env;
+            }
             dir = dir.getParent();
         }
         return null;

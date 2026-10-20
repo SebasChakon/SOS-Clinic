@@ -27,8 +27,8 @@ public class CodigoVerificacion {
     @JoinColumn(name = "id_personal", nullable = false)
     private Personal personal;
 
-    @Column(name = "codigo", nullable = false, length = 6)
-    private String codigo;
+    @Column(name = "codigo", nullable = false, length = 255)
+    private String codigo; // hash BCrypt del codigo, nunca texto plano
 
     @Column(name = "fecha_expira", nullable = false)
     private LocalDateTime fechaExpira;
