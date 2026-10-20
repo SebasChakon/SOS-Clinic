@@ -234,7 +234,7 @@ public class AuthService {
 
     private LoginResponse construirRespuestaConToken(Personal personal) {
         List<ActividadDTO> actividades = perfilActividadRepository
-                .findByPerfil_IdPerfil(personal.getPerfil().getIdPerfil())
+                .findByPerfil_IdPerfilAndIdEstado(personal.getPerfil().getIdPerfil(), 1)
                 .stream()
                 .map(pa -> new ActividadDTO(pa.getActividad().getNombreActividad(), pa.getActividad().getEnlace()))
                 .collect(Collectors.toList());

@@ -101,6 +101,7 @@ Cada módulo Maven organiza normalmente su código en `src/main/java` así:
 | `infra/schema-postgres.sql` | Esquema, perfiles base, actividad CRUE y asignación inicial a todos los perfiles. Solo se ejecuta automáticamente al crear un volumen vacío. |
 | `infra/activar-enfermedades-crue.sql` | Registra la actividad CRUE y la asigna idempotentemente a todos los perfiles de una base existente. |
 | `infra/migraciones/2026-10-19-seguridad.sql` | Migración para bases existentes: amplía el código 2FA a hash BCrypt y añade `requiere_2fa`/`turno` si faltan. |
+| `infra/migraciones/2026-10-19-actividades.sql` | Limpia actividades duplicadas por enlace y crea índices únicos para nombre y enlace. |
 | `frontend/index.html` | Landing: presentación animada del proyecto, con el video y el acceso. |
 | `frontend/login.html` | Login y formulario de verificación 2FA. |
 | `frontend/pacientes.html` | Registro/listado de pacientes y entrada al flujo según actividades asignadas. |

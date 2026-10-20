@@ -3,6 +3,7 @@ package com.sos.msseguridad.controlador;
 import com.sos.msseguridad.seguridad.RateLimitExceededException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
@@ -35,6 +36,12 @@ public class ApiExceptionHandler {
         return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
                 .header("Retry-After", String.valueOf(e.getRetryAfterSeconds()))
                 .body(Map.of("message", e.getMessage()));
+    }
+
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ResponseEntity<?> duplicado(DataIntegrityViolationException e) {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(Map.of("message", "El registro ya existe o viola una restriccion de unicidad"));
     }
 
     @ExceptionHandler(AccessDeniedException.class)

@@ -13,5 +13,7 @@ public interface PerfilActividadRepository extends JpaRepository<PerfilActividad
 
     List<PerfilActividad> findByPerfil_IdPerfil(Integer idPerfil);
 
+    List<PerfilActividad> findByPerfil_IdPerfilAndIdEstado(Integer idPerfil, Integer idEstado);
+
     List<PerfilActividad> findByActividad_IdActividad(Integer idActividad);
 }

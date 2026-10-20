@@ -39,9 +39,22 @@ public class ActividadController {
 
     @PostMapping
     public ResponseEntity<?> crear(@Valid @RequestBody ActividadRequest request) {
+        String nombre = request.getNombreActividad().trim();
+        String enlace = request.getEnlace() == null ? null : request.getEnlace().trim();
+
+        if (actividadRepository.existsByNombreActividadIgnoreCase(nombre)) {
+            return ResponseEntity.status(409)
+                    .body("Ya existe una actividad con el nombre \"" + nombre + "\".");
+        }
+        if (enlace != null && !enlace.isBlank()
+                && actividadRepository.existsByEnlaceIgnoreCase(enlace)) {
+            return ResponseEntity.status(409)
+                    .body("Ya existe una actividad con el enlace \"" + enlace + "\".");
+        }
+
         Actividad actividad = new Actividad();
-        actividad.setNombreActividad(request.getNombreActividad());
-        actividad.setEnlace(request.getEnlace());
+        actividad.setNombreActividad(nombre);
+        actividad.setEnlace(enlace);
         actividad.setIdEstado(1);
         Actividad guardada = actividadRepository.save(actividad);
 
@@ -52,9 +65,22 @@ public class ActividadController {
     @PutMapping("/{id}")
     public ResponseEntity<?> actualizar(@PathVariable Integer id, @Valid @RequestBody ActividadRequest request) {
         return actividadRepository.findById(id).map(actividad -> {
+            String nombre = request.getNombreActividad().trim();
+            String enlace = request.getEnlace() == null ? null : request.getEnlace().trim();
+
+            if (actividadRepository.existsByNombreActividadIgnoreCaseAndIdActividadNot(nombre, id)) {
+                return ResponseEntity.status(409)
+                        .body("Ya existe otra actividad con el nombre \"" + nombre + "\".");
+            }
+            if (enlace != null && !enlace.isBlank()
+                    && actividadRepository.existsByEnlaceIgnoreCaseAndIdActividadNot(enlace, id)) {
+                return ResponseEntity.status(409)
+                        .body("Ya existe otra actividad con el enlace \"" + enlace + "\".");
+            }
+
             String nombreAnterior = actividad.getNombreActividad();
-            actividad.setNombreActividad(request.getNombreActividad());
-            actividad.setEnlace(request.getEnlace());
+            actividad.setNombreActividad(nombre);
+            actividad.setEnlace(enlace);
             Actividad guardada = actividadRepository.save(actividad);
 
             auditoriaService.registrarAccionActual("ACTUALIZAR", "Actividad: " + nombreAnterior + " -> " + guardada.getNombreActividad());

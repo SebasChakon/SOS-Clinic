@@ -63,6 +63,25 @@ docker exec -i sos-postgres psql -U sos_admin -d sosclinic `
 La migracion amplia `codigo_verificacion.codigo` a `VARCHAR(255)` para el hash
 BCrypt y crea/actualiza `turno` y `personal.requiere_2fa` si faltan.
 
+## Limpieza de actividades duplicadas
+
+Se detecto que `pacientes.html` tenia dos actividades: `registrar_paciente` (id 1) y
+`pacientes` (id 11). La segunda se creo durante las pruebas y estaba asignada a
+`administrador`, `doctor_triage` y `coordinador_turnos`, produciendo dos entradas
+"Pacientes" en el menu.
+
+- Se conservo `registrar_paciente` como actividad canonica.
+- Se eliminaron la actividad duplicada y sus asignaciones.
+- Se quitaron asignaciones de prueba que no correspondian a la matriz de roles
+  (auditoria/roles/analitica para `doctor_triage`; escritura clinica/auditoria/roles
+  para `coordinador_turnos`).
+- Se agregaron indices unicos por nombre y por enlace en `actividades` y
+  validacion en `ActividadController` para responder 409 ante duplicados.
+- La migracion reproducible es `infra/migraciones/2026-10-19-actividades.sql`.
+
+Backup previo a la limpieza: `%TEMP%\opencode\backup-actividades-perfil-actividad.sql`
+(solo local, no versionado).
+
 ## Riesgos residuales
 
 - El logout sigue siendo local (JWT sin estado); no hay lista de revocacion.

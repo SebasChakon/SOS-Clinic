@@ -47,6 +47,12 @@ CREATE TABLE actividades (
     id_estado         INT NOT NULL DEFAULT 1 CHECK (id_estado IN (0, 1))
 );
 
+CREATE UNIQUE INDEX ux_actividades_nombre_lower
+    ON actividades (LOWER(btrim(nombre_actividad)));
+CREATE UNIQUE INDEX ux_actividades_enlace_lower
+    ON actividades (LOWER(btrim(enlace)))
+    WHERE enlace IS NOT NULL AND btrim(enlace) <> '';
+
 CREATE TABLE perfil_actividad (
     id_perfil_actividad  INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     id_perfil            INT NOT NULL REFERENCES perfil(id_perfil),
