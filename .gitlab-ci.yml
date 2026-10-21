@@ -1,5 +1,6 @@
 stages:
   - security
+  - test
 
 gitleaks:
   stage: security
@@ -8,4 +9,15 @@ gitleaks:
     entrypoint: [""]
   script:
     - gitleaks detect --source . --config .gitleaks.toml --redact --no-git --verbose
+  allow_failure: false
+
+"test:ms-seguridad":
+  stage: test
+  image: maven:3.9-eclipse-temurin-17
+  script:
+    - cd ms-seguridad
+    - >-
+      mvn -B
+      -Dtest=PoliticaClavesTest,JwtServiceTest,LoginAttemptServiceTest,PlantillasCorreoTest,RecuperacionClaveServiceTest,AuthServiceTest
+      test
   allow_failure: false

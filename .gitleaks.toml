@@ -1,7 +1,8 @@
 # Configuracion de gitleaks para el repositorio.
 # Extiende las reglas por defecto y documenta los falsos positivos conocidos:
-# el enlace publico del reporte Power BI del CRUE y el archivo .env local
-# (ignorado por git, pero presente en el disco durante las pruebas).
+# el archivo .env local (ignorado por git, pero presente en el disco durante
+# las pruebas), las credenciales de prueba de src/test/ y seguridad/pruebas/,
+# y las credenciales locales del seed en infra/seed/.
 [extend]
 useDefault = true
 
@@ -9,9 +10,8 @@ useDefault = true
 description = "Falsos positivos conocidos y credenciales locales ignoradas"
 paths = [
   '''(?i)(^|/)\.env$''',
-  '''(?i)(^|/)env$'''
-]
-regexTarget = "line"
-regexes = [
-  '''app\.powerbi\.com/view'''
+  '''(?i)(^|/)env$''',
+  '''(?i)(^|/)seguridad/pruebas/''',
+  '''(?i)(^|/)src/test/''',
+  '''(?i)(^|/)infra/seed/credenciales\.local\.'''
 ]

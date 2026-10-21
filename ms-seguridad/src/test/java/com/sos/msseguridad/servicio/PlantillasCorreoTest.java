@@ -68,14 +68,55 @@ class PlantillasCorreoTest {
     void renderizaCodigoDeVerificacion() {
         Map<String, Object> modelo = new LinkedHashMap<>();
         modelo.put("nombre", "Ana Gómez");
+        modelo.put("usuario", "admin.test");
+        modelo.put("perfil", "administrador");
         modelo.put("codigo", "482913");
+        modelo.put("motivo", "completar tu inicio de sesion");
         modelo.put("destinatario", "ana.gomez@sosclinic.local");
 
         String html = procesar("plantillas/codigo-verificacion", modelo);
 
         assertTrue(html.contains("482913"));
         assertTrue(html.contains("5 minutos"));
+        assertTrue(html.contains("admin.test"), "El codigo debe identificar la cuenta destino");
+        assertTrue(html.contains("administrador"), "El codigo debe identificar el perfil destino");
         assertTrue(sinAtributosThPendientes(html));
+    }
+
+    @Test
+    void renderizaPlantillasDeActivacionRecuperacionYCorreo() {
+        Map<String, Map<String, Object>> plantillas = new LinkedHashMap<>();
+
+        plantillas.put("plantillas/activacion-cuenta", modelo("Ana Gómez", "72"));
+        plantillas.put("plantillas/recuperacion-clave", modelo("Ana Gómez", "30"));
+        plantillas.put("plantillas/clave-actualizada", modelo("Ana Gómez", "actualizada"));
+        plantillas.put("plantillas/aviso-seguridad", modelo("Ana Gómez", "aviso"));
+        plantillas.put("plantillas/correo-nuevo", modelo("Ana Gómez", "nuevo@correo.com"));
+        plantillas.put("plantillas/aviso-correo-anterior", modelo("Ana Gómez", "nuevo@correo.com"));
+        plantillas.put("plantillas/correo-actualizado", modelo("Ana Gómez", "nuevo@correo.com"));
+
+        plantillas.forEach((plantilla, modelo) -> {
+            String html = procesar(plantilla, modelo);
+            assertTrue(html.contains("Ana Gómez"), plantilla + " debe incluir el nombre");
+            assertTrue(html.contains("admin.test"), plantilla + " debe incluir el usuario");
+            assertTrue(html.contains("administrador"), plantilla + " debe incluir el perfil");
+            assertTrue(sinAtributosThPendientes(html), plantilla + " no debe dejar atributos Thymeleaf");
+        });
+    }
+
+    private static Map<String, Object> modelo(String nombre, String valor) {
+        Map<String, Object> modelo = new LinkedHashMap<>();
+        modelo.put("nombre", nombre);
+        modelo.put("usuario", "admin.test");
+        modelo.put("perfil", "administrador");
+        modelo.put("enlace", "http://127.0.0.1:5500/restablecer-clave.html?token=abc");
+        modelo.put("destinatario", "ana.gomez@sosclinic.local");
+        modelo.put("horas", valor);
+        modelo.put("minutos", valor);
+        modelo.put("detalle", "Detalle de prueba: " + valor);
+        modelo.put("emailNuevo", "nuevo@correo.com");
+        modelo.put("email", "nuevo@correo.com");
+        return modelo;
     }
 
     @Test

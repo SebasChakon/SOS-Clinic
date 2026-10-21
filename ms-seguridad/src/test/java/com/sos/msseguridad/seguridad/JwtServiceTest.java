@@ -7,7 +7,9 @@ import org.springframework.test.util.ReflectionTestUtils;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class JwtServiceTest {
 
@@ -43,5 +45,14 @@ class JwtServiceTest {
         assertEquals("doctor_triage", servicio.extraerPerfil(token));
         assertEquals(List.of("pacientes.html", "lista-espera.html"),
                 servicio.extraerActividades(token));
+    }
+
+    @Test
+    void conservaElCambioDeClavePendiente() {
+        String conCambio = servicio.generarToken("tester", 7, "medico", List.of(), true);
+        assertTrue(servicio.extraerDebeCambiarClave(conCambio));
+
+        String normal = servicio.generarToken("tester", 7, "medico", List.of(), false);
+        assertFalse(servicio.extraerDebeCambiarClave(normal));
     }
 }
