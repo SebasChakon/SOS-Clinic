@@ -63,10 +63,11 @@ Aunque conceptualmente cada microservicio tiene tablas bajo su responsabilidad, 
 | Ruta | Responsabilidad |
 |---|---|
 | `README.md` | Guía de arquitectura, configuración, operación y limitaciones. |
-| `levantar-sistema.bat` | En Windows, carga `.env`, levanta Docker Compose, inicia Eureka, gateway, seguridad, pacientes, triage, analitica y agente con `mvnw.cmd`, detecta Java, omite servicios ya activos y espera los puertos antes de abrir el login. |
-| `configurar-java.ps1` / `.cmd` | Detecta un JDK 17+ instalado y configura `JAVA_HOME`/`PATH`; no instala Java. |
-| `preparar-entorno.ps1` / `.cmd` | Verifica Docker, crea `.env` si falta y ejecuta el seed canónico; recomendado en el primer arranque. |
-| `detener-sistema.bat` | Detiene frontend, microservicios y contenedores del proyecto; conserva los datos de PostgreSQL. |
+| `2. levantar-sistema.bat` | En Windows, carga `.env`, levanta Docker Compose, inicia Eureka, gateway, seguridad, pacientes, triage, analitica y agente con `mvnw.cmd`, detecta Java, omite servicios ya activos y espera los puertos antes de abrir el login. |
+| `00. configurar-java.cmd` y `configurar-java.ps1` | Detecta un JDK 17+ instalado y configura `JAVA_HOME`/`PATH`; no instala Java. |
+| `0. preparar-entorno.cmd` y `preparar-entorno.ps1` | Verifica Docker, exige el `.env` entregado y ejecuta el seed canónico; recomendado en el primer arranque. |
+| `0.1. levantar-docker.bat` | Levanta PostgreSQL y pgAdmin con `docker compose` y muestra su estado. |
+| `3. detener-sistema.bat` | Detiene frontend, microservicios y contenedores del proyecto; conserva los datos de PostgreSQL. |
 | `infra/` | Infraestructura local PostgreSQL/pgAdmin y SQL inicial. |
 | `frontend/` | Interfaz estática que consume el gateway. |
 | `eureka-server/` | Registro y descubrimiento de servicios. |
@@ -157,7 +158,7 @@ El `.env` ya trae PostgreSQL, JWT, SMTP, MySQL y Groq. Las credenciales del seed
 
 - Docker Desktop iniciado.
 - Python 3 disponible como `python`.
-- JDK 17+. Si ya existe uno instalado, `configurar-java.cmd` lo detecta; no es necesario instalar otro. Si no hay ninguno, instala Eclipse Temurin 17 o 21.
+- JDK 17+. Si ya existe uno instalado, `00. configurar-java.cmd` lo detecta; no es necesario instalar otro. Si no hay ninguno, instala Eclipse Temurin 17 o 21.
 
 #### Pasos
 
@@ -177,15 +178,23 @@ El `.env` ya trae PostgreSQL, JWT, SMTP, MySQL y Groq. Las credenciales del seed
 3. **Configurar Java**:
 
    ```powershell
-   .\configurar-java.cmd -Persist
+   & ".\00. configurar-java.cmd" -Persist
    ```
 
    Cierra y abre una terminal nueva. Si no encuentra ningún JDK, el script indica qué falta; no instala Java por su cuenta.
 
+3.1. **Levantar la infraestructura Docker (opcional)**: si quieres arrancar y revisar PostgreSQL/pgAdmin antes del seed:
+
+   ```powershell
+   & ".\0.1. levantar-docker.bat"
+   ```
+
+   El paso siguiente también levanta PostgreSQL automáticamente.
+
 4. **Preparar PostgreSQL y cargar el seed**:
 
    ```powershell
-   .\preparar-entorno.cmd
+   & ".\0. preparar-entorno.cmd"
    ```
 
    Verifica Docker y Python, exige que exista `.env`, levanta PostgreSQL, aplica las migraciones y carga el seed. Debe dejar **9 cuentas, 24 pacientes y 30 episodios**. Este paso reemplaza los datos de aplicación: no lo ejecutes sobre una base cuyos datos quieras conservar.
@@ -194,7 +203,7 @@ El `.env` ya trae PostgreSQL, JWT, SMTP, MySQL y Groq. Las credenciales del seed
 
    ```powershell
    net start MySQL80
-   .\levantar-bd-local.bat
+   & ".\1. levantar-bd-local.bat"
    ```
 
    El script elimina y recrea `urgencias_hospital`, y carga 50.000 registros. Si el MySQL local no usa las credenciales del `.env`, ajusta `ANALITICA_DB_USERNAME` y `ANALITICA_DB_PASSWORD` antes de ejecutarlo.
@@ -202,7 +211,7 @@ El `.env` ya trae PostgreSQL, JWT, SMTP, MySQL y Groq. Las credenciales del seed
 6. **Arrancar el sistema**:
 
    ```powershell
-   .\levantar-sistema.bat
+   & ".\2. levantar-sistema.bat"
    ```
 
    Abre Eureka, gateway, seguridad, pacientes, triage, analítica, agente y el frontend. Comprueba:
@@ -219,7 +228,7 @@ El `.env` ya trae PostgreSQL, JWT, SMTP, MySQL y Groq. Las credenciales del seed
 8. **Apagar**:
 
    ```powershell
-   .\detener-sistema.bat
+   & ".\3. detener-sistema.bat"
    ```
 
    Detiene frontend, microservicios y contenedores. Conserva el volumen de PostgreSQL y no detiene MySQL.
@@ -227,7 +236,7 @@ El `.env` ya trae PostgreSQL, JWT, SMTP, MySQL y Groq. Las credenciales del seed
 #### Notas rápidas
 
 - PowerShell con política `Restricted` no es problema si usas los `.cmd`: invocan PowerShell con `-ExecutionPolicy Bypass`.
-- Si `preparar-entorno.cmd` falla por contraseña de PostgreSQL, hay un volumen anterior con otra clave. Ajusta `DB_PASSWORD`/`POSTGRES_PASSWORD` o reconstruye el volumen conscientemente con `.\infra\seed\reset-seed.ps1 -CleanVolume -Yes`; esto último borra la base local.
+- Si `0. preparar-entorno.cmd` falla por contraseña de PostgreSQL, hay un volumen anterior con otra clave. Ajusta `DB_PASSWORD`/`POSTGRES_PASSWORD` o reconstruye el volumen conscientemente con `.\infra\seed\reset-seed.ps1 -CleanVolume -Yes`; esto último borra la base local.
 - El primer build de Maven puede tardar: descarga dependencias.
 - No abras `frontend\index.html` directamente; usa el servidor Python del puerto 5500.
 - La carpeta de preparación contiene secretos. No la publiques fuera del equipo.
@@ -243,16 +252,22 @@ Copy-Item "$prep\.env" .env
 
 No hay una plantilla de `.env` versionada ni debes crear un `.env` vacío: el paquete ya trae los valores locales. No subas el `.env` a Git.
 
-`levantar-sistema.bat` lo carga automaticamente, y ademas cada servicio lo importa al arrancar con un pequeno cargador propio (`EnvEnvironmentPostProcessor`, que busca `.env` en el directorio del modulo y en la raiz del repo), asi que **lanzar desde NetBeans o `mvn spring-boot:run` tambien funciona sin exportar nada**. Sin `.env` el sistema no arranca: copia el archivo del paquete de preparación.
+`2. levantar-sistema.bat` lo carga automaticamente, y ademas cada servicio lo importa al arrancar con un pequeno cargador propio (`EnvEnvironmentPostProcessor`, que busca `.env` en el directorio del modulo y en la raiz del repo), asi que **lanzar desde NetBeans o `mvn spring-boot:run` tambien funciona sin exportar nada**. Sin `.env` el sistema no arranca: copia el archivo del paquete de preparación.
 
 ### 1. Iniciar PostgreSQL
 
 Desde PowerShell, CMD o una terminal abierta en el repositorio:
 
 ```powershell
+& ".\0.1. levantar-docker.bat"
+```
+
+Equivalente manual, teniendo en cuenta que el `.env` está en la raíz:
+
+```powershell
 cd infra
-docker compose up -d
-docker compose ps
+docker compose --env-file ..\.env up -d
+docker compose --env-file ..\.env ps
 ```
 
 Configuración local declarada en Compose:
@@ -283,7 +298,7 @@ docker exec -it sos-postgres psql -U sos_admin -d sosclinic -c "SELECT * FROM pe
 Este paso es independiente de PostgreSQL y es necesario para que `ms-analitica` encuentre su base de datos local. Con MySQL iniciado, el cliente `mysql` disponible en `PATH` y Python instalado, ejecuta desde la raíz del repositorio:
 
 ```powershell
-.\levantar-bd-local.bat
+& ".\1. levantar-bd-local.bat"
 ```
 
 El BAT ejecuta `bd_local.sql` con las credenciales `ANALITICA_DB_USERNAME`/`ANALITICA_DB_PASSWORD` de `.env` en `localhost:3306`. Ese SQL elimina y vuelve a crear `urgencias_hospital`. Después, el BAT verifica Python, instala `pandas`, `faker`, `sqlalchemy` y `pymysql`, y ejecuta `llenar_hospital.py`, que carga datos sintéticos de localidades, días, turnos y 50.000 llegadas.
@@ -310,7 +325,7 @@ cd eureka-server
 Repite en terminales separadas desde las carpetas `ms-gateway`, `ms-seguridad`, `ms-pacientes`, `ms-triage`, `ms-analitica` y `ms-ia-agente`. También puedes ejecutar `mvn spring-boot:run` si Maven está instalado globalmente. Para usar el script de Windows desde la raíz:
 
 ```powershell
-.\levantar-sistema.bat
+& ".\2. levantar-sistema.bat"
 ```
 
 El script arranca los servicios, espera a que los puertos esten listos y abre el login. Si un puerto ya esta ocupado, omite ese servicio.
@@ -318,12 +333,12 @@ El script arranca los servicios, espera a que los puertos esten listos y abre el
 Para detener todo:
 
 ```powershell
-.\detener-sistema.bat
+& ".\3. detener-sistema.bat"
 ```
 
 Detiene microservicios, frontend y contenedores del proyecto; no borra el volumen de PostgreSQL.
 
-`ms-analitica` corre como proceso local fuera de Docker y requiere que el MySQL sintético ya esté disponible. Prepara esa base manualmente en el paso 2; el arranque de servicios no ejecuta el generador. `levantar-sistema.bat` carga `.env` y exige `APP_JWT_SECRET`; no define credenciales por defecto. `ms-ia-agente` necesita `GROQ_API_KEY` (definida en `.env`; `levantar-sistema.bat` la expone a las consolas) para responder; sin ella el asistente indica que no está configurado.
+`ms-analitica` corre como proceso local fuera de Docker y requiere que el MySQL sintético ya esté disponible. Prepara esa base manualmente en el paso 2; el arranque de servicios no ejecuta el generador. `2. levantar-sistema.bat` carga `.env` y exige `APP_JWT_SECRET`; no define credenciales por defecto. `ms-ia-agente` necesita `GROQ_API_KEY` (definida en `.env`; `2. levantar-sistema.bat` la expone a las consolas) para responder; sin ella el asistente indica que no está configurado.
 
 Comprobaciones:
 
@@ -678,7 +693,7 @@ $prep = "C:\ruta\a\SOS-Clinic-Preparacion"
 Copy-Item "$prep\.env" .env
 ```
 
-El `.env` ya incluye `APP_JWT_SECRET`, `DB_PASSWORD`/`POSTGRES_PASSWORD`/`PGADMIN_DEFAULT_PASSWORD`, `MAIL_USERNAME`, `MAIL_PASSWORD` (contrasena de aplicacion de Gmail, no la clave normal), `ANALITICA_DB_*` y `GROQ_API_KEY`. `FRONTEND_URL` debe apuntar al servidor estatico del frontend (`http://127.0.0.1:5500` en local) para que los enlaces de activacion y recuperacion funcionen. `levantar-sistema.bat` carga `.env` automaticamente antes de abrir las consolas de cada servicio; si lo corres a mano, exporta las variables antes de arrancar.
+El `.env` ya incluye `APP_JWT_SECRET`, `DB_PASSWORD`/`POSTGRES_PASSWORD`/`PGADMIN_DEFAULT_PASSWORD`, `MAIL_USERNAME`, `MAIL_PASSWORD` (contrasena de aplicacion de Gmail, no la clave normal), `ANALITICA_DB_*` y `GROQ_API_KEY`. `FRONTEND_URL` debe apuntar al servidor estatico del frontend (`http://127.0.0.1:5500` en local) para que los enlaces de activacion y recuperacion funcionen. `2. levantar-sistema.bat` carga `.env` automaticamente antes de abrir las consolas de cada servicio; si lo corres a mano, exporta las variables antes de arrancar.
 
 Las contraseñas del seed **no** van en `.env`: se generan una vez en `infra/seed/credenciales.local.env` y `credenciales.local.md`, que están en `.gitignore`. El `.md` es la lista que debes usar para iniciar sesión. Las 9 cuentas tienen 2FA activo y los códigos llegan a `pruebasosclinic@gmail.com`.
 

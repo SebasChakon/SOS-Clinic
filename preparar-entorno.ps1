@@ -64,5 +64,5 @@ if ($contenido -match "(?m)^MAIL_USERNAME=\s*$" -or $contenido -match "(?m)^MAIL
     Write-Host "Completa MAIL_USERNAME/MAIL_PASSWORD en $envFile." -ForegroundColor Yellow
 }
 Write-Host "Inicia el sistema con:"
-Write-Host "  $Repo\levantar-sistema.bat"
-Write-Host "Para analitica, ejecuta tambien: $Repo\levantar-bd-local.bat"
+Write-Host "  $Repo\2. levantar-sistema.bat"
+Write-Host "Para analitica, ejecuta tambien: $Repo\1. levantar-bd-local.bat"
