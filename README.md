@@ -56,8 +56,6 @@ Los siete proyectos ejecutables son proyectos Maven independientes basados en Ja
 
 Aunque conceptualmente cada microservicio tiene tablas bajo su responsabilidad, hoy todos usan el mismo esquema y las mismas credenciales de PostgreSQL (`sosclinic`). No hay una base de datos aislada por servicio ni mensajería entre servicios. Las referencias entre dominios se hacen principalmente mediante identificadores numéricos.
 
-`legacy/` es un prototipo anterior Java EE/Ant/TomEE. No forma parte del arranque de los microservicios actuales.
-
 ## Mapa del repositorio
 
 ### Raíz
@@ -76,9 +74,9 @@ Aunque conceptualmente cada microservicio tiene tablas bajo su responsabilidad, 
 | `ms-triage/` | Episodios, categorías, estados, ubicación y priorización. |
 | `ms-analitica/` | Tablero de analítica sobre la base MySQL sintética `urgencias_hospital`. |
 | `ms-ia-agente/` | Agente conversacional (chat y voz) con Groq y herramientas contra el gateway. |
-| `legacy/` | Prototipo Java EE/Ant/TomEE, conservado como referencia; no ejecutarlo como parte del arranque actual. |
-| `src/`, `web/`, `nbproject/` | Estructura NetBeans del proyecto antiguo en la raíz; no es uno de los microservicios Maven actuales. |
-| `build/`, `legacy/build/` | Salidas generadas de compilaciones/prototipos; no son fuente y no deben editarse. |
+| `build/` | Salidas generadas de compilaciones locales; no son fuente y no deben editarse. |
+
+El prototipo Java EE anterior se retiró del árbol actual. Los informes de seguridad y de pruebas se conservan únicamente en la rama remota `pruebas-seguridad-2`; `main` mantiene el código y los scripts de prueba.
 
 Cada módulo Maven organiza normalmente su código en `src/main/java` así:
 
@@ -140,6 +138,16 @@ Cada módulo Maven organiza normalmente su código en `src/main/java` así:
 El IDE no es requisito para compilar o ejecutar. El plugin de Spring para NetBeans mencionado en documentación antigua no es necesario para el flujo normal.
 
 ## Puesta en marcha
+
+### Primer arranque desde un clon nuevo
+
+El repositorio no versiona `.env` ni una base de datos ya poblada. Para dejar un clon nuevo operativo:
+
+1. Copia `.env.example` a `.env` y define `DB_PASSWORD` y `POSTGRES_PASSWORD` con el mismo valor, un `APP_JWT_SECRET` aleatorio y las credenciales SMTP.
+2. Ejecuta `.\infra\seed\reset-seed.ps1` (o `bash infra/seed/reset-seed.sh`). Levanta PostgreSQL si hace falta, aplica las migraciones, genera las contraseñas locales de las 9 cuentas y carga el seed verificado.
+3. Ejecuta `.\levantar-sistema.bat` para iniciar los servicios y abrir el frontend.
+
+El paso 2 es obligatorio: `docker compose up -d` solo crea el esquema, no las cuentas ni los 24 pacientes de prueba. Sin SMTP configurado el login no puede entregar el código 2FA.
 
 ### 0. Crear el archivo `.env`
 
