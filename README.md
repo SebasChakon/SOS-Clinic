@@ -64,6 +64,8 @@ Aunque conceptualmente cada microservicio tiene tablas bajo su responsabilidad, 
 |---|---|
 | `README.md` | Guía de arquitectura, configuración, operación y limitaciones. |
 | `levantar-sistema.bat` | En Windows, carga `.env`, levanta Docker Compose, inicia Eureka, gateway, seguridad, pacientes, triage, analitica y agente con `mvnw.cmd`, detecta Java, omite servicios ya activos y espera los puertos antes de abrir el login. |
+| `configurar-java.ps1` / `.cmd` | Detecta un JDK 17+ instalado y configura `JAVA_HOME`/`PATH`; no instala Java. |
+| `preparar-entorno.ps1` / `.cmd` | Verifica Docker, crea `.env` si falta y ejecuta el seed canónico; recomendado en el primer arranque. |
 | `detener-sistema.bat` | Detiene frontend, microservicios y contenedores del proyecto; conserva los datos de PostgreSQL. |
 | `infra/` | Infraestructura local PostgreSQL/pgAdmin y SQL inicial. |
 | `frontend/` | Interfaz estática que consume el gateway. |
@@ -141,13 +143,14 @@ El IDE no es requisito para compilar o ejecutar. El plugin de Spring para NetBea
 
 ### Primer arranque desde un clon nuevo
 
-El repositorio no versiona `.env` ni una base de datos ya poblada. Para dejar un clon nuevo operativo:
+El repositorio no versiona `.env` ni una base de datos ya poblada. El paquete de preparación entrega el `.env` completo y las credenciales locales del seed; el clon solo necesita el código. Para dejar un clon nuevo operativo:
 
-1. Copia `.env.example` a `.env` y define `DB_PASSWORD` y `POSTGRES_PASSWORD` con el mismo valor, un `APP_JWT_SECRET` aleatorio y las credenciales SMTP.
-2. Ejecuta `.\infra\seed\reset-seed.ps1` (o `bash infra/seed/reset-seed.sh`). Levanta PostgreSQL si hace falta, aplica las migraciones, genera las contraseñas locales de las 9 cuentas y carga el seed verificado.
-3. Ejecuta `.\levantar-sistema.bat` para iniciar los servicios y abrir el frontend.
+1. Copia el `.env` entregado a la raíz del clon (o crea uno desde `.env.example` si no lo tienes). No lo subas a Git.
+2. Ejecuta `.\configurar-java.cmd -Persist`. Detecta un JDK 17+ ya instalado, incluido el de NetBeans, y configura `JAVA_HOME`/`PATH`; no instala nada por su cuenta. Cierra y abre la terminal.
+3. Ejecuta `.\preparar-entorno.cmd`. Verifica Docker, crea `.env` si falta, levanta PostgreSQL, aplica las migraciones y carga el seed verificado.
+4. Ejecuta `.\levantar-sistema.bat` para iniciar los servicios y abrir el frontend.
 
-El paso 2 es obligatorio: `docker compose up -d` solo crea el esquema, no las cuentas ni los 24 pacientes de prueba. Sin SMTP configurado el login no puede entregar el código 2FA.
+Los scripts `configurar-java` y `preparar-entorno` están en la raíz del repositorio. El paso 3 es obligatorio: `docker compose up -d` solo crea el esquema, no las cuentas ni los 24 pacientes de prueba. Sin SMTP configurado el login no puede entregar el código 2FA.
 
 ### 0. Crear el archivo `.env`
 
