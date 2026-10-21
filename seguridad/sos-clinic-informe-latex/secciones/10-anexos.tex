@@ -1,0 +1,79 @@
+\section{Detalle del análisis de dependencias}
+\label{app:sca}
+
+Trivy reportó 148 ocurrencias en los siete módulos. Al deduplicar por CVE,
+paquete y versión quedan 22 vulnerabilidades únicas: 4 críticas, 12 altas y 6
+medias. La tabla~\ref{tab:sca-detalle} agrupa las CVEs por paquete y versión
+instalada.
+
+\begin{table}[htbp]
+\centering
+\caption{Detalle agrupado del SCA.}
+\label{tab:sca-detalle}
+\small
+\setlength{\tabcolsep}{2pt}
+\begin{tabular}{@{}L{3.6cm}L{1.4cm}L{5.4cm}L{2.8cm}L{2.2cm}@{}}
+\toprule
+\textbf{Paquete} & \textbf{Versión} & \textbf{CVEs} & \textbf{Severidad} & \textbf{Corrección}\\
+\midrule
+\texttt{tomcat-embed-core} & 11.0.24 & 65182, 65905, 68525 & 3 críticas & 11.0.25\\
+\texttt{freemarker} & 2.3.34 & 84939 & 1 crítica & 2.3.35\\
+\texttt{jackson-databind} & 2.21.5 & 68497, 91776, 91777, 19032, 83557 & 3 altas, 2 medias & 2.21.6 / 2.22.2\\
+\texttt{jackson-databind} & 3.1.5 & 68497, 91776, 91777, 19032, 83557 & 3 altas, 2 medias & 3.1.6 / 3.2.2\\
+\texttt{jackson-core} & 2.21.5 & 89407, 89425 & 2 altas & 2.21.7 / 2.22.3\\
+\texttt{jackson-core} & 3.1.5 & 89407, 89425 & 2 altas & 3.1.7 / 3.2.3\\
+\texttt{httpcore5} & 5.3.6 & 54399 & 1 alta & 5.4.3\\
+\texttt{httpcore5-h2} & 5.3.6 & 54428 & 1 alta & 5.4.3\\
+\texttt{httpclient} & 4.5.3 & 2020-13956 & 1 media & 4.5.13\\
+\texttt{httpclient5} & 5.5.2 & 64607 & 1 media & 5.6.3\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\noindent\footnotesize Todos los CVEs pertenecen al prefijo CVE-2026 salvo
+CVE-2020-13956. La columna de corrección indica la primera versión que Trivy
+marcó como no vulnerable; conviene validar la compatibilidad antes de actualizar.
+\normalsize
+
+\needspace{14\baselineskip}
+\section{Índice de evidencias y resultados crudos}
+
+\begin{table}[htbp]
+\centering
+\caption{Índice de las 16 capturas de evidencia.}
+\label{tab:evidencias}
+\small
+\setlength{\tabcolsep}{2pt}
+\begin{tabular}{@{}L{5.4cm}L{2.2cm}L{7.4cm}@{}}
+\toprule
+\textbf{Archivo} & \textbf{Hallazgo} & \textbf{Contenido}\\
+\midrule
+\texttt{07\_jwt\_forjado\_admin.png} & H-01 & JWT forjado y 200 en \texttt{/admin/personal}.\\
+\texttt{08\_escalada\_admin.png} & H-04 & Cuenta administradora creada por \texttt{doctor\_triage}.\\
+\texttt{09\_2fa\_sin\_limite.png} & H-12 & Diez intentos fallidos y aceptación posterior.\\
+\texttt{10\_cors\_permisivo.png} & H-11 & Origen \texttt{evil.local} reflejado con credenciales.\\
+\texttt{11\_pacientes\_sin\_token.png} & H-02 & Lectura clínica sin token.\\
+\texttt{12\_escritura\_sin\_token.png} & H-03 & Escritura y alta sin token.\\
+\texttt{13\_mass\_assignment.png} & H-08 & \texttt{idPersonal} aceptado desde el cuerpo.\\
+\texttt{14\_idor.png} & H-09 & Recorrido de IDs ajenos.\\
+\texttt{15\_xss\_pacientes.png} & H-07 & Payload XSS en la tabla de pacientes.\\
+\texttt{15b\_xss\_seguimiento.png} & H-07 & Diálogo \texttt{alert("1")} en seguimiento.\\
+\texttt{16\_agente\_sin\_token.png} & H-10 & Agente con datos clínicos sin token.\\
+\texttt{17\_correo\_sin\_token.png} & H-16 & Envío de historia sin autenticación.\\
+\texttt{18\_enumeracion\_usuarios.png} & H-17 & Mensajes distintos para usuario inactivo.\\
+\texttt{19\_sca\_trivy.png} & H-06, H-14 & Resumen del SCA.\\
+\texttt{20\_secretos\_gitleaks.png} & H-05, H-13 & Secretos detectados.\\
+\texttt{21\_zap\_baseline.png} & H-18 & Resumen del ZAP baseline.\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Los reportes crudos (JSON, CSV y HTML) están en \path{seguridad/resultados/}:
+gitleaks, Semgrep, Trivy SCA, ZAP, smoke tests, recorridos IDOR, diálogos XSS y la
+matriz \path{hallazgos-consolidados.csv}.
+
+Los comandos exactos de gitleaks, Semgrep, Trivy y ZAP, junto con los scripts de
+smoke tests, IDOR y el generador de JWT, están en \path{seguridad/utilidades/} y
+\path{seguridad/resultados/} de la rama. Los tokens, contraseñas y cuerpos con
+datos personales se omitieron de las capturas y de los reportes versionados.
+
