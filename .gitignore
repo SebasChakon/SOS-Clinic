@@ -11,7 +11,6 @@ nbproject/private/
 # Credenciales locales: nunca versionar
 env
 .env.*
-!.env.example
 
 # Artefactos locales de pruebas
 seguridad/utilidades/tools/

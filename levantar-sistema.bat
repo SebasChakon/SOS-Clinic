@@ -17,8 +17,8 @@ if defined ENV_FILE (
     if not "%%A"=="" if not "%%B"=="" set "%%A=%%B"
   )
 ) else (
-  echo ADVERTENCIA: no existe .env ni env. Copia .env.example a .env y
-  echo              completa las credenciales antes de levantar el sistema.
+  echo ADVERTENCIA: no existe .env ni env. Copia el archivo .env del
+  echo              paquete de preparacion antes de levantar el sistema.
 )
 
 if not defined APP_JWT_SECRET (

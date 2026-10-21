@@ -143,25 +143,107 @@ El IDE no es requisito para compilar o ejecutar. El plugin de Spring para NetBea
 
 ### Primer arranque desde un clon nuevo
 
-El repositorio no versiona `.env` ni una base de datos ya poblada. El paquete de preparación entrega el `.env` completo y las credenciales locales del seed; el clon solo necesita el código. Para dejar un clon nuevo operativo:
+El repositorio no versiona `.env` ni una base de datos ya poblada. El paquete de preparación (`SOS-Clinic-Preparacion`) contiene:
 
-1. Copia el `.env` entregado a la raíz del clon (o crea uno desde `.env.example` si no lo tienes). No lo subas a Git.
-2. Ejecuta `.\configurar-java.cmd -Persist`. Detecta un JDK 17+ ya instalado, incluido el de NetBeans, y configura `JAVA_HOME`/`PATH`; no instala nada por su cuenta. Cierra y abre la terminal.
-3. Ejecuta `.\preparar-entorno.cmd`. Verifica Docker, crea `.env` si falta, levanta PostgreSQL, aplica las migraciones y carga el seed verificado.
-4. Ejecuta `.\levantar-sistema.bat` para iniciar los servicios y abrir el frontend.
-
-Los scripts `configurar-java` y `preparar-entorno` están en la raíz del repositorio. El paso 3 es obligatorio: `docker compose up -d` solo crea el esquema, no las cuentas ni los 24 pacientes de prueba. Sin SMTP configurado el login no puede entregar el código 2FA.
-
-### 0. Crear el archivo `.env`
-
-Las credenciales (SMTP de correo, MySQL de analítica y API key de Groq) no están en el repositorio. Copia la plantilla y pide los valores al coordinador por un canal seguro (ver [Credenciales y secretos](#credenciales-y-secretos)):
-
-```powershell
-Copy-Item .env.example .env
-notepad .env
+```text
+.env
+credenciales.local.env
+credenciales.local.md
 ```
 
-`levantar-sistema.bat` lo carga automaticamente, y ademas cada servicio lo importa al arrancar con un pequeno cargador propio (`EnvEnvironmentPostProcessor`, que busca `.env` en el directorio del modulo y en la raiz del repo), asi que **lanzar desde NetBeans o `mvn spring-boot:run` tambien funciona sin exportar nada**. Sin `.env` el sistema no arranca: copia `.env.example`, define `APP_JWT_SECRET` y completa las credenciales.
+El `.env` ya trae PostgreSQL, JWT, SMTP, MySQL y Groq. Las credenciales del seed son las cuentas actuales. El clon solo aporta el código.
+
+#### Requisitos
+
+- Docker Desktop iniciado.
+- Python 3 disponible como `python`.
+- JDK 17+. Si ya existe uno instalado, `configurar-java.cmd` lo detecta; no es necesario instalar otro. Si no hay ninguno, instala Eclipse Temurin 17 o 21.
+
+#### Pasos
+
+1. **Clonar el repositorio** y entrar a su raíz.
+
+2. **Copiar los archivos de preparación**, usando la ruta real de la carpeta:
+
+   ```powershell
+   $prep = "C:\ruta\a\SOS-Clinic-Preparacion"
+   Copy-Item "$prep\.env" ".env"
+   Copy-Item "$prep\credenciales.local.env" "infra\seed\"
+   Copy-Item "$prep\credenciales.local.md" "infra\seed\"
+   ```
+
+   Las credenciales van dentro de `infra\seed\`, no en la raíz. No subas ninguno de estos archivos a Git.
+
+3. **Configurar Java**:
+
+   ```powershell
+   .\configurar-java.cmd -Persist
+   ```
+
+   Cierra y abre una terminal nueva. Si no encuentra ningún JDK, el script indica qué falta; no instala Java por su cuenta.
+
+4. **Preparar PostgreSQL y cargar el seed**:
+
+   ```powershell
+   .\preparar-entorno.cmd
+   ```
+
+   Verifica Docker y Python, exige que exista `.env`, levanta PostgreSQL, aplica las migraciones y carga el seed. Debe dejar **9 cuentas, 24 pacientes y 30 episodios**. Este paso reemplaza los datos de aplicación: no lo ejecutes sobre una base cuyos datos quieras conservar.
+
+5. **Preparar analítica (solo si se va a usar)**:
+
+   ```powershell
+   net start MySQL80
+   .\levantar-bd-local.bat
+   ```
+
+   El script elimina y recrea `urgencias_hospital`, y carga 50.000 registros. Si el MySQL local no usa las credenciales del `.env`, ajusta `ANALITICA_DB_USERNAME` y `ANALITICA_DB_PASSWORD` antes de ejecutarlo.
+
+6. **Arrancar el sistema**:
+
+   ```powershell
+   .\levantar-sistema.bat
+   ```
+
+   Abre Eureka, gateway, seguridad, pacientes, triage, analítica, agente y el frontend. Comprueba:
+
+   ```text
+   Eureka:   http://localhost:8761
+   Gateway:  http://localhost:8080
+   Frontend: http://127.0.0.1:5500
+   pgAdmin:  http://localhost:5050
+   ```
+
+7. **Iniciar sesión** con un usuario de `infra\seed\credenciales.local.md`. El 2FA llega a `pruebasosclinic@gmail.com`; el asunto incluye el usuario, por ejemplo `[admin.test] Codigo de verificacion - SOS Clinic`. El código vence en 5 minutos.
+
+8. **Apagar**:
+
+   ```powershell
+   .\detener-sistema.bat
+   ```
+
+   Detiene frontend, microservicios y contenedores. Conserva el volumen de PostgreSQL y no detiene MySQL.
+
+#### Notas rápidas
+
+- PowerShell con política `Restricted` no es problema si usas los `.cmd`: invocan PowerShell con `-ExecutionPolicy Bypass`.
+- Si `preparar-entorno.cmd` falla por contraseña de PostgreSQL, hay un volumen anterior con otra clave. Ajusta `DB_PASSWORD`/`POSTGRES_PASSWORD` o reconstruye el volumen conscientemente con `.\infra\seed\reset-seed.ps1 -CleanVolume -Yes`; esto último borra la base local.
+- El primer build de Maven puede tardar: descarga dependencias.
+- No abras `frontend\index.html` directamente; usa el servidor Python del puerto 5500.
+- La carpeta de preparación contiene secretos. No la publiques fuera del equipo.
+
+### 0. Copiar el archivo `.env`
+
+Las credenciales (SMTP de correo, MySQL de analítica y API key de Groq) no están en el repositorio. El paquete de preparación entrega el `.env` completo; cópialo a la raíz del clon:
+
+```powershell
+$prep = "C:\ruta\a\SOS-Clinic-Preparacion"
+Copy-Item "$prep\.env" .env
+```
+
+No hay una plantilla de `.env` versionada ni debes crear un `.env` vacío: el paquete ya trae los valores locales. No subas el `.env` a Git.
+
+`levantar-sistema.bat` lo carga automaticamente, y ademas cada servicio lo importa al arrancar con un pequeno cargador propio (`EnvEnvironmentPostProcessor`, que busca `.env` en el directorio del modulo y en la raiz del repo), asi que **lanzar desde NetBeans o `mvn spring-boot:run` tambien funciona sin exportar nada**. Sin `.env` el sistema no arranca: copia el archivo del paquete de preparación.
 
 ### 1. Iniciar PostgreSQL
 
@@ -585,16 +667,18 @@ El volumen conserva su estado. Aplica una migración explícita o, si los datos 
 
 ## Credenciales y secretos
 
-**Regla de oro: nada de secretos en git.** Todo lo sensible se lee de variables de entorno; el archivo `.env` (en la raíz, ignorado por git) es solo el almacén local de desarrollo. `.env.example` documenta las variables esperadas sin valores reales.
+**Regla de oro: nada de secretos en git.** Todo lo sensible se lee de variables de entorno; el archivo `.env` (en la raíz, ignorado por git) es solo el almacén local de desarrollo. El paquete de preparación entrega el `.env` completo; no hay una plantilla versionada.
 
 ### Cómo configurarlo
 
-```bat
-copy .env.example .env
-notepad .env
+Copia el `.env` del paquete de preparación a la raíz del clon:
+
+```powershell
+$prep = "C:\ruta\a\SOS-Clinic-Preparacion"
+Copy-Item "$prep\.env" .env
 ```
 
-Completa `APP_JWT_SECRET`, `DB_PASSWORD` (y `POSTGRES_PASSWORD`/`PGADMIN_DEFAULT_PASSWORD` si usas Docker), `MAIL_USERNAME`, `MAIL_PASSWORD` (contrasena de aplicacion de Gmail, no la clave normal), `ANALITICA_DB_*` y `GROQ_API_KEY`. `FRONTEND_URL` debe apuntar al servidor estatico del frontend (`http://127.0.0.1:5500` en local) para que los enlaces de activacion y recuperacion funcionen. `levantar-sistema.bat` carga `.env` automaticamente antes de abrir las consolas de cada servicio; si lo corres a mano, exporta las variables antes de arrancar.
+El `.env` ya incluye `APP_JWT_SECRET`, `DB_PASSWORD`/`POSTGRES_PASSWORD`/`PGADMIN_DEFAULT_PASSWORD`, `MAIL_USERNAME`, `MAIL_PASSWORD` (contrasena de aplicacion de Gmail, no la clave normal), `ANALITICA_DB_*` y `GROQ_API_KEY`. `FRONTEND_URL` debe apuntar al servidor estatico del frontend (`http://127.0.0.1:5500` en local) para que los enlaces de activacion y recuperacion funcionen. `levantar-sistema.bat` carga `.env` automaticamente antes de abrir las consolas de cada servicio; si lo corres a mano, exporta las variables antes de arrancar.
 
 Las contraseñas del seed **no** van en `.env`: se generan una vez en `infra/seed/credenciales.local.env` y `credenciales.local.md`, que están en `.gitignore`. El `.md` es la lista que debes usar para iniciar sesión. Las 9 cuentas tienen 2FA activo y los códigos llegan a `pruebasosclinic@gmail.com`.
 

@@ -39,7 +39,7 @@ SIMBOLOS = set("!?#$%.*@_+-")
 
 def load_env() -> dict[str, str]:
     if not ENV_FILE.exists():
-        raise SystemExit(f"No existe {ENV_FILE}. Copia .env.example y completa las variables.")
+        raise SystemExit(f"No existe {ENV_FILE}. Copia el archivo .env del paquete de preparacion en la raiz del repositorio.")
     valores: dict[str, str] = {}
     for linea in ENV_FILE.read_text(encoding="utf-8").splitlines():
         linea = linea.strip()
