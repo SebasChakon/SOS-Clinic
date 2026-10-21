@@ -3,6 +3,7 @@ setlocal EnableExtensions
 
 set "BASE=%~dp0"
 cd /d "%BASE%"
+if not exist "%BASE%logs" mkdir "%BASE%logs"
 
 rem ---------------------------------------------------------------------------
 rem Carga .env (o env) sin imprimir valores.
@@ -132,7 +133,7 @@ if not errorlevel 1 (
 ) else (
   if defined PY_FRONT (
     echo Sirviendo frontend en http://127.0.0.1:5500 ...
-    start "frontend-sos" /D "%BASE%frontend" cmd /k "title SOS-frontend && %PY_FRONT% servidor.py 5500"
+    powershell -NoProfile -ExecutionPolicy Bypass -Command "Start-Process -FilePath 'cmd.exe' -ArgumentList '/c %PY_FRONT% servidor.py 5500' -WorkingDirectory '%BASE%frontend' -WindowStyle Hidden -RedirectStandardOutput '%BASE%logs\frontend.out.log' -RedirectStandardError '%BASE%logs\frontend.err.log'"
     call :wait_port 5500 30
   ) else (
     echo ADVERTENCIA: Python no esta disponible; se abren los archivos directamente.
@@ -145,7 +146,8 @@ if not errorlevel 1 (
 start "" "http://127.0.0.1:5500/index.html"
 
 :fin
-echo Listo. Cierra esta ventana cuando quieras (los microservicios siguen en sus propias ventanas).
+echo Listo. Los servicios siguen en segundo plano, sin ventanas visibles.
+echo Logs: %BASE%logs
 endlocal
 exit /b 0
 
@@ -184,6 +186,6 @@ if not errorlevel 1 (
   echo %S_NAME% ya esta escuchando en %S_PORT%; se omite.
   exit /b 0
 )
-echo Iniciando %S_NAME%...
-start "%S_NAME%" /D "%BASE%%S_DIR%" cmd /k "title SOS-%S_NAME% && mvnw.cmd spring-boot:run"
+echo Iniciando %S_NAME% (oculto)...
+powershell -NoProfile -ExecutionPolicy Bypass -Command "Start-Process -FilePath 'cmd.exe' -ArgumentList '/c mvnw.cmd spring-boot:run' -WorkingDirectory '%BASE%%S_DIR%' -WindowStyle Hidden -RedirectStandardOutput '%BASE%logs\%S_NAME%.out.log' -RedirectStandardError '%BASE%logs\%S_NAME%.err.log'"
 exit /b 0
