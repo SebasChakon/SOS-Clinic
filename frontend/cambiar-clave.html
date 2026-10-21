@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SOS Clinic · Cambiar clave</title>
+<link rel="icon" href="favicon.ico">
+<link rel="stylesheet" href="assets/estilos.css">
+<script src="assets/movimiento.js"></script>
+</head>
+<body>
+
+<a class="skip-link" href="#contenidoPrincipal">Saltar al contenido</a>
+
+<header class="topbar" role="banner">
+  <div class="marca" title="SOS Clinic · Sistema de Triage Inteligente"><strong>SOS</strong> · Triage</div>
+  <nav id="navPrincipal" aria-label="Navegación principal"></nav>
+  <div class="topbar-usuario">
+    <span id="infoUsuario" class="usuario-info"></span>
+    <button class="salir" type="button" onclick="cerrarSesion()">Salir</button>
+  </div>
+</header>
+
+<main class="contenido" id="contenidoPrincipal">
+  <div class="tarjeta" style="max-width: 560px; margin: 24px auto;">
+    <h1>Cambia tu clave</h1>
+    <p class="sub" id="subtitulo">Actualiza la clave de tu cuenta.</p>
+
+    <div class="mensaje" id="mensajeObligatorio" hidden tabindex="-1"></div>
+
+    <form id="formClave" novalidate>
+      <div class="campo">
+        <label for="claveActual">Clave actual</label>
+        <input type="password" id="claveActual" autocomplete="current-password" required>
+      </div>
+      <div class="campo">
+        <label for="claveNueva">Clave nueva</label>
+        <input type="password" id="claveNueva" autocomplete="new-password" required>
+        <div class="fuerza" id="fuerzaClave" aria-hidden="true"></div>
+        <p class="fuerza-texto" id="fuerzaClave-texto"></p>
+        <ul class="lista-requisitos" id="reglasClave" aria-live="polite"></ul>
+      </div>
+      <div class="campo">
+        <label for="claveConfirmar">Confirma la clave nueva</label>
+        <input type="password" id="claveConfirmar" autocomplete="new-password" required>
+      </div>
+      <button type="submit" id="btnGuardar" class="boton-primario boton-full">Guardar clave</button>
+      <div class="mensaje" id="mensaje" tabindex="-1"></div>
+    </form>
+
+    <p class="ayuda" id="enlaceCuenta" style="margin-top:14px;" hidden>
+      <a href="cuenta.html">Ir a Mi cuenta</a>
+    </p>
+  </div>
+</main>
+
+<script src="assets/api.js"></script>
+<script src="assets/clave.js"></script>
+<script>
+  const sesion = obtenerSesion();
+  if (!sesion) {
+    window.location.href = 'login.html';
+  } else {
+    document.getElementById('infoUsuario').textContent = `${sesion.usuario} · ${sesion.perfil}`;
+  }
+  pintarNav('navPrincipal', 'cambiar-clave.html');
+
+  const obligatorio = new URLSearchParams(window.location.search).get('obligatorio') === '1';
+  if (obligatorio) {
+    const aviso = document.getElementById('mensajeObligatorio');
+    aviso.className = 'mensaje error';
+    aviso.textContent = 'Tu clave es temporal. Debes cambiarla antes de continuar usando el sistema.';
+    aviso.hidden = false;
+    aviso.focus();
+    document.getElementById('subtitulo').textContent = 'Clave temporal: elige una clave nueva para continuar.';
+  }
+
+  const form = document.getElementById('formClave');
+  const boton = document.getElementById('btnGuardar');
+
+  conectarClave('claveNueva', 'reglasClave', 'fuerzaClave', () => ({
+    usuario: sesion ? sesion.usuario : ''
+  }));
+
+  form.addEventListener('submit', async (evento) => {
+    evento.preventDefault();
+    limpiarMensaje('mensaje');
+
+    const actual = document.getElementById('claveActual').value;
+    const nueva = document.getElementById('claveNueva').value;
+    const confirmar = document.getElementById('claveConfirmar').value;
+    const errores = erroresClave(nueva, { usuario: sesion ? sesion.usuario : '' });
+
+    if (errores.length) {
+      mostrarMensaje('mensaje', errores.join(' '), 'error');
+      document.getElementById('claveNueva').focus();
+      return;
+    }
+    if (nueva !== confirmar) {
+      mostrarMensaje('mensaje', 'Las claves no coinciden.', 'error');
+      document.getElementById('claveConfirmar').focus();
+      return;
+    }
+    if (nueva === actual) {
+      mostrarMensaje('mensaje', 'La clave nueva no puede ser igual a la actual.', 'error');
+      document.getElementById('claveNueva').focus();
+      return;
+    }
+
+    boton.disabled = true;
+    boton.textContent = 'Guardando...';
+    try {
+      const datos = await cambiarClave(actual, nueva);
+      form.reset();
+      pintarReglasClave('reglasClave', '', { usuario: sesion ? sesion.usuario : '' });
+      pintarFuerzaClave('fuerzaClave', '');
+      mostrarMensaje('mensaje', 'Clave actualizada correctamente. Redirigiendo...', 'exito');
+      const destino = primerDestinoValido(datos.actividades) || 'cuenta.html';
+      setTimeout(() => { window.location.href = destino; }, 700);
+    } catch (error) {
+      mostrarMensaje('mensaje', error.message, 'error');
+      document.getElementById('mensaje').focus();
+    } finally {
+      boton.disabled = false;
+      boton.textContent = 'Guardar clave';
+    }
+  });
+
+  if (!obligatorio) {
+    document.getElementById('enlaceCuenta').hidden = false;
+  }
+</script>
+
+</body>
+</html>

@@ -157,17 +157,14 @@
             <div class="campo"><label for="usuarioNombre">Nombre</label><input type="text" id="usuarioNombre" autocomplete="given-name" required></div>
             <div class="campo"><label for="usuarioApellido">Apellido</label><input type="text" id="usuarioApellido" autocomplete="family-name" required></div>
           </div>
-          <div class="campo"><label for="usuarioEmail">Email</label><input type="email" id="usuarioEmail" autocomplete="email" required></div>
+          <div class="campo"><label for="usuarioEmail">Email</label><input type="email" id="usuarioEmail" autocomplete="email" required>
+            <p class="ayuda" id="ayudaEmail" hidden>La cuenta ya fue activada: el correo solo lo puede cambiar el usuario desde Mi cuenta.</p>
+          </div>
           <div class="fila-campos">
             <div class="campo"><label for="usuarioCedula">Cédula</label><input type="text" id="usuarioCedula" inputmode="numeric" autocomplete="off" required></div>
             <div class="campo"><label for="usuarioTelefono">Teléfono</label><input type="tel" id="usuarioTelefono" inputmode="tel" autocomplete="tel"></div>
           </div>
           <div class="campo"><label for="usuarioLogin">Usuario (login)</label><input type="text" id="usuarioLogin" autocomplete="username" autocapitalize="none" spellcheck="false" required></div>
-          <div class="campo">
-            <label for="usuarioClave">Clave <span id="etiquetaClaveOpcional" style="display:none; font-weight:400;">(dejar en blanco para no cambiarla)</span></label>
-            <input type="password" id="usuarioClave" autocomplete="new-password" required aria-describedby="ayudaClave">
-            <p class="ayuda" id="ayudaClave">Obligatoria al crear el usuario. Al editar, déjala vacía para conservar la actual.</p>
-          </div>
           <div class="campo">
             <label for="usuarioPerfil">Perfil</label>
             <select id="usuarioPerfil" required></select>
@@ -177,10 +174,8 @@
             <div class="campo"><label for="usuarioHoraFin">Turno - fin</label><input type="time" id="usuarioHoraFin" aria-describedby="notaTurno"></div>
           </div>
           <p class="sub" id="notaTurno" style="margin-top:-8px;">El turno es obligatorio al crear un usuario. Al editar, se actualiza el turno activo. Si el fin es menor que el inicio, el turno cruza la medianoche.</p>
-          <div class="campo">
-            <label><input type="checkbox" id="usuarioRequiere2fa" style="width:auto; margin-right:6px;"> Requiere verificación en dos pasos</label>
-          </div>
-          <button type="submit" class="boton-primario boton-full">Guardar</button>
+          <p class="nota-form" id="notaAprobacion">La cuenta se crea <b>pendiente de aprobación</b>. Un usuario con perfil <b>seguridad</b> debe aprobarla y el usuario recibirá un enlace de activación en su correo. El administrador nunca define la clave.</p>
+          <button type="submit" class="boton-primario boton-full">Enviar a aprobación</button>
           <button type="button" class="boton-secundario boton-full" style="margin-top:8px; display:none;" id="btnCancelarUsuario" onclick="resetFormUsuario()">Cancelar edición</button>
           <div class="mensaje" id="mensajeUsuario"></div>
         </form>
@@ -197,6 +192,20 @@
     </div>
   </div>
 </main>
+
+<dialog id="dialogoClaveTemporal" class="dialogo">
+  <div class="dialogo-cabecera"><h2>Clave temporal</h2></div>
+  <div class="dialogo-cuerpo">
+    <p>Entrega esta clave al usuario por un canal seguro. <b>Solo se muestra una vez</b> y vence en 72 horas.
+      En el primer inicio de sesion el sistema le exigira cambiarla.</p>
+    <p><code id="claveTemporalValor" style="display:block; padding:12px 14px; background:var(--hueso); border:1px solid var(--tejido); border-radius:8px; font-family:var(--mono); font-size:16px; letter-spacing:.04em; word-break:break-all;"></code></p>
+    <p class="sub" id="claveTemporalExpira"></p>
+  </div>
+  <div class="dialogo-acciones">
+    <button type="button" class="boton-secundario" id="btnCopiarClaveTemporal">Copiar</button>
+    <button type="button" class="boton-primario" onclick="document.getElementById('dialogoClaveTemporal').close()">Cerrar</button>
+  </div>
+</dialog>
 
 <script src="assets/api.js"></script>
 <script>
@@ -452,18 +461,38 @@
   async function cargarUsuarios() {
     try {
       cacheUsuarios = await listarPersonal();
-      document.getElementById('tablaUsuarios').innerHTML = cacheUsuarios.map(u => `
+      document.getElementById('tablaUsuarios').innerHTML = cacheUsuarios.map(u => {
+        const estado = estadoUsuario(u);
+        const acciones = [
+          `<button class="boton-secundario" onclick="editarUsuario(${u.idPersonal})" aria-label="Editar usuario ${escaparHtml(u.usuario)}">Editar</button>`
+        ];
+        if (u.estadoAprobacion === 'APROBADA' && !u.activada) {
+          acciones.push(`<button class="boton-secundario" onclick="reenviarActivacionUsuario(${u.idPersonal})" aria-label="Reenviar activacion a ${escaparHtml(u.usuario)}">Reenviar activación</button>`);
+          acciones.push(`<button class="boton-secundario" onclick="generarTemporalUsuario(${u.idPersonal})" aria-label="Generar clave temporal para ${escaparHtml(u.usuario)}">Clave temporal</button>`);
+        }
+        if (u.estadoAprobacion === 'APROBADA' && u.activada) {
+          acciones.push(`<button class="boton-secundario" onclick="restablecerUsuario(${u.idPersonal})" aria-label="Enviar restablecimiento a ${escaparHtml(u.usuario)}">Restablecer clave</button>`);
+          acciones.push(`<button class="${u.idEstado === 1 ? 'boton-peligro' : 'boton-secundario'}" onclick="toggleEstadoUsuario(${u.idPersonal}, ${u.idEstado})" aria-label="${u.idEstado === 1 ? 'Desactivar' : 'Activar'} usuario ${escaparHtml(u.usuario)}">${u.idEstado === 1 ? 'Desactivar' : 'Activar'}</button>`);
+        }
+        return `
         <tr>
           <td>${escaparHtml(u.usuario)}</td><td>${escaparHtml(u.nombre)} ${escaparHtml(u.apellido)}</td><td>${escaparHtml(u.perfil)}</td>
-          <td><span class="estado-badge ${u.idEstado === 1 ? 'estado-activo' : 'estado-inactivo'}">${u.idEstado === 1 ? 'Activo' : 'Inactivo'}</span></td>
-          <td class="fila-acciones">
-            <button class="boton-secundario" onclick="editarUsuario(${u.idPersonal})" aria-label="Editar usuario ${escaparHtml(u.usuario)}">Editar</button>
-            <button class="${u.idEstado === 1 ? 'boton-peligro' : 'boton-secundario'}" onclick="toggleEstadoUsuario(${u.idPersonal}, ${u.idEstado})" aria-label="${u.idEstado === 1 ? 'Desactivar' : 'Activar'} usuario ${escaparHtml(u.usuario)}">${u.idEstado === 1 ? 'Desactivar' : 'Activar'}</button>
-          </td>
-        </tr>`).join('') || '<tr><td colspan="5" class="tabla-vacia">Sin usuarios</td></tr>';
+          <td><span class="estado-badge ${estado.clase}">${estado.texto}</span></td>
+          <td class="fila-acciones">${acciones.join('')}</td>
+        </tr>`;
+      }).join('') || '<tr><td colspan="5" class="tabla-vacia">Sin usuarios</td></tr>';
     } catch (error) {
       document.getElementById('tablaUsuarios').innerHTML = `<tr><td colspan="5" class="tabla-vacia">${escaparHtml(error.message)}</td></tr>`;
     }
+  }
+
+  function estadoUsuario(u) {
+    if (u.estadoAprobacion === 'PENDIENTE') return { texto: 'Pendiente de aprobación', clase: 'estado-inactivo' };
+    if (u.estadoAprobacion === 'RECHAZADA') return { texto: 'Rechazada', clase: 'estado-inactivo' };
+    if (!u.activada) return { texto: 'Pendiente de activación', clase: 'estado-inactivo' };
+    return u.idEstado === 1
+      ? { texto: 'Activa', clase: 'estado-activo' }
+      : { texto: 'Inactiva', clase: 'estado-inactivo' };
   }
 
   async function editarUsuario(id) {
@@ -478,32 +507,47 @@
     document.getElementById('usuarioNombre').value = u.nombre;
     document.getElementById('usuarioApellido').value = u.apellido;
     document.getElementById('usuarioEmail').value = u.email;
+    document.getElementById('usuarioEmail').disabled = Boolean(u.activada);
+    document.getElementById('ayudaEmail').hidden = !u.activada;
     document.getElementById('usuarioCedula').value = u.cedula;
     document.getElementById('usuarioTelefono').value = u.telefono || '';
     document.getElementById('usuarioLogin').value = u.usuario;
-    document.getElementById('usuarioClave').value = '';
-    document.getElementById('usuarioClave').required = false;
     document.getElementById('usuarioPerfil').value = u.idPerfil;
-    document.getElementById('usuarioRequiere2fa').checked = u.requiere2fa;
 
     const turnoActual = cacheTurnos.find(t => t.idPersonal === u.idPersonal && t.idEstado === 1);
     document.getElementById('usuarioHoraInicio').value = turnoActual ? turnoActual.horaInicio : '';
     document.getElementById('usuarioHoraFin').value = turnoActual ? turnoActual.horaFin : '';
 
     document.getElementById('tituloFormUsuario').textContent = 'Editar usuario';
-    document.getElementById('etiquetaClaveOpcional').style.display = 'inline';
     document.getElementById('btnCancelarUsuario').style.display = 'block';
+    document.querySelector('#formUsuario button[type="submit"]').textContent = 'Guardar cambios';
+    document.getElementById('notaAprobacion').innerHTML = notaAprobacion(u);
     enfocarFormulario('usuarioNombre');
+  }
+
+  function notaAprobacion(u) {
+    if (u.estadoAprobacion === 'PENDIENTE') {
+      return 'Esta cuenta está <b>pendiente de aprobación</b>. Un usuario de seguridad debe aprobarla. Si cambias el correo, se invalida el enlace de activación anterior.';
+    }
+    if (u.estadoAprobacion === 'RECHAZADA') {
+      return 'Esta cuenta fue <b>rechazada</b>. Al guardar los cambios vuelve a la cola de aprobación.';
+    }
+    if (!u.activada) {
+      return 'Cuenta aprobada <b>pendiente de activación</b>. Puedes reenviar el enlace o generar una clave temporal.';
+    }
+    return 'Cuenta <b>activa</b>. El correo y la clave solo los puede cambiar el usuario desde <b>Mi cuenta</b>.';
   }
 
   function resetFormUsuario() {
     document.getElementById('formUsuario').reset();
     document.getElementById('usuarioId').value = '';
-    document.getElementById('usuarioClave').required = true;
+    document.getElementById('usuarioEmail').disabled = false;
+    document.getElementById('ayudaEmail').hidden = true;
     document.getElementById('tituloFormUsuario').textContent = 'Nuevo usuario';
-    document.getElementById('etiquetaClaveOpcional').style.display = 'none';
-    document.getElementById('notaTurno').textContent = 'El turno es obligatorio al crear un usuario. Al editar, se actualiza el turno activo del usuario. Si el fin es menor que el inicio, el turno cruza la medianoche.';
     document.getElementById('btnCancelarUsuario').style.display = 'none';
+    document.querySelector('#formUsuario button[type="submit"]').textContent = 'Enviar a aprobación';
+    document.getElementById('notaAprobacion').innerHTML = 'La cuenta se crea <b>pendiente de aprobación</b>. Un usuario con perfil <b>seguridad</b> debe aprobarla y el usuario recibirá un enlace de activación en su correo. El administrador nunca define la clave.';
+    document.getElementById('notaTurno').textContent = 'El turno es obligatorio al crear un usuario. Al editar, se actualiza el turno activo del usuario. Si el fin es menor que el inicio, el turno cruza la medianoche.';
     limpiarMensaje('mensajeUsuario');
   }
 
@@ -524,6 +568,66 @@
       cargarUsuarios();
     } catch (error) { avisar(error.message, 'error'); }
   }
+
+  async function reenviarActivacionUsuario(id) {
+    const usuario = cacheUsuarios.find((u) => u.idPersonal === id);
+    const confirmado = await confirmarAccion({
+      titulo: 'Reenviar activación',
+      mensaje: `¿Enviar un enlace de activación nuevo a «${usuario?.email || id}»? El enlace anterior deja de funcionar.`,
+      textoConfirmar: 'Reenviar',
+      peligro: false
+    });
+    if (!confirmado) return;
+    try {
+      const datos = await reenviarActivacion(id);
+      avisar(datos.message, datos.correoEnviado ? 'exito' : 'error');
+      cargarUsuarios();
+    } catch (error) { avisar(error.message, 'error'); }
+  }
+
+  async function restablecerUsuario(id) {
+    const usuario = cacheUsuarios.find((u) => u.idPersonal === id);
+    const confirmado = await confirmarAccion({
+      titulo: 'Restablecer clave',
+      mensaje: `Se enviará a «${usuario?.email || id}» un enlace para que el usuario cree una clave nueva. El administrador no verá la clave. ¿Continuar?`,
+      textoConfirmar: 'Enviar enlace',
+      peligro: false
+    });
+    if (!confirmado) return;
+    try {
+      const datos = await restablecerPersonal(id);
+      avisar(datos.message, datos.correoEnviado ? 'exito' : 'error');
+    } catch (error) { avisar(error.message, 'error'); }
+  }
+
+  async function generarTemporalUsuario(id) {
+    const usuario = cacheUsuarios.find((u) => u.idPersonal === id);
+    const confirmado = await confirmarAccion({
+      titulo: 'Generar clave temporal',
+      mensaje: `Solo para cuentas que aún no han sido activadas. La clave se mostrará una vez y vencerá en 72 horas. ¿Generar una para «${usuario?.usuario || id}»?`,
+      textoConfirmar: 'Generar clave',
+      peligro: false
+    });
+    if (!confirmado) return;
+    try {
+      const datos = await generarClaveTemporal(id);
+      document.getElementById('claveTemporalValor').textContent = datos.claveTemporal;
+      document.getElementById('claveTemporalExpira').textContent =
+        `Vence: ${formatearFechaHora(datos.expira)}. Al primer ingreso se exigirá cambiarla.`;
+      document.getElementById('dialogoClaveTemporal').showModal();
+      cargarUsuarios();
+    } catch (error) { avisar(error.message, 'error'); }
+  }
+
+  document.getElementById('btnCopiarClaveTemporal').addEventListener('click', async () => {
+    const valor = document.getElementById('claveTemporalValor').textContent;
+    try {
+      await navigator.clipboard.writeText(valor);
+      avisar('Clave copiada.', 'exito');
+    } catch (error) {
+      avisar('No se pudo copiar. Selecciona la clave manualmente.', 'error');
+    }
+  });
 
   document.getElementById('formUsuario').addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -547,30 +651,34 @@
       telefono: document.getElementById('usuarioTelefono').value.trim(),
       usuario: document.getElementById('usuarioLogin').value.trim(),
       idPerfil: Number(document.getElementById('usuarioPerfil').value),
-      requiere2fa: document.getElementById('usuarioRequiere2fa').checked,
       horaInicio: document.getElementById('usuarioHoraInicio').value || null,
       horaFin: document.getElementById('usuarioHoraFin').value || null
     };
 
-    // Al editar, una clave vacía significa "no cambiarla"; se omite del payload.
-    const clave = document.getElementById('usuarioClave').value;
-    if (clave) datos.clave = clave;
-
-    await conBotonOcupado(e.currentTarget, 'Guardando...', async () => {
-      try {
-        if (id) {
-          await actualizarPersonal(id, datos);
-        } else {
-          await crearPersonal(datos);
-        }
-        resetFormUsuario();
-        mostrarMensaje('mensajeUsuario', 'Usuario guardado correctamente.', 'exito');
-        cargarUsuarios();
-        cargarTurnos();
-      } catch (error) {
-        mostrarMensaje('mensajeUsuario', error.message, 'error');
+    const boton = e.currentTarget.querySelector('button[type="submit"]');
+    boton.disabled = true;
+    boton.textContent = 'Guardando...';
+    try {
+      if (id) {
+        await actualizarPersonal(id, datos);
+      } else {
+        await crearPersonal(datos);
       }
-    });
+      const mensaje = id
+        ? 'Usuario actualizado correctamente.'
+        : 'Cuenta enviada a aprobación. Un usuario de seguridad debe aprobarla y el usuario recibirá el enlace de activación.';
+      resetFormUsuario();
+      mostrarMensaje('mensajeUsuario', mensaje, 'exito');
+      cargarUsuarios();
+      cargarTurnos();
+    } catch (error) {
+      mostrarMensaje('mensajeUsuario', error.message, 'error');
+    } finally {
+      boton.disabled = false;
+      boton.textContent = document.getElementById('usuarioId').value
+        ? 'Guardar cambios'
+        : 'Enviar a aprobación';
+    }
   });
 
   /* ---------- TURNOS (se consultan para editar usuarios) ---------- */

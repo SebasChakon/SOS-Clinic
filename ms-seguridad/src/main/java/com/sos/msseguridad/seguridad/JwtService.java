@@ -39,10 +39,16 @@ public class JwtService {
 
     public String generarToken(String usuario, Integer idPersonal, String perfil,
                                List<String> actividades) {
+        return generarToken(usuario, idPersonal, perfil, actividades, false);
+    }
+
+    public String generarToken(String usuario, Integer idPersonal, String perfil,
+                               List<String> actividades, boolean debeCambiarClave) {
         Map<String, Object> claims = new HashMap<>();
         claims.put("idPersonal", idPersonal);
         claims.put("perfil", perfil);
         claims.put("actividades", actividades == null ? List.of() : actividades);
+        claims.put("ccp", debeCambiarClave);
 
         return Jwts.builder()
                 .claims(claims)
@@ -55,6 +61,11 @@ public class JwtService {
 
     public String generarToken(String usuario, Integer idPersonal, String perfil) {
         return generarToken(usuario, idPersonal, perfil, List.of());
+    }
+
+    public boolean extraerDebeCambiarClave(String token) {
+        Boolean valor = extraerClaim(token, claims -> claims.get("ccp", Boolean.class));
+        return Boolean.TRUE.equals(valor);
     }
 
     public String extraerUsuario(String token) {

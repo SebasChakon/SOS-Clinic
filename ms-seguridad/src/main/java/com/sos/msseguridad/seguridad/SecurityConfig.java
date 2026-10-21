@@ -50,8 +50,13 @@ public class SecurityConfig {
             .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/error").permitAll()
-                .requestMatchers("/auth/login", "/auth/verificar-2fa").permitAll()
-                .requestMatchers("/admin/auditoria/**").hasAnyRole("ADMINISTRADOR", "SEGURIDAD")
+                .requestMatchers("/auth/login", "/auth/verificar-2fa", "/auth/reenviar-2fa",
+                        "/auth/recuperar-clave", "/auth/validar-token-recuperacion",
+                        "/auth/restablecer-clave", "/auth/confirmar-email",
+                        "/auth/politica-clave").permitAll()
+                .requestMatchers("/admin/auditoria/**").hasAnyRole("ADMINISTRADOR", "SEGURIDAD", "AUDITOR")
+                .requestMatchers("/admin/personal/pendientes", "/admin/personal/*/aprobar",
+                        "/admin/personal/*/rechazar").hasRole("SEGURIDAD")
                 .requestMatchers("/admin/**").hasRole("ADMINISTRADOR")
                 .anyRequest().authenticated()
             )

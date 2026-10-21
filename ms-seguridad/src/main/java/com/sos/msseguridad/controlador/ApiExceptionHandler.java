@@ -1,5 +1,6 @@
 package com.sos.msseguridad.controlador;
 
+import com.sos.msseguridad.seguridad.PoliticaClaveException;
 import com.sos.msseguridad.seguridad.RateLimitExceededException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -36,6 +37,12 @@ public class ApiExceptionHandler {
         return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
                 .header("Retry-After", String.valueOf(e.getRetryAfterSeconds()))
                 .body(Map.of("message", e.getMessage()));
+    }
+
+    @ExceptionHandler(PoliticaClaveException.class)
+    public ResponseEntity<?> politica(PoliticaClaveException e) {
+        return ResponseEntity.badRequest()
+                .body(Map.of("message", e.getMessage(), "errores", e.getErrores()));
     }
 
     @ExceptionHandler(DataIntegrityViolationException.class)

@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SOS Clinic · Recuperar clave</title>
+<link rel="icon" href="favicon.ico">
+<link rel="stylesheet" href="assets/estilos.css">
+<script src="assets/movimiento.js"></script>
+</head>
+<body>
+
+<a class="skip-link" href="#contenidoPrincipal">Saltar al contenido</a>
+
+<header class="topbar" role="banner">
+  <div class="marca" title="SOS Clinic · Sistema de Triage Inteligente"><strong>SOS</strong> · Triage</div>
+  <nav id="navPrincipal" aria-label="Navegación principal"></nav>
+  <div class="topbar-usuario">
+    <a href="login.html" style="color: var(--acento-claro); font-size: 14px;">Volver al acceso</a>
+  </div>
+</header>
+
+<main class="contenido" id="contenidoPrincipal">
+  <div class="tarjeta" style="max-width: 520px; margin: 32px auto;">
+    <h1>Recupera tu clave</h1>
+    <p class="sub">Ingresa tu usuario o el correo registrado. Si coincide con una cuenta activa,
+      te enviaremos un enlace para crear una clave nueva. El enlace vence en 30 minutos.</p>
+
+    <form id="formRecuperar" novalidate>
+      <div class="campo">
+        <label for="identificador">Usuario o correo</label>
+        <input type="text" id="identificador" name="identificador" autocomplete="username"
+               autocapitalize="none" spellcheck="false" required>
+      </div>
+      <button type="submit" id="btnRecuperar" class="boton-primario boton-full">Enviar enlace</button>
+      <div class="mensaje" id="mensaje" tabindex="-1"></div>
+    </form>
+
+    <p class="ayuda" style="margin-top:14px;">
+      Por seguridad, la respuesta es la misma exista o no la cuenta.
+    </p>
+  </div>
+</main>
+
+<script src="assets/api.js"></script>
+<script>
+  const form = document.getElementById('formRecuperar');
+  const boton = document.getElementById('btnRecuperar');
+
+  form.addEventListener('submit', async (evento) => {
+    evento.preventDefault();
+    limpiarMensaje('mensaje');
+    if (!form.reportValidity()) return;
+
+    const identificador = document.getElementById('identificador').value.trim();
+    boton.disabled = true;
+    boton.textContent = 'Enviando...';
+
+    try {
+      const datos = await recuperarClave(identificador);
+      mostrarMensaje('mensaje', datos.message, 'exito');
+      form.reset();
+    } catch (error) {
+      mostrarMensaje('mensaje', error.message, 'error');
+      document.getElementById('mensaje').focus();
+    } finally {
+      boton.disabled = false;
+      boton.textContent = 'Enviar enlace';
+    }
+  });
+</script>
+
+</body>
+</html>

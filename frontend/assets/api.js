@@ -103,6 +103,7 @@ function exigirSesion() {
   if (sesion.perfil === 'administrador') return;
 
   const paginaActual = window.location.pathname.split('/').pop();
+  if (paginaActual === 'cuenta.html') return;
   const tienePermiso = sesion.actividades.some((a) => a.enlace === paginaActual);
 
   if (!tienePermiso) {
@@ -196,6 +197,10 @@ async function llamarApi(ruta, opciones = {}) {
   try { datos = textoRespuesta ? JSON.parse(textoRespuesta) : null; } catch (e) { datos = textoRespuesta; }
 
   if (!respuesta.ok) {
+    if (respuesta.status === 403 && datos && datos.code === 'CAMBIO_CLAVE_REQUERIDO') {
+      window.location.href = 'cambiar-clave.html?obligatorio=1';
+      throw new Error('Debes cambiar la clave temporal antes de continuar.');
+    }
     throw new Error(mensajeDeError(datos, respuesta));
   }
 
@@ -212,18 +217,87 @@ async function llamarApi(ruta, opciones = {}) {
     });
     if (!datos.requiere2fa) {
       guardarSesion(datos);
-      registrarAuditoria('LOGIN', 'Inicio de sesion');
+      if (!datos.debeCambiarClave) registrarAuditoria('LOGIN', 'Inicio de sesion');
     }
     return datos;
   }
 
-  async function verificarCodigo2fa(usuario, codigo) {
+  async function verificarCodigo2fa(challenge, codigo) {
     const datos = await llamarApi('/ms-seguridad/auth/verificar-2fa', {
-      method: 'POST', body: JSON.stringify({ usuario, codigo })
+      method: 'POST', body: JSON.stringify({ challenge, codigo })
     });
     guardarSesion(datos);
-    registrarAuditoria('LOGIN', 'Inicio de sesion (2FA)');
+    if (!datos.debeCambiarClave) registrarAuditoria('LOGIN', 'Inicio de sesion (2FA)');
     return datos;
+  }
+
+  async function reenviarCodigo2fa(challenge) {
+    return llamarApi('/ms-seguridad/auth/reenviar-2fa', {
+      method: 'POST', body: JSON.stringify({ challenge })
+    });
+  }
+
+  async function obtenerPoliticaClave() {
+    return llamarApi('/ms-seguridad/auth/politica-clave');
+  }
+
+  async function recuperarClave(identificador) {
+    return llamarApi('/ms-seguridad/auth/recuperar-clave', {
+      method: 'POST', body: JSON.stringify({ identificador })
+    });
+  }
+
+  async function validarTokenRecuperacion(token) {
+    return llamarApi('/ms-seguridad/auth/validar-token-recuperacion', {
+      method: 'POST', body: JSON.stringify({ token })
+    });
+  }
+
+  async function restablecerClave(token, clave) {
+    return llamarApi('/ms-seguridad/auth/restablecer-clave', {
+      method: 'POST', body: JSON.stringify({ token, clave })
+    });
+  }
+
+  async function confirmarCambioEmail(token) {
+    return llamarApi('/ms-seguridad/auth/confirmar-email', {
+      method: 'POST', body: JSON.stringify({ token })
+    });
+  }
+
+  async function cambiarClave(claveActual, claveNueva) {
+    const datos = await llamarApi('/ms-seguridad/auth/cambiar-clave', {
+      method: 'POST', body: JSON.stringify({ claveActual, claveNueva })
+    });
+    guardarSesion(datos);
+    registrarAuditoria('ACTUALIZAR', 'Cambio de clave propio');
+    return datos;
+  }
+
+  async function obtenerMiCuenta() {
+    return llamarApi('/ms-seguridad/auth/mi-cuenta');
+  }
+
+  async function activar2fa() {
+    return llamarApi('/ms-seguridad/auth/2fa/activar', { method: 'POST' });
+  }
+
+  async function solicitarDesactivar2fa(claveActual) {
+    return llamarApi('/ms-seguridad/auth/2fa/desactivar/solicitar', {
+      method: 'POST', body: JSON.stringify({ claveActual })
+    });
+  }
+
+  async function desactivar2fa(challenge, codigo) {
+    return llamarApi('/ms-seguridad/auth/2fa/desactivar', {
+      method: 'POST', body: JSON.stringify({ challenge, codigo })
+    });
+  }
+
+  async function solicitarCambioEmail(claveActual, emailNuevo) {
+    return llamarApi('/ms-seguridad/auth/solicitar-cambio-email', {
+      method: 'POST', body: JSON.stringify({ claveActual, emailNuevo })
+    });
   }
 
 /* ---------------------------------------------------------------------
@@ -252,12 +326,10 @@ async function obtenerPacientePorId(idPaciente) {
 }
 
 async function registrarSignosVitales(signos) {
-  const resultado = await llamarApi('/ms-pacientes/pacientes/signos-vitales', {
+  return llamarApi('/ms-pacientes/pacientes/signos-vitales', {
     method: 'POST',
     body: JSON.stringify(signos)
   });
-  registrarAuditoria('CREAR', `Signos vitales, registro #${signos.idRegistro}`);
-  return resultado;
 }
 
 async function listarSignosVitalesPorRegistro(idRegistro) {
@@ -535,7 +607,7 @@ const ETIQUETAS_ACTIVIDAD = {
   lista_espera: 'Lista de espera',
   auditoria: 'Auditoría',
   gestion_roles: 'Administración',
-  enfermedades_crue: 'Enfermedades CRUE',
+  aprobar_cuentas: 'Aprobaciones',
   dashboard_analitica: 'Analítica',
   dashboard: 'Analítica'
 };
@@ -553,7 +625,7 @@ function pintarNav(idContenedor, enlaceActual) {
     const etiqueta = ETIQUETAS_ACTIVIDAD[a.nombreActividad] || a.nombreActividad;
     const activo = a.enlace === enlaceActual;
     return `<a href="${escaparHtml(enlaceSeguro(a.enlace))}"${activo ? ' class="activo" aria-current="page"' : ''}>${escaparHtml(etiqueta)}</a>`;
-  }).join('');
+  }).join('') + `<a href="cuenta.html"${enlaceActual === 'cuenta.html' ? ' class="activo" aria-current="page"' : ''}>Mi cuenta</a>`;
 
   contenedor.innerHTML = `
     <button type="button" class="menu-toggle" aria-expanded="false" aria-controls="navEnlaces">
@@ -637,6 +709,24 @@ async function crearPersonal(datos) { return llamarApi('/ms-seguridad/admin/pers
 async function actualizarPersonal(id, datos) { return llamarApi(`/ms-seguridad/admin/personal/${id}`, { method: 'PUT', body: JSON.stringify(datos) }); }
 async function cambiarEstadoPersonal(id, idEstado) {
   return llamarApi(`/ms-seguridad/admin/personal/${id}/estado?idEstado=${idEstado}`, { method: 'PUT' });
+}
+async function listarPendientes() { return llamarApi('/ms-seguridad/admin/personal/pendientes'); }
+async function aprobarPersonal(id) {
+  return llamarApi(`/ms-seguridad/admin/personal/${id}/aprobar`, { method: 'POST' });
+}
+async function rechazarPersonal(id, motivo) {
+  return llamarApi(`/ms-seguridad/admin/personal/${id}/rechazar`, {
+    method: 'POST', body: JSON.stringify({ motivo: motivo || null })
+  });
+}
+async function reenviarActivacion(id) {
+  return llamarApi(`/ms-seguridad/admin/personal/${id}/activacion`, { method: 'POST' });
+}
+async function restablecerPersonal(id) {
+  return llamarApi(`/ms-seguridad/admin/personal/${id}/restablecer`, { method: 'POST' });
+}
+async function generarClaveTemporal(id) {
+  return llamarApi(`/ms-seguridad/admin/personal/${id}/clave-temporal`, { method: 'POST' });
 }
 async function listarTurnos() { return llamarApi('/ms-seguridad/admin/turnos'); }
 async function crearTurno(datos) { return llamarApi('/ms-seguridad/admin/turnos', { method: 'POST', body: JSON.stringify(datos) }); }

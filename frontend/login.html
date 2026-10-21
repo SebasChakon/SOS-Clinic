@@ -94,6 +94,9 @@
         </div>
 
         <button type="submit" id="btnEntrar" class="boton-primario boton-full">Entrar</button>
+        <p class="ayuda" style="margin-top:10px; text-align:center;">
+          <a href="recuperar-clave.html">¿Olvidaste tu clave?</a>
+        </p>
       </form>
 
       <form id="formCodigo" hidden novalidate>
@@ -134,7 +137,7 @@
   const botonReenviar = document.getElementById('btnReenviar');
   const campoCodigo = document.getElementById('codigoIngresado');
 
-  let credencialesPendientes = null;
+  let challengePendiente = null;
   let intervaloCuenta = null;
   let intervaloReenvio = null;
 
@@ -223,7 +226,7 @@
 
   function volverALogin() {
     detenerCuentaRegresiva();
-    credencialesPendientes = null;
+    challengePendiente = null;
     formCodigo.hidden = true;
     formLogin.hidden = false;
     document.getElementById('tituloForm').textContent = 'Iniciar sesión';
@@ -249,12 +252,17 @@
       const datos = await login(usuario, clave);
 
       if (datos.requiere2fa) {
-        credencialesPendientes = { usuario, clave };
+        challengePendiente = datos.challenge;
         mostrarPasoCodigo(usuario);
         return;
       }
 
-      credencialesPendientes = null;
+      challengePendiente = null;
+      if (datos.debeCambiarClave) {
+        window.location.href = 'cambiar-clave.html?obligatorio=1';
+        return;
+      }
+
       const destino = primerDestinoValido(datos.actividades);
 
       if (!destino) {
@@ -287,9 +295,14 @@
     botonVerificar.textContent = 'Verificando...';
 
     try {
-      const datos = await verificarCodigo2fa(usuario, codigo);
-      credencialesPendientes = null;
+      const datos = await verificarCodigo2fa(challengePendiente, codigo);
+      challengePendiente = null;
       detenerCuentaRegresiva();
+
+      if (datos.debeCambiarClave) {
+        window.location.href = 'cambiar-clave.html?obligatorio=1';
+        return;
+      }
 
       const destino = primerDestinoValido(datos.actividades);
       if (!destino) {
@@ -312,32 +325,23 @@
 
   async function reenviarCodigo() {
     limpiarMensaje('mensaje');
-    if (!credencialesPendientes) {
-      mostrarMensaje('mensaje', 'No pudimos reenviar el código. Vuelve a iniciar sesión.', 'error');
+    if (!challengePendiente) {
+      mostrarMensaje('mensaje', 'No pudimos reenviar el codigo. Vuelve a iniciar sesion.', 'error');
       return;
     }
 
     botonReenviar.disabled = true;
     try {
-      const datos = await login(credencialesPendientes.usuario, credencialesPendientes.clave);
-      if (datos.requiere2fa) {
-        mostrarMensaje('mensaje', 'Te enviamos un código nuevo. Revisa tu correo.', 'exito');
-        iniciarCuentaRegresiva(300);
-        iniciarEsperaReenvio(30);
-        campoCodigo.focus();
-      } else {
-        // La cuenta dejó de exigir 2FA: iniciar sesión normalmente.
-        const destino = primerDestinoValido(datos.actividades);
-        if (destino) {
-          window.location.href = destino;
-        } else {
-          mostrarMensaje('mensaje', 'Tu usuario no tiene ninguna pantalla asignada. Contacta al coordinador de turnos.', 'error');
-        }
-      }
+      const datos = await reenviarCodigo2fa(challengePendiente);
+      if (datos.challenge) challengePendiente = datos.challenge;
+      mostrarMensaje('mensaje', 'Te enviamos un codigo nuevo. Revisa tu correo.', 'exito');
+      iniciarCuentaRegresiva(300);
+      iniciarEsperaReenvio(30);
+      campoCodigo.focus();
     } catch (error) {
       mostrarMensaje('mensaje', error.message, 'error');
       botonReenviar.disabled = false;
-      botonReenviar.textContent = 'Reenviar código';
+      botonReenviar.textContent = 'Reenviar codigo';
     }
   }
 </script>

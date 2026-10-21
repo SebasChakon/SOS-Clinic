@@ -4,6 +4,9 @@
 -- Corresponde al diccionario de datos del anteproyecto SOS (cap. 2.1.2)
 -- =====================================================================
 
+-- pgcrypto se usa para hashear las claves del seed con BCrypt.
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
+
 CREATE TABLE perfil (
     id_perfil     INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     perfil        VARCHAR(30) NOT NULL UNIQUE,
@@ -21,7 +24,15 @@ CREATE TABLE personal (
     clave         VARCHAR(255) NOT NULL,           -- hash BCrypt, nunca texto plano
     id_perfil     INT NOT NULL REFERENCES perfil(id_perfil),
     id_estado     INT NOT NULL DEFAULT 1 CHECK (id_estado IN (0, 1)),
-    requiere_2fa  BOOLEAN NOT NULL DEFAULT FALSE
+    requiere_2fa  BOOLEAN NOT NULL DEFAULT FALSE,
+    debe_cambiar_clave BOOLEAN NOT NULL DEFAULT FALSE,
+    clave_expira       TIMESTAMP NULL,
+    fecha_cambio_clave TIMESTAMP NULL,
+    estado_aprobacion  VARCHAR(20) NOT NULL DEFAULT 'APROBADA'
+                       CHECK (estado_aprobacion IN ('PENDIENTE', 'APROBADA', 'RECHAZADA')),
+    aprobado_por       INT NULL REFERENCES personal(id_personal) ON DELETE SET NULL,
+    fecha_aprobacion   TIMESTAMP NULL,
+    email_pendiente    VARCHAR(60) NULL
 );
 
 CREATE TABLE turno (
@@ -33,12 +44,35 @@ CREATE TABLE turno (
 );
 
 CREATE TABLE codigo_verificacion (
-    id_codigo    INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    id_personal  INT NOT NULL REFERENCES personal(id_personal) ON DELETE CASCADE,
-    codigo       VARCHAR(255) NOT NULL,            -- hash BCrypt del codigo
-    fecha_expira TIMESTAMP NOT NULL,
-    usado        BOOLEAN NOT NULL DEFAULT FALSE
+    id_codigo      INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    id_personal    INT NOT NULL REFERENCES personal(id_personal) ON DELETE CASCADE,
+    codigo         VARCHAR(255) NOT NULL,          -- hash BCrypt del codigo
+    challenge_hash VARCHAR(64),                    -- SHA-256 del challenge de pre-autenticacion
+    proposito      VARCHAR(20) NOT NULL DEFAULT 'LOGIN',
+    fecha_expira   TIMESTAMP NOT NULL,
+    usado          BOOLEAN NOT NULL DEFAULT FALSE
 );
+
+CREATE UNIQUE INDEX ux_codigo_challenge
+    ON codigo_verificacion (challenge_hash)
+    WHERE challenge_hash IS NOT NULL;
+
+CREATE TABLE token_recuperacion (
+    id_token       INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    id_personal    INT NOT NULL REFERENCES personal(id_personal) ON DELETE CASCADE,
+    tipo           VARCHAR(20) NOT NULL
+                   CHECK (tipo IN ('RECUPERACION', 'ACTIVACION', 'CAMBIO_EMAIL')),
+    token_hash     VARCHAR(64) NOT NULL,
+    fecha_creacion TIMESTAMP NOT NULL DEFAULT now(),
+    fecha_expira   TIMESTAMP NOT NULL,
+    usado          BOOLEAN NOT NULL DEFAULT FALSE,
+    ip_solicitud   VARCHAR(45),
+    user_agent     VARCHAR(200)
+);
+
+CREATE UNIQUE INDEX ux_token_recuperacion_hash ON token_recuperacion (token_hash);
+CREATE INDEX ix_token_recuperacion_personal
+    ON token_recuperacion (id_personal, tipo) WHERE usado = FALSE;
 
 CREATE TABLE actividades (
     id_actividad      INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
@@ -67,6 +101,7 @@ CREATE TABLE paciente (
     apellido           VARCHAR(50) NOT NULL,
     cedula             VARCHAR(12) NOT NULL UNIQUE,
     fecha_nacimiento   DATE NOT NULL,
+    email              VARCHAR(80),
     id_estado          INT NOT NULL DEFAULT 1 CHECK (id_estado IN (0, 1))
 );
 
@@ -92,7 +127,9 @@ CREATE TABLE registro_triage (
     tiempo_espera_minutos  INT,
     ubicacion              VARCHAR(50),
     fecha_hora_llegada     TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    id_estado              INT NOT NULL DEFAULT 1 CHECK (id_estado IN (0, 1))
+    id_estado              INT NOT NULL DEFAULT 1 CHECK (id_estado IN (0, 1)),
+    diagnostico_final      VARCHAR(1000),
+    tratamiento            VARCHAR(1000)
 );
 
 CREATE TABLE estado_paciente (
@@ -121,34 +158,6 @@ CREATE TABLE registro_auditoria (
     id_estado    INT NOT NULL DEFAULT 1 CHECK (id_estado IN (0, 1))
 );
 
--- Datos base mínimos para poder probar los microservicios desde el día 1
-INSERT INTO perfil (perfil) VALUES ('triage'), ('medico'), ('coordinacion'), ('seguridad');
-
-INSERT INTO actividades (nombre_actividad, enlace)
-SELECT 'enfermedades_crue', 'enfermedades-crue.html'
-WHERE NOT EXISTS (
-    SELECT 1 FROM actividades WHERE nombre_actividad = 'enfermedades_crue'
-);
-
-INSERT INTO perfil_actividad (id_perfil, id_actividad)
-SELECT p.id_perfil, a.id_actividad
-FROM perfil p
-JOIN actividades a ON a.nombre_actividad = 'enfermedades_crue'
-WHERE NOT EXISTS (
-    SELECT 1
-    FROM perfil_actividad pa
-    WHERE pa.id_perfil = p.id_perfil
-      AND pa.id_actividad = a.id_actividad
-);
-
-INSERT INTO categoria_triage (nombre_categoria, descripcion, prioridad) VALUES
-  ('Resucitacion', 'Riesgo vital inminente', 1),
-  ('Emergencia', 'Riesgo vital potencial', 2),
-  ('Urgencia', 'Requiere atencion pronta', 3),
-  ('Urgencia menor', 'Puede esperar de forma segura', 4),
-  ('Sin urgencia', 'No compromete la condicion del paciente', 5);
-
-INSERT INTO estado_triage (nombre_estado, descripcion) VALUES
-  ('En espera', 'Paciente registrado, pendiente de atencion'),
-  ('En atencion', 'Paciente siendo atendido'),
-  ('Atendido', 'Episodio de triage cerrado');
+-- Los datos de aplicacion (perfiles, actividades, cuentas, pacientes y
+-- episodios) se cargan con infra/seed/seed.sql. El esquema solo crea tablas
+-- e indices para que una base nueva quede siempre alineada con JPA.

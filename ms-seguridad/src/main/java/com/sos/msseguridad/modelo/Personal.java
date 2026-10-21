@@ -9,6 +9,8 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.time.LocalDateTime;
+
 @Entity
 @Table(name = "personal")
 @Data
@@ -48,7 +50,28 @@ public class Personal {
 
     @Column(name = "id_estado", nullable = false)
     private Integer idEstado = 1;
-    
+
     @Column(name = "requiere_2fa", nullable = false)
     private Boolean requiere2fa = false;
+
+    @Column(name = "debe_cambiar_clave", nullable = false)
+    private Boolean debeCambiarClave = false;
+
+    @Column(name = "clave_expira")
+    private LocalDateTime claveExpira;
+
+    @Column(name = "fecha_cambio_clave")
+    private LocalDateTime fechaCambioClave;
+
+    @Column(name = "estado_aprobacion", nullable = false, length = 20)
+    private String estadoAprobacion = "APROBADA";
+
+    @Column(name = "aprobado_por")
+    private Integer aprobadoPor;
+
+    @Column(name = "fecha_aprobacion")
+    private LocalDateTime fechaAprobacion;
+
+    @Column(name = "email_pendiente", length = 60)
+    private String emailPendiente;
 }

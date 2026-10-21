@@ -26,7 +26,10 @@
             <div style="font-size:20px; font-weight:500; color:#222f30; letter-spacing:-.01em;">Tu código de verificación</div>
             <div style="font-size:14px; color:#4d5757; margin-top:8px; line-height:1.6;">
               Hola <b th:text="${nombre}">usuario</b>, ingresa este código en la pantalla de acceso
-              para completar el inicio de sesión.
+              para <span th:text="${motivo}">completar tu inicio de sesión</span>.
+              <div style="font-size:12px; color:#9aa5a2; margin-top:6px;">
+                Cuenta: <b th:text="${usuario}">usuario</b> · <span th:text="${perfil}">perfil</span>
+              </div>
             </div>
           </td>
         </tr>

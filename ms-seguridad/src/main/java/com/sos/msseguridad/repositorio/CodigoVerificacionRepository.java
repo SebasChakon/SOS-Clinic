@@ -13,6 +13,9 @@ public interface CodigoVerificacionRepository extends JpaRepository<CodigoVerifi
 
     Optional<CodigoVerificacion> findTopByPersonal_IdPersonalAndUsadoFalseOrderByIdCodigoDesc(Integer idPersonal);
 
+    Optional<CodigoVerificacion> findTopByChallengeHashAndPropositoAndUsadoFalseOrderByIdCodigoDesc(
+            String challengeHash, String proposito);
+
     @Modifying
     @Transactional
     @Query("update CodigoVerificacion c set c.usado = true "

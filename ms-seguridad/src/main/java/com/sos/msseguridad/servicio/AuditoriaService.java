@@ -33,7 +33,7 @@ public class AuditoriaService {
 
     public void registrar(String usuarioActor, String accion, String detalle) {
         try {
-            Personal personal = personalRepository.findByUsuario(usuarioActor).orElse(null);
+            Personal personal = personalRepository.findByUsuarioIgnoreCase(usuarioActor).orElse(null);
             if (personal == null) return;
 
             RegistroAuditoria log = new RegistroAuditoria();

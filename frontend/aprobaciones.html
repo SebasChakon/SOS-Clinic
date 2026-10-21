@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SOS Clinic · Aprobación de cuentas</title>
+<link rel="icon" href="favicon.ico">
+<link rel="stylesheet" href="assets/estilos.css">
+<script src="assets/movimiento.js"></script>
+<style>
+  .fila-acciones { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+  .fila-acciones button { min-height: 44px; padding: 8px 12px; font-size: 13px; }
+  .estado-badge { display: inline-block; padding: 4px 10px; border-radius: 9999px; font-size: 12px; font-weight: 600; background: var(--verde-fondo); color: var(--teal-hover); }
+</style>
+</head>
+<body>
+
+<a class="skip-link" href="#contenidoPrincipal">Saltar al contenido</a>
+
+<header class="topbar" role="banner">
+  <div class="marca" title="SOS Clinic · Sistema de Triage Inteligente"><strong>SOS</strong> · Triage</div>
+  <nav id="navPrincipal" aria-label="Navegación principal"></nav>
+  <div class="topbar-usuario">
+    <span id="infoUsuario" class="usuario-info"></span>
+    <button class="salir" type="button" onclick="cerrarSesion()">Salir</button>
+  </div>
+</header>
+
+<main class="contenido" id="contenidoPrincipal">
+  <h1>Aprobación de cuentas</h1>
+  <p class="sub">Revisa las cuentas creadas por el administrador. Al aprobar, el usuario recibe
+    un enlace de activación en su correo. Ningún administrador puede aprobar sus propias creaciones.</p>
+  <p class="nota-form" style="color: var(--rojo-alerta);">Antes de aprobar, verifica que el correo y el
+    nombre correspondan realmente al empleado. El administrador controla el correo en el alta; no apruebes
+    direcciones que no reconozcas.</p>
+
+  <div class="mensaje" id="mensaje" tabindex="-1"></div>
+
+  <div class="tarjeta">
+    <div class="tabla-scroll">
+      <table>
+        <caption class="solo-lectores">Cuentas pendientes de aprobación</caption>
+        <thead>
+          <tr>
+            <th scope="col">Usuario</th>
+            <th scope="col">Nombre</th>
+            <th scope="col">Correo</th>
+            <th scope="col">Perfil</th>
+            <th scope="col">Acciones</th>
+          </tr>
+        </thead>
+        <tbody id="tablaPendientes">
+          <tr><td colspan="5" class="tabla-vacia">Cargando...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</main>
+
+<script src="assets/api.js"></script>
+<script>
+  exigirSesion();
+  pintarNav('navPrincipal', 'aprobaciones.html');
+  const sesion = obtenerSesion();
+  if (sesion) document.getElementById('infoUsuario').textContent = `${sesion.usuario} · ${sesion.perfil}`;
+
+  async function cargarPendientes() {
+    try {
+      const pendientes = await listarPendientes();
+      document.getElementById('tablaPendientes').innerHTML = pendientes.length
+        ? pendientes.map((u) => `
+          <tr>
+            <td>${escaparHtml(u.usuario)}</td>
+            <td>${escaparHtml(u.nombre)} ${escaparHtml(u.apellido)}</td>
+            <td>${escaparHtml(u.email)}</td>
+            <td>${escaparHtml(u.perfil)}</td>
+            <td class="fila-acciones">
+              <button class="boton-primario" onclick="aprobar(${u.idPersonal})"
+                      aria-label="Aprobar cuenta de ${escaparHtml(u.usuario)}">Aprobar</button>
+              <button class="boton-peligro" onclick="rechazar(${u.idPersonal})"
+                      aria-label="Rechazar cuenta de ${escaparHtml(u.usuario)}">Rechazar</button>
+            </td>
+          </tr>`).join('')
+        : '<tr><td colspan="5" class="tabla-vacia">No hay cuentas pendientes.</td></tr>';
+    } catch (error) {
+      document.getElementById('tablaPendientes').innerHTML =
+        `<tr><td colspan="5" class="tabla-vacia">${escaparHtml(error.message)}</td></tr>`;
+    }
+  }
+
+  async function aprobar(id) {
+    const confirmado = await confirmarAccion({
+      titulo: 'Aprobar cuenta',
+      mensaje: 'La cuenta quedara activa y se enviara el enlace de activacion al correo del usuario. ¿Continuar?',
+      textoConfirmar: 'Aprobar cuenta',
+      peligro: false
+    });
+    if (!confirmado) return;
+    try {
+      const datos = await aprobarPersonal(id);
+      mostrarMensaje('mensaje', datos.message, datos.correoEnviado ? 'exito' : 'error');
+      cargarPendientes();
+    } catch (error) {
+      mostrarMensaje('mensaje', error.message, 'error');
+    }
+  }
+
+  async function rechazar(id) {
+    const confirmado = await confirmarAccion({
+      titulo: 'Rechazar cuenta',
+      mensaje: 'La cuenta quedara inactiva. El administrador puede editarla y volver a enviarla a aprobacion. ¿Continuar?',
+      textoConfirmar: 'Rechazar cuenta'
+    });
+    if (!confirmado) return;
+    try {
+      const datos = await rechazarPersonal(id, null);
+      mostrarMensaje('mensaje', datos.message, 'exito');
+      cargarPendientes();
+    } catch (error) {
+      mostrarMensaje('mensaje', error.message, 'error');
+    }
+  }
+
+  cargarPendientes();
+</script>
+
+</body>
+</html>

@@ -1,5 +1,6 @@
 package com.sos.msgateway.seguridad;
 
+import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
 import jakarta.servlet.FilterChain;
@@ -42,6 +43,12 @@ public class JwtValidationFilter extends OncePerRequestFilter {
         String ruta = request.getRequestURI();
         return "/ms-seguridad/auth/login".equals(ruta)
                 || "/ms-seguridad/auth/verificar-2fa".equals(ruta)
+                || "/ms-seguridad/auth/reenviar-2fa".equals(ruta)
+                || "/ms-seguridad/auth/recuperar-clave".equals(ruta)
+                || "/ms-seguridad/auth/validar-token-recuperacion".equals(ruta)
+                || "/ms-seguridad/auth/restablecer-clave".equals(ruta)
+                || "/ms-seguridad/auth/confirmar-email".equals(ruta)
+                || "/ms-seguridad/auth/politica-clave".equals(ruta)
                 || "/ms-seguridad/error".equals(ruta)
                 || "/error".equals(ruta);
     }
@@ -56,14 +63,27 @@ public class JwtValidationFilter extends OncePerRequestFilter {
         }
 
         try {
-            Jwts.parser().verifyWith(signingKey).build()
-                    .parseSignedClaims(header.substring(7));
+            Claims claims = Jwts.parser().verifyWith(signingKey).build()
+                    .parseSignedClaims(header.substring(7)).getPayload();
+
+            if (Boolean.TRUE.equals(claims.get("ccp", Boolean.class))
+                    && !"/ms-seguridad/auth/cambiar-clave".equals(request.getRequestURI())) {
+                rechazarCambioClave(response);
+                return;
+            }
         } catch (Exception e) {
             rechazar(response);
             return;
         }
 
         filterChain.doFilter(request, response);
+    }
+
+    private void rechazarCambioClave(HttpServletResponse response) throws IOException {
+        response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+        response.setContentType("application/json;charset=UTF-8");
+        response.getWriter().write(
+                "{\"code\":\"CAMBIO_CLAVE_REQUERIDO\",\"message\":\"Debes cambiar la clave temporal antes de continuar.\"}");
     }
 
     private void rechazar(HttpServletResponse response) throws IOException {

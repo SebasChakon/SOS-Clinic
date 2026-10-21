@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SOS Clinic · Mi cuenta</title>
+<link rel="icon" href="favicon.ico">
+<link rel="stylesheet" href="assets/estilos.css">
+<script src="assets/movimiento.js"></script>
+<style>
+  .cuenta-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 20px; align-items: start; }
+  .cuenta-grid .tarjeta { margin: 0; }
+  .dato { display: flex; justify-content: space-between; gap: 12px; padding: 7px 0; border-bottom: 1px solid var(--tejido); font-size: 14px; }
+  .dato:last-child { border-bottom: 0; }
+  .dato strong { font-weight: 600; color: var(--texto); }
+  .dato span { color: var(--texto-suave); text-align: right; word-break: break-word; }
+  .bloque-2fa { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--tejido); }
+</style>
+</head>
+<body>
+
+<a class="skip-link" href="#contenidoPrincipal">Saltar al contenido</a>
+
+<header class="topbar" role="banner">
+  <div class="marca" title="SOS Clinic · Sistema de Triage Inteligente"><strong>SOS</strong> · Triage</div>
+  <nav id="navPrincipal" aria-label="Navegación principal"></nav>
+  <div class="topbar-usuario">
+    <span id="infoUsuario" class="usuario-info"></span>
+    <button class="salir" type="button" onclick="cerrarSesion()">Salir</button>
+  </div>
+</header>
+
+<main class="contenido" id="contenidoPrincipal">
+  <h1>Mi cuenta</h1>
+  <p class="sub">Datos de acceso, clave, verificacion en dos pasos y correo de contacto.</p>
+
+  <div class="mensaje" id="mensajeGeneral" tabindex="-1"></div>
+
+  <div class="cuenta-grid">
+
+    <section class="tarjeta" aria-labelledby="tituloDatos">
+      <h2 id="tituloDatos">Datos de la cuenta</h2>
+      <div id="datosCuenta"><p class="sub">Cargando...</p></div>
+    </section>
+
+    <section class="tarjeta" aria-labelledby="tituloClave">
+      <h2 id="tituloClave">Cambiar clave</h2>
+      <form id="formClave" novalidate>
+        <div class="campo">
+          <label for="claveActual">Clave actual</label>
+          <input type="password" id="claveActual" autocomplete="current-password" required>
+        </div>
+        <div class="campo">
+          <label for="claveNueva">Clave nueva</label>
+          <input type="password" id="claveNueva" autocomplete="new-password" required>
+          <div class="fuerza" id="fuerzaClave" aria-hidden="true"></div>
+          <p class="fuerza-texto" id="fuerzaClave-texto"></p>
+          <ul class="lista-requisitos" id="reglasClave" aria-live="polite"></ul>
+        </div>
+        <div class="campo">
+          <label for="claveConfirmar">Confirma la clave nueva</label>
+          <input type="password" id="claveConfirmar" autocomplete="new-password" required>
+        </div>
+        <button type="submit" id="btnClave" class="boton-primario boton-full">Guardar clave</button>
+        <div class="mensaje" id="mensajeClave" tabindex="-1"></div>
+      </form>
+    </section>
+
+    <section class="tarjeta" aria-labelledby="titulo2fa">
+      <h2 id="titulo2fa">Verificacion en dos pasos</h2>
+      <p id="estado2fa" class="sub">Cargando...</p>
+      <button type="button" id="btnActivar2fa" class="boton-primario boton-full" hidden>Activar 2FA</button>
+
+      <div class="bloque-2fa" id="bloqueDesactivar" hidden>
+        <p class="sub">Para desactivarlo confirma tu clave y el codigo que enviaremos a tu correo.</p>
+        <div class="campo">
+          <label for="clave2fa">Clave actual</label>
+          <input type="password" id="clave2fa" autocomplete="current-password">
+        </div>
+        <button type="button" id="btnSolicitarCodigo" class="boton-secundario boton-full">Enviar codigo</button>
+
+        <div id="pasoCodigo2fa" hidden>
+          <div class="campo">
+            <label for="codigo2fa">Codigo de 6 digitos</label>
+            <input type="text" id="codigo2fa" inputmode="numeric" maxlength="6" pattern="[0-9]{6}"
+                   autocomplete="one-time-code">
+          </div>
+          <button type="button" id="btnDesactivar2fa" class="boton-peligro boton-full">Desactivar 2FA</button>
+        </div>
+      </div>
+      <div class="mensaje" id="mensaje2fa" tabindex="-1"></div>
+    </section>
+
+    <section class="tarjeta" aria-labelledby="tituloCorreo">
+      <h2 id="tituloCorreo">Correo de contacto</h2>
+      <p class="sub">Aqui llegan el codigo 2FA y los enlaces de recuperacion. El cambio se confirma
+        desde la direccion nueva.</p>
+      <form id="formCorreo" novalidate>
+        <div class="campo">
+          <label for="claveCorreo">Clave actual</label>
+          <input type="password" id="claveCorreo" autocomplete="current-password" required>
+        </div>
+        <div class="campo">
+          <label for="emailNuevo">Correo nuevo</label>
+          <input type="email" id="emailNuevo" autocomplete="email" required>
+        </div>
+        <button type="submit" id="btnCorreo" class="boton-primario boton-full">Solicitar cambio</button>
+        <div class="mensaje" id="mensajeCorreo" tabindex="-1"></div>
+      </form>
+    </section>
+
+  </div>
+</main>
+
+<script src="assets/api.js"></script>
+<script src="assets/clave.js"></script>
+<script>
+  exigirSesion();
+  pintarNav('navPrincipal', 'cuenta.html');
+
+  const sesion = obtenerSesion();
+  if (sesion) document.getElementById('infoUsuario').textContent = `${sesion.usuario} · ${sesion.perfil}`;
+
+  let cuentaActual = null;
+  let challengeDesactivar = null;
+
+  const PERFILES_2FA_OBLIGATORIO = ['administrador', 'seguridad'];
+
+  async function cargarCuenta() {
+    try {
+      cuentaActual = await obtenerMiCuenta();
+      const estado = cuentaActual.estadoAprobacion;
+      const activada = cuentaActual.activada;
+      document.getElementById('datosCuenta').innerHTML = `
+        <div class="dato"><strong>Usuario</strong><span>${escaparHtml(cuentaActual.usuario)}</span></div>
+        <div class="dato"><strong>Nombre</strong><span>${escaparHtml(cuentaActual.nombre)} ${escaparHtml(cuentaActual.apellido)}</span></div>
+        <div class="dato"><strong>Correo</strong><span>${escaparHtml(cuentaActual.email)}</span></div>
+        ${cuentaActual.emailPendiente ? `<div class="dato"><strong>Correo pendiente</strong><span>${escaparHtml(cuentaActual.emailPendiente)} (sin confirmar)</span></div>` : ''}
+        <div class="dato"><strong>Perfil</strong><span>${escaparHtml(cuentaActual.perfil)}</span></div>
+        <div class="dato"><strong>Estado</strong><span>${escaparHtml(estado)}${activada ? ' · activa' : ' · pendiente de activacion'}</span></div>`;
+
+      const obligatorio = PERFILES_2FA_OBLIGATORIO.includes(String(cuentaActual.perfil || '').toLowerCase());
+      const estado2fa = document.getElementById('estado2fa');
+      document.getElementById('btnActivar2fa').hidden = Boolean(cuentaActual.requiere2fa);
+      document.getElementById('bloqueDesactivar').hidden = !cuentaActual.requiere2fa || obligatorio;
+
+      if (cuentaActual.requiere2fa) {
+        estado2fa.textContent = obligatorio
+          ? 'Activada. Es obligatoria para tu perfil y no se puede desactivar.'
+          : 'Activada. Puedes desactivarla confirmando tu clave y un codigo nuevo.';
+      } else {
+        estado2fa.textContent = 'Desactivada. Te recomendamos activarla.';
+      }
+    } catch (error) {
+      document.getElementById('datosCuenta').innerHTML =
+        `<p class="mensaje error">${escaparHtml(error.message)}</p>`;
+    }
+  }
+
+  conectarClave('claveNueva', 'reglasClave', 'fuerzaClave', () => ({
+    usuario: cuentaActual ? cuentaActual.usuario : '',
+    nombre: cuentaActual ? cuentaActual.nombre : '',
+    apellido: cuentaActual ? cuentaActual.apellido : '',
+    email: cuentaActual ? cuentaActual.email : '',
+    cedula: cuentaActual ? cuentaActual.cedula : '',
+    telefono: cuentaActual ? cuentaActual.telefono : ''
+  }));
+
+  /* ---------- Clave ---------- */
+
+  document.getElementById('formClave').addEventListener('submit', async (evento) => {
+    evento.preventDefault();
+    limpiarMensaje('mensajeClave');
+    const actual = document.getElementById('claveActual').value;
+    const nueva = document.getElementById('claveNueva').value;
+    const confirmar = document.getElementById('claveConfirmar').value;
+    const contexto = cuentaActual ? {
+      usuario: cuentaActual.usuario, nombre: cuentaActual.nombre, apellido: cuentaActual.apellido,
+      email: cuentaActual.email, cedula: cuentaActual.cedula, telefono: cuentaActual.telefono
+    } : {};
+    const errores = erroresClave(nueva, contexto);
+
+    if (errores.length) {
+      mostrarMensaje('mensajeClave', errores.join(' '), 'error');
+      document.getElementById('claveNueva').focus();
+      return;
+    }
+    if (nueva !== confirmar) {
+      mostrarMensaje('mensajeClave', 'Las claves no coinciden.', 'error');
+      document.getElementById('claveConfirmar').focus();
+      return;
+    }
+
+    const boton = document.getElementById('btnClave');
+    boton.disabled = true;
+    boton.textContent = 'Guardando...';
+    try {
+      await cambiarClave(actual, nueva);
+      evento.target.reset();
+      pintarReglasClave('reglasClave', '', contexto);
+      pintarFuerzaClave('fuerzaClave', '');
+      mostrarMensaje('mensajeClave', 'Clave actualizada correctamente.', 'exito');
+    } catch (error) {
+      mostrarMensaje('mensajeClave', error.message, 'error');
+    } finally {
+      boton.disabled = false;
+      boton.textContent = 'Guardar clave';
+    }
+  });
+
+  /* ---------- 2FA ---------- */
+
+  document.getElementById('btnActivar2fa').addEventListener('click', async () => {
+    const boton = document.getElementById('btnActivar2fa');
+    boton.disabled = true;
+    try {
+      const datos = await activar2fa();
+      mostrarMensaje('mensaje2fa', datos.message, 'exito');
+      cargarCuenta();
+    } catch (error) {
+      mostrarMensaje('mensaje2fa', error.message, 'error');
+    } finally {
+      boton.disabled = false;
+    }
+  });
+
+  document.getElementById('btnSolicitarCodigo').addEventListener('click', async () => {
+    limpiarMensaje('mensaje2fa');
+    const clave = document.getElementById('clave2fa').value;
+    if (!clave) {
+      mostrarMensaje('mensaje2fa', 'Ingresa tu clave actual.', 'error');
+      document.getElementById('clave2fa').focus();
+      return;
+    }
+    const boton = document.getElementById('btnSolicitarCodigo');
+    boton.disabled = true;
+    try {
+      const datos = await solicitarDesactivar2fa(clave);
+      challengeDesactivar = datos.challenge;
+      document.getElementById('pasoCodigo2fa').hidden = false;
+      mostrarMensaje('mensaje2fa', datos.message, 'exito');
+      document.getElementById('codigo2fa').focus();
+    } catch (error) {
+      mostrarMensaje('mensaje2fa', error.message, 'error');
+    } finally {
+      boton.disabled = false;
+    }
+  });
+
+  document.getElementById('btnDesactivar2fa').addEventListener('click', async () => {
+    limpiarMensaje('mensaje2fa');
+    const codigo = document.getElementById('codigo2fa').value.trim();
+    if (!/^[0-9]{6}$/.test(codigo)) {
+      mostrarMensaje('mensaje2fa', 'Ingresa el codigo de 6 digitos.', 'error');
+      document.getElementById('codigo2fa').focus();
+      return;
+    }
+    const boton = document.getElementById('btnDesactivar2fa');
+    boton.disabled = true;
+    try {
+      const datos = await desactivar2fa(challengeDesactivar, codigo);
+      document.getElementById('pasoCodigo2fa').hidden = true;
+      document.getElementById('codigo2fa').value = '';
+      mostrarMensaje('mensaje2fa', datos.message, 'exito');
+      cargarCuenta();
+    } catch (error) {
+      mostrarMensaje('mensaje2fa', error.message, 'error');
+    } finally {
+      boton.disabled = false;
+    }
+  });
+
+  /* ---------- Correo ---------- */
+
+  document.getElementById('formCorreo').addEventListener('submit', async (evento) => {
+    evento.preventDefault();
+    limpiarMensaje('mensajeCorreo');
+    const clave = document.getElementById('claveCorreo').value;
+    const email = document.getElementById('emailNuevo').value.trim();
+    const boton = document.getElementById('btnCorreo');
+    boton.disabled = true;
+    boton.textContent = 'Enviando...';
+    try {
+      const datos = await solicitarCambioEmail(clave, email);
+      evento.target.reset();
+      mostrarMensaje('mensajeCorreo', datos.message, 'exito');
+      cargarCuenta();
+    } catch (error) {
+      mostrarMensaje('mensajeCorreo', error.message, 'error');
+    } finally {
+      boton.disabled = false;
+      boton.textContent = 'Solicitar cambio';
+    }
+  });
+
+  cargarCuenta();
+</script>
+
+</body>
+</html>

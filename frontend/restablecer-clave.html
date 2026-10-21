@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SOS Clinic · Nueva clave</title>
+<link rel="icon" href="favicon.ico">
+<link rel="stylesheet" href="assets/estilos.css">
+<script src="assets/movimiento.js"></script>
+</head>
+<body>
+
+<a class="skip-link" href="#contenidoPrincipal">Saltar al contenido</a>
+
+<header class="topbar" role="banner">
+  <div class="marca" title="SOS Clinic · Sistema de Triage Inteligente"><strong>SOS</strong> · Triage</div>
+  <nav id="navPrincipal" aria-label="Navegación principal"></nav>
+  <div class="topbar-usuario">
+    <a href="login.html" style="color: var(--acento-claro); font-size: 14px;">Ir al acceso</a>
+  </div>
+</header>
+
+<main class="contenido" id="contenidoPrincipal">
+  <div class="tarjeta" style="max-width: 560px; margin: 32px auto;">
+    <h1 id="titulo">Nueva clave</h1>
+    <p class="sub" id="subtitulo">Valida el enlace para continuar.</p>
+
+    <div class="mensaje" id="mensaje" tabindex="-1"></div>
+
+    <div id="zonaCarga">
+      <p class="sub">Validando enlace...</p>
+    </div>
+
+    <form id="formClave" hidden novalidate>
+      <div class="campo">
+        <label for="claveNueva">Clave nueva</label>
+        <input type="password" id="claveNueva" autocomplete="new-password" required
+               aria-describedby="reglasClave">
+        <div class="fuerza" id="fuerzaClave" aria-hidden="true"></div>
+        <p class="fuerza-texto" id="fuerzaClave-texto"></p>
+        <ul class="lista-requisitos" id="reglasClave" aria-live="polite"></ul>
+      </div>
+      <div class="campo">
+        <label for="claveConfirmar">Confirma la clave</label>
+        <input type="password" id="claveConfirmar" autocomplete="new-password" required>
+      </div>
+      <button type="submit" id="btnGuardar" class="boton-primario boton-full">Guardar clave</button>
+    </form>
+
+    <div id="zonaCorreo" hidden>
+      <p class="sub">Este enlace confirma el cambio de correo de tu cuenta. Pulsa el boton para aplicarlo.</p>
+      <button type="button" id="btnConfirmarCorreo" class="boton-primario boton-full">Confirmar correo</button>
+    </div>
+
+    <p class="ayuda" id="ayudaVolver" style="margin-top:14px;" hidden>
+      <a href="login.html">Volver al inicio de sesion</a>
+    </p>
+  </div>
+</main>
+
+<script src="assets/api.js"></script>
+<script src="assets/clave.js"></script>
+<script>
+  const parametros = new URLSearchParams(window.location.search);
+  const token = parametros.get('token') || '';
+  if (token) {
+    history.replaceState({}, document.title, 'restablecer-clave.html');
+  }
+
+  const form = document.getElementById('formClave');
+  const boton = document.getElementById('btnGuardar');
+  const zonaCarga = document.getElementById('zonaCarga');
+  const zonaCorreo = document.getElementById('zonaCorreo');
+
+  let tipoEnlace = null;
+  let usuarioEnlace = '';
+
+  function bloquear(mensaje) {
+    zonaCarga.hidden = true;
+    form.hidden = true;
+    zonaCorreo.hidden = true;
+    document.getElementById('ayudaVolver').hidden = false;
+    mostrarMensaje('mensaje', mensaje, 'error');
+    document.getElementById('mensaje').focus();
+  }
+
+  async function validar() {
+    if (!token) {
+      bloquear('El enlace no es valido. Solicita uno nuevo desde la pantalla de acceso.');
+      return;
+    }
+    try {
+      const datos = await validarTokenRecuperacion(token);
+      tipoEnlace = datos.tipo;
+      usuarioEnlace = datos.usuario || '';
+      zonaCarga.hidden = true;
+
+      if (datos.tipo === 'CAMBIO_EMAIL') {
+        document.getElementById('titulo').textContent = 'Confirma tu nuevo correo';
+        document.getElementById('subtitulo').textContent = `Cuenta: ${datos.usuario}`;
+        zonaCorreo.hidden = false;
+        return;
+      }
+
+      document.getElementById('titulo').textContent =
+        datos.tipo === 'ACTIVACION' ? 'Activa tu cuenta' : 'Define tu nueva clave';
+      document.getElementById('subtitulo').textContent =
+        `Cuenta: ${datos.usuario}. Elige una clave que cumpla las reglas.`;
+      form.hidden = false;
+      conectarClave('claveNueva', 'reglasClave', 'fuerzaClave', () => ({ usuario: datos.usuario }));
+      document.getElementById('claveNueva').focus();
+    } catch (error) {
+      bloquear(error.message);
+    }
+  }
+
+  form.addEventListener('submit', async (evento) => {
+    evento.preventDefault();
+    limpiarMensaje('mensaje');
+
+    const clave = document.getElementById('claveNueva').value;
+    const confirmar = document.getElementById('claveConfirmar').value;
+    const errores = erroresClave(clave, { usuario: usuarioEnlace });
+
+    if (errores.length) {
+      mostrarMensaje('mensaje', errores.join(' '), 'error');
+      document.getElementById('claveNueva').focus();
+      return;
+    }
+    if (clave !== confirmar) {
+      mostrarMensaje('mensaje', 'Las claves no coinciden.', 'error');
+      document.getElementById('claveConfirmar').focus();
+      return;
+    }
+
+    boton.disabled = true;
+    boton.textContent = 'Guardando...';
+    try {
+      await restablecerClave(token, clave);
+      form.hidden = true;
+      document.getElementById('ayudaVolver').hidden = false;
+      mostrarMensaje('mensaje',
+        tipoEnlace === 'ACTIVACION'
+          ? 'Cuenta activada. Ya puedes iniciar sesion con tu clave.'
+          : 'Clave actualizada. Ya puedes iniciar sesion.', 'exito');
+    } catch (error) {
+      mostrarMensaje('mensaje', error.message, 'error');
+      document.getElementById('mensaje').focus();
+    } finally {
+      boton.disabled = false;
+      boton.textContent = 'Guardar clave';
+    }
+  });
+
+  document.getElementById('btnConfirmarCorreo').addEventListener('click', async (evento) => {
+    const botonCorreo = evento.currentTarget;
+    botonCorreo.disabled = true;
+    botonCorreo.textContent = 'Confirmando...';
+    try {
+      const datos = await confirmarCambioEmail(token);
+      zonaCorreo.hidden = true;
+      document.getElementById('ayudaVolver').hidden = false;
+      mostrarMensaje('mensaje', datos.message, 'exito');
+    } catch (error) {
+      mostrarMensaje('mensaje', error.message, 'error');
+    } finally {
+      botonCorreo.disabled = false;
+      botonCorreo.textContent = 'Confirmar correo';
+    }
+  });
+
+  validar();
+</script>
+
+</body>
+</html>

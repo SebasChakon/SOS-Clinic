@@ -20,3 +20,8 @@ seguridad/utilidades/capturas/node_modules/
 __pycache__/
 *.pyc
 *.dump
+
+# Credenciales locales del seed y backups de la base
+infra/seed/credenciales.local.env
+infra/seed/credenciales.local.md
+infra/backups/

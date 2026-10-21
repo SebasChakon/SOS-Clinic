@@ -30,6 +30,12 @@ public class CodigoVerificacion {
     @Column(name = "codigo", nullable = false, length = 255)
     private String codigo; // hash BCrypt del codigo, nunca texto plano
 
+    @Column(name = "challenge_hash", length = 64)
+    private String challengeHash; // SHA-256 del challenge de pre-autenticacion
+
+    @Column(name = "proposito", nullable = false, length = 20)
+    private String proposito = "LOGIN";
+
     @Column(name = "fecha_expira", nullable = false)
     private LocalDateTime fechaExpira;
 

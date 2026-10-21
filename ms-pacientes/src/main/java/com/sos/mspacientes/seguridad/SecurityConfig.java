@@ -41,14 +41,15 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/error").permitAll()
                         .requestMatchers(HttpMethod.GET, "/pacientes/**")
-                        .hasAnyRole("ADMINISTRADOR", "MEDICO", "TRIAGE", "COORDINACION")
+                        .hasAnyRole("ADMINISTRADOR", "MEDICO", "TRIAGE", "COORDINACION",
+                                "RECEPCIONISTA", "LISTA_ESPERA")
                         .requestMatchers(HttpMethod.POST,
                                 "/pacientes/*/enviar-historia",
                                 "/pacientes/*/enviar-cita-teleconsulta",
                                 "/pacientes/atenciones/**")
                         .hasAnyRole("ADMINISTRADOR", "MEDICO")
                         .requestMatchers(HttpMethod.POST, "/pacientes/**")
-                        .hasAnyRole("ADMINISTRADOR", "MEDICO", "TRIAGE")
+                        .hasAnyRole("ADMINISTRADOR", "MEDICO", "TRIAGE", "RECEPCIONISTA")
                         .anyRequest().authenticated())
                 .exceptionHandling(ex -> ex
                         .authenticationEntryPoint((request, response, authException) ->

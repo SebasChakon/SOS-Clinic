@@ -39,6 +39,14 @@ public class JwtAuthFilter extends OncePerRequestFilter {
         try {
             final String usuario = jwtService.extraerUsuario(token);
 
+            // Un token emitido antes de cambiar la clave temporal solo sirve
+            // para completar ese cambio; el gateway aplica la misma regla.
+            if (jwtService.extraerDebeCambiarClave(token) && !rutaPermitidaConClavePendiente(request)) {
+                SecurityContextHolder.clearContext();
+                filterChain.doFilter(request, response);
+                return;
+            }
+
             if (usuario != null && SecurityContextHolder.getContext().getAuthentication() == null
                     && jwtService.esTokenValido(token, usuario)) {
 
@@ -61,5 +69,10 @@ public class JwtAuthFilter extends OncePerRequestFilter {
         }
 
         filterChain.doFilter(request, response);
+    }
+
+    private static boolean rutaPermitidaConClavePendiente(HttpServletRequest request) {
+        String ruta = request.getRequestURI();
+        return ruta != null && ruta.endsWith("/auth/cambiar-clave");
     }
 }
