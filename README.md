@@ -63,10 +63,11 @@ Aunque conceptualmente cada microservicio tiene tablas bajo su responsabilidad, 
 | Ruta | Responsabilidad |
 |---|---|
 | `README.md` | Guía de arquitectura, configuración, operación y limitaciones. |
-| `04. levantar-sistema.bat` | En Windows, carga `.env`, levanta Docker Compose, inicia Eureka, gateway, seguridad, pacientes, triage, analitica y agente con `mvnw.cmd`, detecta Java, omite servicios ya activos y espera los puertos antes de abrir el login. |
 | `00. configurar-java.cmd` y `configurar-java.ps1` | Detecta un JDK 17+ instalado y configura `JAVA_HOME`/`PATH`; no instala Java. |
-| `01. preparar-entorno.cmd` y `preparar-entorno.ps1` | Verifica Docker, exige el `.env` entregado y ejecuta el seed canónico; recomendado en el primer arranque. |
-| `02. levantar-docker.bat` | Levanta PostgreSQL y pgAdmin con `docker compose` y muestra su estado. |
+| `01. levantar-docker.bat` | Levanta PostgreSQL y pgAdmin con `docker compose` y muestra su estado. |
+| `02. preparar-entorno.cmd` y `preparar-entorno.ps1` | Verifica Docker, exige el `.env` entregado y ejecuta el seed canónico; recomendado en el primer arranque. |
+| `03. levantar-bd-local.bat` | Recrea y puebla la base MySQL sintética de analítica. |
+| `04. levantar-sistema.bat` | En Windows, carga `.env`, levanta Docker Compose, inicia Eureka, gateway, seguridad, pacientes, triage, analitica y agente con `mvnw.cmd`, detecta Java, omite servicios ya activos y espera los puertos antes de abrir el login. |
 | `05. detener-sistema.bat` | Detiene frontend, microservicios y contenedores del proyecto; conserva los datos de PostgreSQL. |
 | `infra/` | Infraestructura local PostgreSQL/pgAdmin y SQL inicial. |
 | `frontend/` | Interfaz estática que consume el gateway. |
@@ -183,10 +184,10 @@ El `.env` ya trae PostgreSQL, JWT, SMTP, MySQL y Groq. Las credenciales del seed
 
    Cierra y abre una terminal nueva. Si no encuentra ningún JDK, el script indica qué falta; no instala Java por su cuenta.
 
-3.1. **Levantar la infraestructura Docker (opcional)**: si quieres arrancar y revisar PostgreSQL/pgAdmin antes del seed:
+3.1. **Levantar la infraestructura Docker (recomendado)**: si quieres arrancar y revisar PostgreSQL/pgAdmin antes del seed:
 
    ```powershell
-   & ".\02. levantar-docker.bat"
+   & ".\01. levantar-docker.bat"
    ```
 
    El paso siguiente también levanta PostgreSQL automáticamente.
@@ -194,7 +195,7 @@ El `.env` ya trae PostgreSQL, JWT, SMTP, MySQL y Groq. Las credenciales del seed
 4. **Preparar PostgreSQL y cargar el seed**:
 
    ```powershell
-   & ".\01. preparar-entorno.cmd"
+   & ".\02. preparar-entorno.cmd"
    ```
 
    Verifica Docker y Python, exige que exista `.env`, levanta PostgreSQL, aplica las migraciones y carga el seed. Debe dejar **9 cuentas, 24 pacientes y 30 episodios**. Este paso reemplaza los datos de aplicación: no lo ejecutes sobre una base cuyos datos quieras conservar.
@@ -236,7 +237,7 @@ El `.env` ya trae PostgreSQL, JWT, SMTP, MySQL y Groq. Las credenciales del seed
 #### Notas rápidas
 
 - PowerShell con política `Restricted` no es problema si usas los `.cmd`: invocan PowerShell con `-ExecutionPolicy Bypass`.
-- Si `01. preparar-entorno.cmd` falla por contraseña de PostgreSQL, hay un volumen anterior con otra clave. Ajusta `DB_PASSWORD`/`POSTGRES_PASSWORD` o reconstruye el volumen conscientemente con `.\infra\seed\reset-seed.ps1 -CleanVolume -Yes`; esto último borra la base local.
+- Si `02. preparar-entorno.cmd` falla por contraseña de PostgreSQL, hay un volumen anterior con otra clave. Ajusta `DB_PASSWORD`/`POSTGRES_PASSWORD` o reconstruye el volumen conscientemente con `.\infra\seed\reset-seed.ps1 -CleanVolume -Yes`; esto último borra la base local.
 - El primer build de Maven puede tardar: descarga dependencias.
 - No abras `frontend\index.html` directamente; usa el servidor Python del puerto 5500.
 - La carpeta de preparación contiene secretos. No la publiques fuera del equipo.
@@ -259,7 +260,7 @@ No hay una plantilla de `.env` versionada ni debes crear un `.env` vacío: el pa
 Desde PowerShell, CMD o una terminal abierta en el repositorio:
 
 ```powershell
-& ".\02. levantar-docker.bat"
+& ".\01. levantar-docker.bat"
 ```
 
 Equivalente manual, teniendo en cuenta que el `.env` está en la raíz:
