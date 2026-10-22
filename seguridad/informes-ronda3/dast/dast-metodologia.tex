@@ -1,0 +1,98 @@
+\documentclass[11pt]{article}
+\input{../comun/preambulo}
+
+\title{\textbf{DAST con OWASP ZAP}\\[0.3em]
+\large Metodología --- Ronda 3}
+\author{Equipo SOS Clinic}
+\date{22 de octubre de 2026}
+
+\begin{document}
+\maketitle
+
+\section{Objetivo}
+
+Analizar dinámicamente el frontend estático en busca de problemas de
+configuración, cabeceras, exposición de información y patrones pasivos de
+riesgo, sin lanzar ataques activos ni afectar datos.
+
+\section{Alcance}
+
+\begin{itemize}
+  \item Objetivo: \texttt{http://host.docker.internal:5500}, que corresponde al
+  servidor del frontend en el puerto 5500 de la máquina anfitriona.
+  \item 17 URLs descubiertas por el \textit{spider} de ZAP.
+  \item Perfil \textbf{baseline} (pasivo): no se ejecutan ataques de inyección
+  ni escaneos activos.
+  \item Sin autenticación: se analiza la superficie pública (landing, login,
+  recuperación de clave y páginas estáticas).
+\end{itemize}
+
+\section{Herramienta}
+
+\begin{table}[h]
+\centering
+\small
+\begin{tabular}{@{}ll@{}}
+\toprule
+Elemento & Detalle \\
+\midrule
+Imagen & \texttt{ghcr.io/zaproxy/zaproxy:stable} \\
+Script & \texttt{zap-baseline.py} \\
+Perfil & Baseline pasivo \\
+Objetivo & \texttt{http://host.docker.internal:5500} \\
+Fecha & 22 de octubre de 2026 \\
+\bottomrule
+\end{tabular}
+\caption{Configuración de la ejecución de ZAP.}
+\end{table}
+
+\section{Procedimiento}
+
+\begin{enumerate}
+  \item Verificar que un contenedor alcanza el frontend local mediante
+  \texttt{host.docker.internal}.
+  \item Ejecutar ZAP con el perfil baseline, limitando el \textit{spider} a un
+  minuto y esperando el análisis pasivo.
+  \item Generar reportes HTML, JSON y Markdown en
+  \pantalla{seguridad/resultados/}.
+  \item Clasificar cada advertencia por impacto real y contexto de la
+  aplicación.
+\end{enumerate}
+
+\begin{verbatim}
+docker run --rm \
+  -v <repo>/seguridad/resultados:/zap/wrk:rw \
+  ghcr.io/zaproxy/zaproxy:stable zap-baseline.py \
+  -t http://host.docker.internal:5500 \
+  -r zap-baseline-r3.html \
+  -J zap-baseline-r3.json \
+  -w zap-baseline-r3.md
+\end{verbatim}
+
+\section{Criterios}
+
+ZAP clasifica cada regla como \texttt{PASS}, \texttt{WARN} o \texttt{FAIL}.
+Un \texttt{FAIL} indica una vulnerabilidad o configuración claramente insegura;
+un \texttt{WARN} requiere evaluación manual. En esta ronda se revisó cada
+advertencia y se documentó si era un riesgo real, una decisión intencional o un
+residual conocido.
+
+\section{Limitaciones}
+
+\begin{itemize}
+  \item El escaneo es pasivo: no prueba inyección, lógica de negocio ni
+  autenticación.
+  \item No se autenticó una sesión, por lo que las páginas internas no se
+  analizaron con datos reales.
+  \item El frontend es estático y carga datos por JavaScript; ZAP no ejecuta
+  todos los flujos de la SPA.
+  \item El entorno usa HTTP local; las reglas de HSTS no aplican.
+  \item No sustituye el pentest manual ni una revisión de código.
+\end{itemize}
+
+\section{Reproducción}
+
+El comando anterior deja los tres reportes. Para revisar el resultado sin
+navegador, el JSON se puede resumir con las reglas y sus ocurrencias.
+
+\end{document}

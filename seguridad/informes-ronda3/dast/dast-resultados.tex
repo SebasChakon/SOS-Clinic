@@ -1,0 +1,100 @@
+\documentclass[11pt]{article}
+\input{../comun/preambulo}
+
+\title{\textbf{DAST con OWASP ZAP}\\[0.3em]
+\large Resultados --- Ronda 3}
+\author{Equipo SOS Clinic}
+\date{22 de octubre de 2026}
+
+\begin{document}
+\maketitle
+
+\section{Resumen}
+
+\begin{table}[h]
+\centering
+\small
+\begin{tabular}{@{}lc@{}}
+\toprule
+Métrica & Valor \\
+\midrule
+URLs analizadas & 17 \\
+Reglas pasadas & \textbf{62 PASS} \\
+Fallos & \textbf{0 FAIL} \\
+Advertencias & \textbf{6 WARN} \\
+Información & 0 INFO \\
+\bottomrule
+\end{tabular}
+\caption{Resumen del baseline de ZAP.}
+\end{table}
+
+No hay fallos. Las seis advertencias se evaluaron manualmente; ninguna
+representa una vulnerabilidad explotable en el contexto actual.
+
+\section{Advertencias y evaluación}
+
+\begin{table}[h]
+\centering
+\small
+\begin{tabular}{@{}p{4.6cm}cp{7.6cm}@{}}
+\toprule
+Regla & Ocurrencias & Evaluación \\
+\midrule
+Cross-Domain JavaScript Source Inclusion [10017] & 3 & Bajo. Recursos de YouTube esperados en el landing; no los controla el usuario. \\
+Non-Storable Content [10049] & 9 & Informativo. \texttt{Cache-Control: no-store} es intencional en páginas con sesión. \\
+CSP: Wildcard Directive [10055] & 12 & Bajo/medio. Fuentes de esquema y \texttt{unsafe-inline}; se relaciona con F-03. \\
+Modern Web Application [10109] & 3 & Informativo. Detecta la SPA; no es vulnerabilidad. \\
+Sub Resource Integrity Missing [90003] & 3 & Bajo. Recursos locales del mismo origen; el script de YouTube es externo. \\
+Cross-Origin-Embedder-Policy Missing [90004] & 9 & Bajo. COEP es opcional; COOP y CORP sí están presentes. \\
+\bottomrule
+\end{tabular}
+\caption{Advertencias de ZAP y su clasificación.}
+\end{table}
+
+\section{Controles que pasaron}
+
+ZAP no encontró problemas en:
+
+\begin{itemize}
+  \item Cabeceras anti-clickjacking y \texttt{X-Content-Type-Options}.
+  \item Ausencia de CSP (la CSP existe) y divulgación de errores.
+  \item Comentarios sospechosos, información sensible en URL o referrer.
+  \item Cookies (la aplicación usa \texttt{sessionStorage}, no cookies).
+  \item Enlaces a dominios maliciosos, \textit{mixed content} y
+  \textit{source code disclosure}.
+  \item Tecnologías con versiones vulnerables.
+\end{itemize}
+
+Las cabeceras observadas en el frontend incluyen
+\texttt{X-Content-Type-Options: nosniff}, \texttt{X-Frame-Options: DENY},
+\texttt{Referrer-Policy: no-referrer}, \texttt{Permissions-Policy},
+\texttt{COOP}, \texttt{CORP} y una CSP con \texttt{unsafe-inline}.
+
+\section{Mejoras}
+
+\begin{enumerate}
+  \item Endurecer la CSP: retirar \texttt{unsafe-inline} y restringir
+  \texttt{img-src}/\texttt{media-src} a orígenes concretos.
+  \item Añadir \textit{Subresource Integrity} si se incorporan scripts de
+  terceros que lo permitan.
+  \item Evaluar \texttt{Cross-Origin-Embedder-Policy} si se aíslan recursos
+  cross-origin en el futuro.
+  \item Mantener el análisis baseline en la CI para detectar regresiones de
+  cabeceras.
+\end{enumerate}
+
+\section{Evidencias}
+
+\begin{itemize}
+  \item \pantalla{seguridad/resultados/zap-baseline-r3.html}
+  \item \pantalla{seguridad/resultados/zap-baseline-r3.json}
+  \item \pantalla{seguridad/resultados/zap-baseline-r3.md}
+\end{itemize}
+
+\section{Conclusión}
+
+El frontend no presenta fallos pasivos y las advertencias son de bajo impacto o
+decisiones intencionales. El único punto a mejorar con impacto real es la CSP
+con \texttt{unsafe-inline}, ya identificado en el pentest como F-03.
+
+\end{document}

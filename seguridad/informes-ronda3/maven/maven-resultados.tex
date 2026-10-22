@@ -1,0 +1,80 @@
+\documentclass[11pt]{article}
+\input{../comun/preambulo}
+
+\title{\textbf{Pruebas Maven por módulo}\\[0.3em]
+\large Resultados --- Ronda 3}
+\author{Equipo SOS Clinic}
+\date{22 de octubre de 2026}
+
+\begin{document}
+\maketitle
+
+\section{Resumen}
+
+\begin{table}[h]
+\centering
+\small
+\begin{tabular}{@{}lcc@{}}
+\toprule
+Módulo & Estado & Pruebas ejecutadas \\
+\midrule
+\texttt{eureka-server} & \ok{} & 1 \\
+\texttt{ms-gateway} & \ok{} & 1 \\
+\texttt{ms-seguridad} & \ok{} & 35 \\
+\texttt{ms-pacientes} & \ok{} & 6 \\
+\texttt{ms-triage} & \ok{} & 1 \\
+\texttt{ms-analitica} & \ok{} & 4 \\
+\texttt{ms-ia-agente} & \ok{} & 1 \\
+\midrule
+\textbf{Total} & \textbf{7/7 PASS} & \textbf{49} \\
+\bottomrule
+\end{tabular}
+\caption{Resultado consolidado de Surefire.}
+\end{table}
+
+Los siete módulos terminaron con código 0, sin fallos ni errores. No se
+omitió ninguna prueba.
+
+\section{Detalle por módulo}
+
+\begin{itemize}
+  \item \textbf{eureka-server:} prueba de contexto de la aplicación.
+  \item \textbf{ms-gateway:} prueba de contexto del gateway.
+  \item \textbf{ms-seguridad:} 35 pruebas, incluidas política de claves, JWT,
+  bloqueo de intentos, plantillas de correo, recuperación de clave, servicio de
+  autenticación, resolución de \texttt{.env} y contexto completo.
+  \item \textbf{ms-pacientes:} 6 pruebas, incluidas plantillas y generación de
+  PDF, además del contexto.
+  \item \textbf{ms-triage:} prueba de contexto.
+  \item \textbf{ms-analitica:} 4 pruebas de servicio y del filtro JWT.
+  \item \textbf{ms-ia-agente:} prueba de contexto.
+\end{itemize}
+
+\section{Observaciones}
+
+\begin{itemize}
+  \item Las pruebas de contexto pasaron con PostgreSQL y el archivo
+  \texttt{.env} disponibles; no se ejecutaron contra una base vacía.
+  \item El proyecto se compiló con JDK 26 usando el \textit{release} 17
+  declarado por Maven; no hubo errores de compatibilidad.
+  \item La ejecución no modificó código ni datos del seed.
+  \item El resumen y los logs quedaron fuera del control de versiones para no
+  añadir ruido; solo se versiona el consolidado.
+\end{itemize}
+
+\section{Evidencias}
+
+\begin{itemize}
+  \item \pantalla{seguridad/resultados/maven/resumen.md}
+  \item \pantalla{seguridad/resultados/maven/resumen.csv}
+  \item \pantalla{seguridad/pruebas/ejecutar-tests-maven.ps1}
+\end{itemize}
+
+\section{Conclusión}
+
+La batería Maven existente está en verde en los siete módulos. Es una base
+sólida, aunque no sustituye las pruebas funcionales y de seguridad: su
+cobertura es de contexto y unidades, no de flujos completos. Para `main` se
+recomienda añadir estas pruebas a la CI y valorar JaCoCo y Testcontainers.
+
+\end{document}

@@ -1,0 +1,128 @@
+\documentclass[11pt]{article}
+\input{../comun/preambulo}
+
+\title{\textbf{Pruebas funcionales E2E}\\[0.3em]
+\large Resultados y hallazgos --- Ronda 3}
+\author{Equipo SOS Clinic}
+\date{22 de octubre de 2026}
+
+\begin{document}
+\maketitle
+
+\section{Resumen de ejecución}
+
+\begin{table}[h]
+\centering
+\small
+\begin{tabular}{@{}p{6.2cm}p{4.2cm}p{4.2cm}@{}}
+\toprule
+Suite & Resultado & Evidencia \\
+\midrule
+Smoke del seed (\pantalla{verify_seed.py}) & 9/9 cuentas y conteos correctos & \pantalla{fase0-entorno.md} \\
+Claves, 2FA y aprobaciones (\pantalla{e2e_claves.py}) & \textbf{47/47 PASS} & \pantalla{fase1-claves.txt} \\
+Funcional E2E (\pantalla{e2e_funcional.py}) & \textbf{74 PASS, 0 FAIL, 1 WARN} & \pantalla{fase1-funcional.csv} \\
+Frontend & 14 páginas + \pantalla{api.js}, todas 200 & \pantalla{fase1-funcional.csv} \\
+\bottomrule
+\end{tabular}
+\caption{Resultados de la fase funcional (53,4 s de suite E2E).}
+\end{table}
+
+La suite funcional terminó sin fallos y dejó la base sin datos de prueba: se
+eliminaron el paciente, los dos episodios, las tomas, la auditoría y la cuenta
+de turno temporal.
+
+\section{Cobertura y resultados por área}
+
+\begin{table}[h]
+\centering
+\small
+\begin{tabular}{@{}p{2.8cm}p{8.2cm}c@{}}
+\toprule
+Área & Casos validados & Resultado \\
+\midrule
+Frontend & 14 páginas y \pantalla{assets/api.js} responden 200 con su contenido esperado & \ok{} \\
+Autenticación & Login de administrador, médico, coordinación y auditor con 2FA; perfil y sesión & \ok{} \\
+Pacientes & Listado, alta, cédula duplicada (409), búsqueda exacta y parcial, validación (400), sin token (401) & \ok{} \\
+Triage & Creación, estado inicial, consulta, ubicación, prioridad ordenada, espera, paso a atención y alta & \ok{} \\
+Signos vitales & Dos tomas conservadas, autor desde el JWT, rango inválido rechazado (400) & \ok{} \\
+Alta & Diagnóstico/tratamiento persistidos antes de notificar, 3 correos evaluados, PDF válido, reintento sin duplicar el alta & \ok{} \\
+Analítica & Resumen, llegadas y capacidad con coordinación; 403 con rol clínico, 401 sin token, 400 con rango invertido & \ok{} \\
+Agente IA & 401 sin token, 400 con mensaje vacío y respuesta real de Groq & \ok{} \\
+Auditoría & Registro autenticado, visible para administrador, 403 para médico en administración & \ok{} \\
+Turnos & Login rechazado (403) fuera del turno configurado & \ok{} \\
+\bottomrule
+\end{tabular}
+\caption{Cobertura funcional y resultado por área.}
+\end{table}
+
+\subsection{Detalle de las suites heredadas}
+
+\begin{itemize}
+  \item \textbf{Seed:} login completo con 2FA de las 9 cuentas, perfil correcto
+  y un endpoint representativo por rol.
+  \item \textbf{Claves:} cambio voluntario y obligatorio, bloqueo de token con
+  \texttt{ccp=true}, challenge 2FA de un solo uso y por propósito, tokens de
+  recuperación válidos/expirados/usados, activación, cambio de correo,
+  aprobación y rechazo de cuentas, clave temporal y auditoría.
+\end{itemize}
+
+\section{Hallazgos}
+
+\subsection*{H-F1. Cédula fuera de longitud devuelve 409 genérico (menor)}
+
+La columna \texttt{paciente.cedula} admite 12 caracteres, pero
+\texttt{PacienteRequest} no declara \texttt{@Size}. Una cédula de 20 caracteres
+provoca una violación de integridad y el manejador global responde
+\textbf{409} con un mensaje genérico, cuando lo esperable es \textbf{400} de
+validación. Evidencia: caso \texttt{pacientes / cedula fuera de longitud} de
+\pantalla{fase1-funcional.csv}.
+
+\textbf{Mejora:} agregar \texttt{@Size(max = 12)} y límites equivalentes para
+nombre, apellido y email.
+
+\subsection*{H-F2. El correo con PDF puede agotar el timeout SMTP (transitorio)}
+
+En una corrida preliminar, \texttt{historia-pdf} quedó en \texttt{FALLIDO} con
+\texttt{java.io.IOException: Write timed out}; los otros dos correos se
+enviaron. En la corrida limpia y en el reintento, los tres quedaron en
+\texttt{ENVIADO}. El alta se persistió en todos los casos.
+
+\textbf{Mejora:} mover el envío a un outbox/proceso asíncrono y aumentar el
+timeout solo para adjuntos grandes.
+
+\subsection*{H-F3. Alta con envío síncrono de 16--24 segundos (observación)}
+
+La llamada \texttt{finalizar} espera los tres envíos SMTP. Es funcional, pero
+afecta la experiencia en \pantalla{seguimiento.html}. Se relaciona con H-F2.
+
+\subsection*{H-F4. Limitador de reenvíos 2FA (observación, no es defecto)}
+
+Se permiten 3 códigos por usuario cada 10 minutos; repetir la suite en ciclos
+cortos devuelve 429. Es el comportamiento esperado de
+\texttt{LoginAttemptService}.
+
+\subsection*{H-F5. Datos sintéticos de analítica (observación)}
+
+El tablero reporta 50.000 llegadas y una espera promedio de
+aproximadamente 102 minutos sobre la base sintética. Es el comportamiento
+esperado del generador, no un defecto de la aplicación.
+
+\section{Evidencias}
+
+\begin{itemize}
+  \item \pantalla{seguridad/resultados/fase1-funcional.csv}: 74 casos con
+  estado y detalle.
+  \item \pantalla{seguridad/resultados/fase1-claves.txt}: salida completa de la
+  suite de claves.
+  \item \pantalla{seguridad/resultados/fase1-funcional.md}: resumen narrativo.
+  \item \pantalla{seguridad/resultados/maven/resumen.md}: pruebas Maven.
+\end{itemize}
+
+\section{Conclusiones}
+
+Los flujos funcionales cubiertos pasan en su totalidad. No hay fallos
+bloqueantes. Las mejoras identificadas son acotadas: validación de longitud,
+envío asíncrono de correos y endurecimiento del flujo de alta. El detalle
+priorizado está en \pantalla{seguridad/resultados/plan-mejoras-main.md}.
+
+\end{document}

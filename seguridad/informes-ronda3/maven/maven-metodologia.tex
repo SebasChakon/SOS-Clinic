@@ -1,0 +1,103 @@
+\documentclass[11pt]{article}
+\input{../comun/preambulo}
+
+\title{\textbf{Pruebas Maven por módulo}\\[0.3em]
+\large Metodología de ejecución --- Ronda 3}
+\author{Equipo SOS Clinic}
+\date{22 de octubre de 2026}
+
+\begin{document}
+\maketitle
+
+\section{Objetivo}
+
+Ejecutar la batería de pruebas existente en los siete proyectos Maven del
+repositorio y dejar una constancia reproducible del resultado por módulo, sin
+alterar el código ni la configuración de las pruebas.
+
+\section{Alcance}
+
+\begin{table}[h]
+\centering
+\small
+\begin{tabular}{@{}ll@{}}
+\toprule
+Módulo & Tipo de proyecto \\
+\midrule
+\texttt{eureka-server} & Servidor de descubrimiento \\
+\texttt{ms-gateway} & Gateway HTTP \\
+\texttt{ms-seguridad} & Autenticación, JWT, 2FA, perfiles y turnos \\
+\texttt{ms-pacientes} & Pacientes, signos vitales y correos \\
+\texttt{ms-triage} & Episodios y priorización \\
+\texttt{ms-analitica} & Tablero sobre MySQL sintético \\
+\texttt{ms-ia-agente} & Agente conversacional \\
+\bottomrule
+\end{tabular}
+\caption{Módulos incluidos en la ejecución.}
+\end{table}
+
+Las pruebas de contexto (\texttt{*ApplicationTests}, \texttt{EnvResolucionTest})
+cargan la aplicación completa y necesitan el archivo \texttt{.env} y
+PostgreSQL disponible. Las pruebas unitarias de seguridad y plantillas no
+requieren base de datos.
+
+\section{Herramientas}
+
+\begin{itemize}
+  \item JDK Eclipse Temurin 26.0.2 (el proyecto declara Java 17; el compilador
+  usa el \textit{release} del proyecto).
+  \item Maven Wrapper 3.9.16 incluido en cada módulo.
+  \item Surefire para el resumen de pruebas.
+  \item PowerShell 5+ para el script orquestador.
+\end{itemize}
+
+\section{Procedimiento}
+
+\begin{enumerate}
+  \item Verificar el stack de PostgreSQL y el archivo \texttt{.env}.
+  \item Ejecutar, para cada módulo, \pantalla{.\mvnw.cmd -B test}
+  desde su carpeta, con \texttt{JAVA\_HOME} apuntando al JDK disponible.
+  \item Redirigir la salida completa a un log temporal y capturar el código de
+  salida del proceso.
+  \item Extraer la última línea de Surefire con el patrón
+  \texttt{Tests run: ..., Failures: ..., Errors: ...}.
+  \item Si el módulo falla, conservar las últimas 120 líneas del log en
+  \pantalla{seguridad/resultados/maven/<modulo>-fallo.log}.
+  \item Consolidar el resultado en \pantalla{resumen.csv} y
+  \pantalla{resumen.md}.
+\end{enumerate}
+
+El script reproducible es
+\pantalla{seguridad/pruebas/ejecutar-tests-maven.ps1}. Los logs completos se
+guardan en la carpeta temporal del sistema para no inflar el repositorio.
+
+\section{Criterios de aceptación}
+
+Un módulo se marca \ok{} si el proceso termina con código 0 y Surefire no
+reporta fallos ni errores. Cualquier código distinto de 0 se marca \fallo{} y
+se conserva el final del log para el diagnóstico. No se usa
+\texttt{-DskipTests} ni se excluye ninguna prueba.
+
+\section{Limitaciones}
+
+\begin{itemize}
+  \item Se ejecutan las pruebas existentes; no se añadieron pruebas nuevas en
+  esta fase (las funcionales y de seguridad están en documentos aparte).
+  \item No hay reporte de cobertura: el proyecto no tiene JaCoCo configurado.
+  \item No se usan Testcontainers: las pruebas de contexto dependen de la base
+  local y del seed.
+  \item La ejecución es secuencial por módulo; no se evaluó paralelismo.
+  \item La primera ejecución puede tardar por descarga de dependencias.
+\end{itemize}
+
+\section{Reproducción}
+
+\begin{verbatim}
+powershell -NoProfile -ExecutionPolicy Bypass `
+  -File seguridad/pruebas/ejecutar-tests-maven.ps1
+\end{verbatim}
+
+El script acepta \texttt{-Modules} para ejecutar un subconjunto, por ejemplo
+\texttt{-Modules ms-seguridad,ms-triage}.
+
+\end{document}

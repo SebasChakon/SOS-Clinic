@@ -1,0 +1,100 @@
+\documentclass[11pt]{article}
+\input{../comun/preambulo}
+
+\title{\textbf{Análisis estático y de dependencias}\\[0.3em]
+\large Resultados SAST/SCA --- Ronda 3}
+\author{Equipo SOS Clinic}
+\date{22 de octubre de 2026}
+
+\begin{document}
+\maketitle
+
+\section{Resumen}
+
+\begin{table}[h]
+\centering
+\small
+\begin{tabular}{@{}p{4.2cm}p{6.8cm}p{3.6cm}@{}}
+\toprule
+Escaneo & Resultado & Evidencia \\
+\midrule
+Gitleaks árbol & 0 hallazgos (15,72 MB) & \pantalla{gitleaks-arbol-r3.json} \\
+Gitleaks historial & 3 hallazgos históricos (45 commits) & \pantalla{gitleaks-historial-r3.json} \\
+Semgrep & 9 hallazgos, todos en scripts de prueba & \pantalla{semgrep-r3.json} \\
+Trivy dependencias & 0 vulnerabilidades en 7 \texttt{pom.xml} & \pantalla{trivy-r3.json} \\
+Trivy configuración & 0 archivos detectados & \pantalla{trivy-config-r3.json} \\
+\bottomrule
+\end{tabular}
+\caption{Resumen del análisis estático.}
+\end{table}
+
+\section{Gitleaks}
+
+\subsection*{Árbol de trabajo}
+
+No hay secretos en el árbol versionado. El archivo \texttt{.env} local está
+ignorado por Git y no aparece en el escaneo. El resultado es consistente con la
+regla de no versionar credenciales.
+
+\subsection*{Historial}
+
+Aparecen tres coincidencias de la regla \texttt{grafana-api-key} en
+\texttt{frontend/enfermedades-crue.html}, en los commits
+\texttt{d0fb56f} y \texttt{42f9d31}. El archivo ya no existe en el árbol
+actual, por lo que no hay exposición vigente. Si el valor fue una clave real,
+debe rotarse: eliminarlo del árbol no lo borra del historial.
+
+\section{Semgrep}
+
+Los 9 hallazgos están en scripts de prueba, no en código de producción:
+
+\begin{table}[h]
+\centering
+\small
+\begin{tabular}{@{}p{5.4cm}p{6.6cm}p{3.2cm}@{}}
+\toprule
+Regla & Archivos & Evaluación \\
+\midrule
+\texttt{detected-bcrypt-hash} (3) & \pantalla{e2e_claves.py}, \pantalla{e2e_funcional.py}, \pantalla{pentest_local.py}, \pantalla{pentest_xss.py} & Falso positivo: hash de la clave de fixture de cuentas temporales. \\
+\texttt{dynamic-urllib-use} (6) & \pantalla{verify_seed.py} y scripts E2E & Falso positivo: URLs fijas de \texttt{localhost} o configuración controlada. \\
+\bottomrule
+\end{tabular}
+\caption{Hallazgos de Semgrep y su clasificación.}
+\end{table}
+
+No se encontraron patrones de inyección, deserialización, criptografía débil ni
+ejecución de comandos en el código de los servicios.
+
+\section{Trivy}
+
+\begin{itemize}
+  \item \textbf{Dependencias:} 0 vulnerabilidades, 0 secretos y 0
+  configuraciones inseguras en los siete \texttt{pom.xml}. Se usó la caché
+  local de Maven porque la primera ejecución recibió HTTP 429 de Maven Central.
+  \item \textbf{Configuración:} Trivy no detectó archivos de configuración en
+  \texttt{infra/}. La revisión manual confirma que PostgreSQL y pgAdmin
+  publican solo en \texttt{127.0.0.1}, que las contraseñas son obligatorias por
+  \texttt{.env} y que \texttt{spring.jpa.show-sql=false}.
+\end{itemize}
+
+\section{Hallazgos y mejoras}
+
+\begin{itemize}
+  \item \textbf{Histórico:} rotar la clave Grafana si fue real y documentar la
+  decisión sobre el historial.
+  \item \textbf{Pruebas:} los hashes de fixture pueden marcarse con
+  \texttt{nosemgrep} o generarse en tiempo de ejecución para reducir ruido.
+  \item \textbf{CI:} ampliar el job de gitleaks al historial y publicar los
+  reportes de Semgrep/Trivy como artefactos.
+  \item \textbf{Configuración:} añadir un escaneo explícito del compose o usar
+  una versión de Trivy que lo detecte.
+\end{itemize}
+
+\section{Conclusión}
+
+No hay secretos vigentes ni vulnerabilidades conocidas en las dependencias. Los
+únicos hallazgos del análisis estático son históricos o falsos positivos
+demostrables en scripts de prueba. El estado es apto para continuar con las
+pruebas dinámicas y el pentest.
+
+\end{document}

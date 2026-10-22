@@ -1,0 +1,165 @@
+\documentclass[11pt]{article}
+\input{../comun/preambulo}
+
+\title{\textbf{Pruebas funcionales E2E}\\[0.3em]
+\large Metodología y ejecución --- Ronda 3}
+\author{Equipo SOS Clinic}
+\date{22 de octubre de 2026}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+Este documento describe cómo se planificaron y ejecutaron las pruebas
+funcionales de punta a punta de SOS Clinic sobre el stack local completo:
+autenticación con 2FA, gestión de pacientes, triage, signos vitales, alta con
+notificaciones, analítica, agente conversacional, auditoría y turnos. El
+objetivo es que cualquier integrante del equipo pueda reproducir la ejecución
+sin depender de conocimiento tácito.
+\end{abstract}
+
+\tableofcontents
+
+\section{Objetivo y alcance}
+
+Se validó el comportamiento funcional observable por API a través del gateway
+(\texttt{http://127.0.0.1:8080}) y el frontend estático
+(\texttt{http://127.0.0.1:5500}). Quedaron fuera del alcance la automatización
+completa de la interfaz con Playwright y las pruebas de carga; el frontend se
+verificó con un smoke test de páginas y con la prueba de XSS en navegador real
+que se documenta en el informe de pentest.
+
+\section{Entorno de ejecución}
+
+\begin{table}[h]
+\centering
+\small
+\begin{tabular}{@{}ll@{}}
+\toprule
+Componente & Versión / detalle \\
+\midrule
+Sistema operativo & Windows 11, consola \texttt{cmd} \\
+JDK & Eclipse Temurin 26.0.2 \\
+Maven & Wrapper 3.9.16 (por módulo) \\
+Docker Desktop & 29.9.2 \\
+Python & 3.12 \\
+PostgreSQL & 16, contenedor \texttt{sos-postgres}, puerto 5433 \\
+MySQL & servicio local, puerto 3306 (\texttt{urgencias\_hospital}) \\
+Eureka & 8761 \\
+Gateway & 8080 \\
+Seguridad / Pacientes / Triage & 8081 / 8082 / 8083 \\
+Analítica / Agente IA & 8084 / 8088 \\
+Frontend & 5500 (servidor Python del repositorio) \\
+\bottomrule
+\end{tabular}
+\caption{Entorno usado en la fase funcional.}
+\end{table}
+
+Los servicios se levantaron con \pantalla{04. levantar-sistema.bat}. Eureka
+registró los seis servicios y el gateway enroutó correctamente.
+
+\section{Datos de prueba}
+
+Se usó el seed canónico sin regenerarlo:
+
+\begin{itemize}
+  \item 8 perfiles, 8 actividades y 22 asignaciones.
+  \item 5 categorías de triage y 3 estados.
+  \item 9 cuentas aprobadas con 2FA y turno de 24 horas.
+  \item 9 turnos, 24 pacientes y 30 episodios.
+  \item 0 códigos 2FA, 0 tokens y 0 registros de auditoría al inicio.
+\end{itemize}
+
+Las suites crean sus propios pacientes, episodios y cuentas temporales, y los
+eliminan al finalizar. Las credenciales se leen de
+\pantalla{infra/seed/credenciales.local.env} y nunca se imprimen.
+
+\section{Diseño de las suites}
+
+\begin{table}[h]
+\centering
+\small
+\begin{tabular}{@{}p{3.2cm}p{10.5cm}@{}}
+\toprule
+Suite & Qué valida \\
+\midrule
+\pantalla{verify_seed.py} & Login completo con 2FA de las 9 cuentas del seed, perfil en la sesión y un endpoint representativo por rol. \\
+\pantalla{e2e_claves.py} & Cambio de clave, bloqueo por cambio pendiente (\texttt{ccp}), challenge 2FA de un solo uso, recuperación/activación, cambio de correo, aprobación y rechazo de cuentas, clave temporal y auditoría. \\
+\pantalla{e2e_funcional.py} & Frontend, pacientes, triage, signos vitales, alta orquestada con correos y PDF, reintento, analítica, agente IA, auditoría y turnos. \\
+Maven & Pruebas unitarias y de contexto de los 7 módulos (documento aparte). \\
+\bottomrule
+\end{tabular}
+\caption{Suites ejecutadas en la fase funcional.}
+\end{table}
+
+\section{Procedimiento}
+
+\begin{enumerate}
+  \item \textbf{Preparación.} Se levantó Docker, PostgreSQL y el stack; se
+  verificó el seed con \pantalla{python infra/seed/verify_seed.py}. La base
+  tenía dos residuos de pruebas previas (un código 2FA y una auditoría) que se
+  eliminaron para dejar el conjunto canónico.
+  \item \textbf{Completar 2FA en pruebas.} Para no depender de la bandeja de
+  correo, cada suite obtiene el \texttt{challenge} del login y reemplaza el
+  código pendiente en la base por el hash BCrypt de \texttt{123456} usando
+  \texttt{crypt()} de PostgreSQL. Después llama a
+  \texttt{/auth/verificar-2fa}. Esto no modifica el código de la aplicación.
+  \item \textbf{Claves y cuentas.} Se ejecutó \pantalla{e2e_claves.py}: crea
+  cuentas \texttt{e2e.*} con hashes de fixture, prueba los flujos y las borra.
+  \item \textbf{Flujo clínico.} Se ejecutó \pantalla{e2e_funcional.py}: crea un
+  paciente y dos episodios temporales, registra dos tomas de signos, da de alta
+  un episodio con la llamada única de \texttt{finalizar}, descarga el PDF,
+  reenvía correos y comprueba la idempotencia del alta.
+  \item \textbf{Frontend.} Se solicitan las 14 páginas y \texttt{assets/api.js}
+  y se comprueba que respondan 200 con su contenido esperado.
+  \item \textbf{Limpieza.} Al final se eliminan pacientes, episodios, tomas,
+  auditorías y cuentas temporales. La suite admite \texttt{--no-cleanup} para
+  inspección manual.
+\end{enumerate}
+
+\subsection{Consideraciones operativas}
+
+\begin{itemize}
+  \item El limitador de reenvíos 2FA permite 3 códigos por usuario cada 10
+  minutos. Repetir la suite antes de esa ventana devuelve HTTP 429; se debe
+  esperar o reiniciar \texttt{ms-seguridad} en local (el límite es en memoria).
+  \item El alta envía correos reales a la bandeja de pruebas
+  \texttt{pruebasosclinic@gmail.com}. No se usan datos clínicos reales.
+  \item El agente IA consume la API de Groq; se hizo una consulta mínima.
+  \item La analítica usa la base sintética \texttt{urgencias\_hospital} con
+  50.000 llegadas.
+\end{itemize}
+
+\section{Criterios de aceptación}
+
+Cada caso se registra como \ok{}, \fallo{}, \aviso{} o \omitido{}.
+Un \fallo{} en una sección crítica detiene solo esa sección, no toda la suite.
+Se consideran críticos la creación del paciente, la creación del episodio,
+el alta persistida y la descarga del PDF. Los fallos de entrega SMTP se
+registran como \aviso{} porque son una dependencia externa, siempre que el alta
+se haya persistido y el reintento esté disponible.
+
+\section{Limitaciones}
+
+\begin{itemize}
+  \item La cobertura es por API; la interfaz se valida con smoke test y una
+  prueba de XSS, no con Playwright.
+  \item No se midió cobertura de código (JaCoCo no está configurado).
+  \item La entrega de correo y la respuesta del agente dependen de servicios
+  externos (Gmail y Groq).
+  \item El seed es compartido: las suites limpian sus datos, pero una
+  interrupción abrupta puede dejar residuos.
+\end{itemize}
+
+\section{Reproducción}
+
+\begin{verbatim}
+04. levantar-sistema.bat
+python infra/seed/verify_seed.py
+python seguridad/pruebas/e2e_claves.py
+python seguridad/pruebas/e2e_funcional.py
+powershell -NoProfile -ExecutionPolicy Bypass `
+  -File seguridad/pruebas/ejecutar-tests-maven.ps1
+\end{verbatim}
+
+\end{document}

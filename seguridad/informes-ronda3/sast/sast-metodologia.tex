@@ -1,0 +1,121 @@
+\documentclass[11pt]{article}
+\input{../comun/preambulo}
+
+\title{\textbf{Análisis estático y de dependencias}\\[0.3em]
+\large Metodología SAST/SCA --- Ronda 3}
+\author{Equipo SOS Clinic}
+\date{22 de octubre de 2026}
+
+\begin{document}
+\maketitle
+
+\section{Objetivo}
+
+Buscar secretos versionados, patrones inseguros en el código y vulnerabilidades
+conocidas en las dependencias, sin modificar el repositorio y sin enviar código
+a servicios externos más allá de la descarga de reglas y bases de datos de las
+herramientas.
+
+\section{Herramientas}
+
+\begin{table}[h]
+\centering
+\small
+\begin{tabular}{@{}p{2.6cm}p{4.2cm}p{7.2cm}@{}}
+\toprule
+Herramienta & Imagen / versión & Uso \\
+\midrule
+Gitleaks & \texttt{ghcr.io/gitleaks/gitleaks:latest} & Detección de secretos en el árbol y en el historial. \\
+Semgrep & \texttt{semgrep/semgrep:latest} & Reglas \texttt{p/security-audit} y \texttt{p/secrets}. \\
+Trivy & \texttt{aquasec/trivy:latest} & Vulnerabilidades, secretos y configuración. \\
+\bottomrule
+\end{tabular}
+\caption{Herramientas ejecutadas vía Docker el 22 de octubre de 2026.}
+\end{table}
+
+\section{Alcance}
+
+\begin{itemize}
+  \item Árbol versionado: 302 archivos, aproximadamente 15,7 MB.
+  \item Historial de Git: 45 commits.
+  \item Dependencias: los 7 archivos \texttt{pom.xml}.
+  \item Infraestructura: \texttt{infra/docker-compose.yml} y configuración de
+  los servicios.
+\end{itemize}
+
+\section{Procedimiento}
+
+\subsection{Gitleaks}
+
+\begin{enumerate}
+  \item Escaneo del árbol con \texttt{--no-git}, la configuración
+  \texttt{.gitleaks.toml} del repositorio y \texttt{--redact} para no imprimir
+  valores sensibles.
+  \item Escaneo del historial completo con la misma configuración y redacción.
+  \item Revisión de las reglas y archivos reportados para distinguir hallazgos
+  vigentes de históricos.
+\end{enumerate}
+
+\subsection{Semgrep}
+
+\begin{enumerate}
+  \item Ejecución con las reglas \texttt{p/security-audit} y \texttt{p/secrets},
+  \texttt{--metrics off} y salida JSON.
+  \item Clasificación manual de los hallazgos por archivo y contexto: código de
+  producción, scripts de prueba o configuración.
+  \item Verificación de que los hashes BCrypt reportados son fixtures de pruebas
+  y no credenciales reales.
+\end{enumerate}
+
+\subsection{Trivy}
+
+\begin{enumerate}
+  \item Escaneo \texttt{fs} con los escáneres \texttt{vuln}, \texttt{secret} y
+  \texttt{misconfig}.
+  \item La primera ejecución falló con HTTP 429 de Maven Central al resolver
+  los BOM. Se repitió montando la caché local \texttt{\textasciitilde/.m2} y
+  con \texttt{--offline-scan}.
+  \item Escaneo específico de configuración sobre \texttt{infra/} y revisión
+  manual del compose ante la ausencia de archivos detectados.
+\end{enumerate}
+
+\section{Criterios}
+
+\begin{itemize}
+  \item \ok{} si no hay hallazgos vigentes o si los hallazgos son falsos
+  positivos demostrables.
+  \item \aviso{} si el hallazgo es histórico, está en un archivo eliminado o
+  requiere una decisión de rotación.
+  \item \fallo{} si hay un secreto vigente, una dependencia crítica/alta sin
+  justificar o un patrón inseguro en código de producción.
+\end{itemize}
+
+\section{Limitaciones}
+
+\begin{itemize}
+  \item Las imágenes usan la etiqueta \texttt{latest}; los resultados
+  corresponden a las versiones descargadas el 22 de octubre de 2026.
+  \item Las reglas comunitarias de Semgrep no cubren todos los patrones
+  posibles; no sustituyen una revisión manual.
+  \item Trivy no detectó \texttt{docker-compose.yml} como archivo de
+  configuración; se revisó a mano.
+  \item El escaneo de secretos del historial puede marcar valores ya rotados o
+  archivos eliminados; se clasifican caso por caso.
+\end{itemize}
+
+\section{Reproducción}
+
+\begin{verbatim}
+docker run --rm -v <repo>:/repo ghcr.io/gitleaks/gitleaks:latest \
+  detect --source /repo --config /repo/.gitleaks.toml --redact --no-git
+
+docker run --rm -v <repo>:/src semgrep/semgrep \
+  semgrep scan --config p/security-audit --config p/secrets \
+  --metrics off /src
+
+docker run --rm -v <repo>:/src -v ~/.m2:/root/.m2:ro \
+  aquasec/trivy fs --scanners vuln,secret,misconfig \
+  --offline-scan /src
+\end{verbatim}
+
+\end{document}

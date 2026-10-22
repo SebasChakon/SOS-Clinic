@@ -17,6 +17,7 @@ aquí y las correcciones se propondrán después en ramas `fix/*` separadas.
 | `resultados/fase2-dast.md` | ZAP baseline y evaluación de advertencias. |
 | `resultados/hallazgos-fase2.csv` | Hallazgos consolidados y recomendaciones. |
 | `resultados/plan-mejoras-main.md` | Backlog priorizado para `main`. |
+| `informes-ronda3/` | Documentación por prueba: 2 `.tex` (metodología y resultados), resumen `.md` y PDF. |
 | `pruebas/e2e_funcional.py` | Suite E2E de flujos clínicos y administrativos. |
 | `pruebas/pentest_local.py` | Matriz de roles, JWT, CORS, 2FA, IDOR y mass assignment. |
 | `pruebas/pentest_xss.py` | Prepara/limpia el escenario de XSS almacenado. |
