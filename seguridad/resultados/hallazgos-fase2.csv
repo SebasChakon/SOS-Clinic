@@ -1,0 +1,7 @@
+ID,Severidad,Hallazgo,Evidencia,Estado,Recomendacion
+F-01,Media,Validacion de campos en ms-seguridad devuelve 500 en vez de 400,"A-15, A-16",Confirmado,"Agregar handler de MethodArgumentNotValidException y prueba de controller"
+F-02,Media-baja,Recepcion y lista de espera descargan la historia clinica PDF completa,"I-04-recepcion, I-04-listas",Confirmado,"Restringir el PDF a ADMINISTRADOR/MEDICO o validar asignacion del episodio"
+F-03,Baja,CSP del frontend permite unsafe-inline,C-07 / ZAP 10055,Confirmado,"Mover scripts y onclick inline a archivos y endurecer la CSP"
+F-04,Informativo,IDOR horizontal por rol sin propiedad de episodio,"I-01, I-02, I-03",Residual aceptado,"Validar propiedad/asignacion si el sistema crece"
+F-05,Informativo,Clave Grafana en el historial de Git,gitleaks-historial-r3.json,Historico,"Rotar el valor si fue real; no hay exposicion vigente"
+F-06,Informativo,Correo con PDF puede agotar el timeout SMTP,Fase 1 / WARN,Observado,"Envio asincrono u outbox y timeout mayor para adjuntos"
