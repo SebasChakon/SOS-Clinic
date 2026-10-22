@@ -1,0 +1,50 @@
+PASS  perfiles requeridos
+PASS  politica publica por gateway
+PASS  login admin
+PASS  login seguridad
+PASS  login usuario normal
+PASS  perfil normal
+PASS  mi cuenta
+PASS  cambio de clave voluntario
+PASS  clave anterior rechazada
+PASS  clave nueva aceptada
+PASS  politica rechaza Password1!
+PASS  login con clave temporal
+PASS  gateway bloquea ccp
+PASS  cambio obligatorio
+PASS  token posterior al cambio obligatorio
+PASS  2FA challenge valido
+PASS  2FA challenge de un solo uso
+PASS  2FA challenge invalido
+PASS  2FA no acepta codigo de otro proposito
+PASS  validar enlace recuperacion
+PASS  restablecer clave
+PASS  login tras recuperacion
+PASS  clave anterior tras recuperacion rechazada
+PASS  token de recuperacion reutilizado
+PASS  token de recuperacion expirado
+PASS  token de recuperacion usado
+PASS  validar enlace activacion
+PASS  activacion rechaza politica
+PASS  activacion con clave valida
+PASS  login tras activacion
+PASS  confirmar cambio de correo
+PASS  correo actualizado en BD
+PASS  admin crea cuenta pendiente
+PASS  admin no puede aprobar
+PASS  seguridad no puede listar todo el personal
+PASS  seguridad ve pendientes
+PASS  seguridad aprueba
+PASS  admin genera clave temporal
+PASS  clave temporal no aparece en el listado
+PASS  login con clave temporal del admin
+PASS  cambio de clave temporal del admin
+PASS  admin crea cuenta para rechazo
+PASS  seguridad rechaza
+PASS  estado rechazada en BD
+PASS  sin token devuelve 401
+PASS  auditoria de acciones de prueba
+PASS  login final de cuenta aprobada
+
+RESULTADO: 47 comprobaciones, todas correctas
+Limpieza de cuentas e2e completada

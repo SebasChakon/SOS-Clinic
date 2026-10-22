@@ -1,0 +1,78 @@
+﻿fecha_hora,seccion,caso,estado,detalle
+2026-10-22T15:25:37,frontend,pagina /index.html,PASS,estado=200 marcador='SOS Clinic'
+2026-10-22T15:25:37,frontend,pagina /login.html,PASS,estado=200 marcador='Acceso al sistema'
+2026-10-22T15:25:37,frontend,pagina /recuperar-clave.html,PASS,estado=200 marcador='Recuperar clave'
+2026-10-22T15:25:38,frontend,pagina /restablecer-clave.html,PASS,estado=200 marcador='Nueva clave'
+2026-10-22T15:25:38,frontend,pagina /cambiar-clave.html,PASS,estado=200 marcador='Cambiar clave'
+2026-10-22T15:25:38,frontend,pagina /cuenta.html,PASS,estado=200 marcador='Mi cuenta'
+2026-10-22T15:25:38,frontend,pagina /aprobaciones.html,PASS,estado=200 marcador='Aprobación de cuentas'
+2026-10-22T15:25:38,frontend,pagina /pacientes.html,PASS,estado=200 marcador='Pacientes'
+2026-10-22T15:25:38,frontend,pagina /triage-nuevo.html,PASS,estado=200 marcador='Nuevo triage'
+2026-10-22T15:25:38,frontend,pagina /lista-espera.html,PASS,estado=200 marcador='Lista de espera'
+2026-10-22T15:25:38,frontend,pagina /seguimiento.html,PASS,estado=200 marcador='Seguimiento del paciente'
+2026-10-22T15:25:38,frontend,pagina /auditoria.html,PASS,estado=200 marcador='Auditor'
+2026-10-22T15:25:38,frontend,pagina /roles.html,PASS,estado=200 marcador='Administración'
+2026-10-22T15:25:38,frontend,pagina /dashboard.html,PASS,estado=200 marcador='Anal'
+2026-10-22T15:25:38,frontend,asset api.js,PASS,estado=200 bytes=29564
+2026-10-22T15:25:40,login,login medico.dia,PASS,estado=200
+2026-10-22T15:25:40,login,perfil medico.dia,PASS,doctor_triage
+2026-10-22T15:25:43,login,login admin.test,PASS,estado=200
+2026-10-22T15:25:43,login,perfil admin.test,PASS,administrador
+2026-10-22T15:25:46,login,login coordinacion.sos,PASS,estado=200
+2026-10-22T15:25:46,login,perfil coordinacion.sos,PASS,coordinador_turnos
+2026-10-22T15:25:49,login,login auditoria.sos,PASS,estado=200
+2026-10-22T15:25:49,login,perfil auditoria.sos,PASS,auditor
+2026-10-22T15:25:49,login,sesiones requeridas,PASS,"obtenidas=['admin.test', 'auditoria.sos', 'coordinacion.sos', 'medico.dia']"
+2026-10-22T15:25:49,pacientes,listar pacientes,PASS,estado=200 total=24
+2026-10-22T15:25:49,pacientes,cedula fuera de longitud,WARN,estado=409 (ideal 400): {'message': 'Los datos enviados no son validos o referencian un registro inexistente'}
+2026-10-22T15:25:49,pacientes,crear paciente,PASS,"estado=200 respuesta={'idPaciente': 27, 'nombre': 'Paciente', 'apellido': 'Funcional', 'cedula': '91525371', 'fechaNacimiento': '1985-04-12', 'idEstado': 1, 'email': 'pruebasosclinic+funcional@gmail.com'}"
+2026-10-22T15:25:49,pacientes,cedula persistida,PASS,
+2026-10-22T15:25:49,pacientes,cedula duplicada rechazada,PASS,estado=409
+2026-10-22T15:25:49,pacientes,buscar por cedula,PASS,estado=200
+2026-10-22T15:25:49,pacientes,busqueda parcial,PASS,estado=200
+2026-10-22T15:25:49,pacientes,validacion de campos,PASS,estado=400
+2026-10-22T15:25:49,pacientes,pacientes sin token,PASS,estado=401
+2026-10-22T15:25:49,triage,categoria de prueba disponible,PASS,3
+2026-10-22T15:25:49,triage,crear episodio,PASS,"estado=200 respuesta={'idRegistro': 35, 'idPaciente': 27, 'estadoTriage': {'idEstadoTriage': 1, 'nombreEstado': 'En espera', 'descripcion': 'Paciente registrado, pendiente de atencion'}, 'categoriaTriage': {'idCategoriaTriage': 3, 'nombreCategoria': 'Urgencia', 'descripcion': 'Requiere atencion pronta', 'prioridad': 3, 'idEstado': 1}, 'tiempoEsperaMinutos': None, 'ubicacion': 'Sala de espera A', 'fechaHoraLlegada': '2026-10-22T15:25:49.4116009', 'idEstado': 1, 'diagnosticoFinal': None, 'tratamie"
+2026-10-22T15:25:49,triage,estado inicial En espera,PASS,"{'idEstadoTriage': 1, 'nombreEstado': 'En espera', 'descripcion': 'Paciente registrado, pendiente de atencion'}"
+2026-10-22T15:25:49,triage,consultar episodio,PASS,estado=200
+2026-10-22T15:25:49,triage,actualizar ubicacion,PASS,estado=200
+2026-10-22T15:25:49,triage,lista de prioridad,PASS,estado=200
+2026-10-22T15:25:49,triage,episodio en lista,PASS,idRegistro=35 encontrado=True
+2026-10-22T15:25:49,triage,orden por prioridad,PASS,"primeras=[1, 2, 2, 2, 3, 3, 3, 3]"
+2026-10-22T15:25:49,triage,tiempo de espera calculado,PASS,0
+2026-10-22T15:25:49,triage,pasar a En atencion,PASS,estado=200
+2026-10-22T15:25:49,triage,crear segundo episodio,PASS,estado=200
+2026-10-22T15:25:49,triage,alta manual,PASS,estado=200
+2026-10-22T15:25:49,triage,alta idempotente,PASS,diagnostico=Diagnostico A
+2026-10-22T15:25:49,signos,primera toma,PASS,estado=200
+2026-10-22T15:25:49,signos,personal desde JWT,PASS,idPersonal=5
+2026-10-22T15:25:49,signos,segunda toma,PASS,estado=200
+2026-10-22T15:25:49,signos,tomas conservadas,PASS,estado=200 total=2
+2026-10-22T15:25:49,signos,validacion de rango,PASS,estado=400
+2026-10-22T15:26:14,alta,finalizar atencion,PASS,"estado=200 respuesta={'altaOk': True, 'correos': [{'tipo': 'teleconsulta-profesional', 'estado': 'ENVIADO', 'detalle': 'El profesional que atendió recibió la confirmación por correo.'}, {'tipo': 'cita-paciente', 'estado': 'ENVIADO', 'detalle': None}, {'tipo': 'historia-pdf', 'estado': 'ENVIADO', 'detalle': None}], 'citaFechaHora': 'Jueves 29 de octubre de 2026 a las 10:00 (hora Colombia)', 'citaEnlace': 'https://meet.jit.si/90000004SOS'}"
+2026-10-22T15:26:14,alta,tres correos evaluados,PASS,"{'historia-pdf', 'cita-paciente', 'teleconsulta-profesional'}"
+2026-10-22T15:26:14,alta,estados de correo validos,PASS,"[{'tipo': 'teleconsulta-profesional', 'estado': 'ENVIADO', 'detalle': 'El profesional que atendió recibió la confirmación por correo.'}, {'tipo': 'cita-paciente', 'estado': 'ENVIADO', 'detalle': None}, {'tipo': 'historia-pdf', 'estado': 'ENVIADO', 'detalle': None}]"
+2026-10-22T15:26:14,alta,duracion del alta,INFO,24.4 s
+2026-10-22T15:26:14,alta,alta persistida en triage,PASS,"estado=200 episodio={'idRegistro': 35, 'idPaciente': 27, 'estadoTriage': {'idEstadoTriage': 3, 'nombreEstado': 'Atendido', 'descripcion': 'Episodio de triage cerrado'}, 'categoriaTriage': {'idCategoriaTriage': 3, 'nombreCategoria': 'Urgencia', 'descripcion': 'Requiere atencion pronta', 'prioridad': 3, 'idEstado': 1}, 'tiempoEsperaMinutos': None, 'ubicacion': 'Consultorio 3', 'fechaHoraLlegada': '2026-10-22T15:25:49.411601', 'idEstado': 1, 'diagnosticoFinal': 'Dolor toracico no cardiogenico', 'tr"
+2026-10-22T15:26:14,alta,descargar PDF,PASS,estado=200 bytes=26172 tipo=application/pdf
+2026-10-22T15:26:29,alta,reenviar correos,PASS,estado=200
+2026-10-22T15:26:29,alta,estados del reenvio,INFO,"{""teleconsulta-profesional"": ""ENVIADO"", ""cita-paciente"": ""ENVIADO"", ""historia-pdf"": ""ENVIADO""}"
+2026-10-22T15:26:29,alta,alta no se duplica al reenviar,PASS,estado=200
+2026-10-22T15:26:29,alta,PDF de episodio inexistente,PASS,estado=404
+2026-10-22T15:26:29,analitica,resumen con coordinacion,PASS,"estado=200 respuesta={'totalLlegadas': 50000, 'esperaPromedioMin': 102.0653}"
+2026-10-22T15:26:30,analitica,llegadas con coordinacion,PASS,estado=200
+2026-10-22T15:26:30,analitica,capacidad con coordinacion,PASS,estado=200
+2026-10-22T15:26:30,analitica,rol clinico rechazado,PASS,estado=403
+2026-10-22T15:26:30,analitica,sin token rechazado,PASS,estado=401
+2026-10-22T15:26:30,analitica,rango invalido,PASS,estado=400
+2026-10-22T15:26:30,agente,sin token rechazado,PASS,estado=401
+2026-10-22T15:26:30,agente,mensaje vacio rechazado,PASS,estado=400
+2026-10-22T15:26:30,agente,consulta real al agente,PASS,"campos=['pasos', 'texto', 'tokens']"
+2026-10-22T15:26:30,auditoria,registro sin token,PASS,estado=401
+2026-10-22T15:26:30,auditoria,registrar accion,PASS,estado=200
+2026-10-22T15:26:30,auditoria,listar auditoria como admin,PASS,estado=200
+2026-10-22T15:26:30,auditoria,accion visible en auditoria,PASS,total=1
+2026-10-22T15:26:30,auditoria,personal admin rechazado a medico,PASS,estado=403
+2026-10-22T15:26:31,turnos,login fuera de turno rechazado,PASS,estado=403 respuesta={'message': 'No puedes iniciar sesion en este momento.'}
+2026-10-22T15:26:31,limpieza,datos de prueba eliminados,PASS,
