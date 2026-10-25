@@ -525,9 +525,9 @@ sudo env SOS_COMPOSE_FILE=/opt/sos-clinic/infra/azure/docker-compose.azure.yml \
         Invoke-Remote -KeyPath $KeyPath -User $User -VmHost $VmHost -Command @'
 set -e
 cd /opt/sos-clinic
-set -a
-. ./.env
-set +a
+# .env es 600 root; leer la clave con sudo en vez de hacer source como azureuser.
+ANALITICA_DB_PASSWORD="$(sudo grep '^ANALITICA_DB_PASSWORD=' /opt/sos-clinic/.env | head -n1 | cut -d= -f2- | tr -d "'" | tr -d '\r')"
+test -n "$ANALITICA_DB_PASSWORD"
 sudo docker exec -e MYSQL_PWD="$ANALITICA_DB_PASSWORD" sos-mysql \
   mysql -uroot -e 'DROP DATABASE IF EXISTS urgencias_hospital;'
 sudo docker exec -i -e MYSQL_PWD="$ANALITICA_DB_PASSWORD" sos-mysql \

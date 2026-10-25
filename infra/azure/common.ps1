@@ -153,7 +153,9 @@ function Write-DotEnv {
     }
 
     $utf8 = New-Object System.Text.UTF8Encoding -ArgumentList $false
-    [System.IO.File]::WriteAllLines($Path, $lineas, $utf8)
+    # El archivo se consume en Linux (systemd, Compose, bash): forzar LF.
+    $contenido = ($lineas -join "`n") + "`n"
+    [System.IO.File]::WriteAllText($Path, $contenido, $utf8)
 
     if ($env:OS -eq 'Windows_NT') {
         $identidad = if ($env:USERDOMAIN) { "$env:USERDOMAIN\$env:USERNAME" } else { $env:USERNAME }
