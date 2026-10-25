@@ -728,7 +728,7 @@ gitleaks protect --staged
 
 ## Despliegue en Azure
 
-La guia completa esta en [`infra/azure/README.md`](infra/azure/README.md). El flujo local de Windows (`00` a `05`, `infra/docker-compose.yml` y los `application.properties`) no cambia.
+La guia operativa esta en [`infra/azure/README.md`](infra/azure/README.md) y el registro completo de la implementacion (recursos, decisiones, validaciones, problemas corregidos y pendientes) en [`infra/azure/README-IMPLEMENTACION.md`](infra/azure/README-IMPLEMENTACION.md). El flujo local de Windows (`00` a `05`, `infra/docker-compose.yml` y los `application.properties`) no cambia.
 
 Resumen:
 
@@ -739,7 +739,7 @@ az login
 
 El script crea un grupo de recursos con una VM Ubuntu 24.04, PostgreSQL/MySQL en contenedores, las 7 imagenes en ACR, Caddy con HTTPS (`<label>.<region>.cloudapp.azure.com`), backups a Blob Storage y auto-shutdown. Antes de ejecutarlo:
 
-1. Rota `MAIL_PASSWORD` y `GROQ_API_KEY` como se explica arriba.
+1. **Decide qué hacer con los secretos SMTP/Groq.** El despliegue reutiliza `MAIL_PASSWORD` y `GROQ_API_KEY` del `.env` local; en esta implementación se decidió no rotarlas y aceptar el riesgo. Para reducirlo, rótalas antes de desplegar o actualízalas después con `update.ps1 -SyncLocalSecrets`.
 2. Verifica que tienes acceso a `pruebasosclinic@gmail.com` para los codigos 2FA.
 3. Haz commit de los cambios: el script sube a la VM el ultimo commit, no el arbol de trabajo sucio.
 4. Ten Docker Desktop y Azure CLI instalados, y `az login` activo.

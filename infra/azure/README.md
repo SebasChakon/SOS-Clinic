@@ -2,6 +2,8 @@
 
 Esta carpeta contiene el despliegue de demo para Azure. **No reemplaza el flujo local de Windows**: `infra/docker-compose.yml`, los `application.properties`, los scripts `00` a `05`, el esquema, las migraciones y el seed local siguen igual.
 
+Para el detalle completo de lo que se construyó, las decisiones, las validaciones y los problemas corregidos, consulta [`README-IMPLEMENTACION.md`](README-IMPLEMENTACION.md). Este archivo es el runbook para operar y reproducir el despliegue.
+
 > Prototipo academico. Una sola VM, sin alta disponibilidad, sin WAF, sin revocacion centralizada de JWT y dependiente de Gmail/Groq. No lo uses con datos clinicos reales.
 
 ## Arquitectura
