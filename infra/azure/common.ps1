@@ -244,13 +244,23 @@ function Invoke-Remote {
         $Command
     )
 
-    $anterior = $ErrorActionPreference
-    $ErrorActionPreference = 'Continue'
-    try {
-        $salida = & ssh @argumentos 2>&1
-        $codigo = $LASTEXITCODE
-    } finally {
-        $ErrorActionPreference = $anterior
+    # SSH devuelve 255 cuando el transporte falla (timeout, red, reinicio).
+    # Se reintenta solo en ese caso y solo si el fallo no es tolerado.
+    $intentos = if ($AllowFailure) { 1 } else { 3 }
+    $codigo = 0
+    $salida = @()
+    for ($intento = 1; $intento -le $intentos; $intento++) {
+        $anterior = $ErrorActionPreference
+        $ErrorActionPreference = 'Continue'
+        try {
+            $salida = & ssh @argumentos 2>&1
+            $codigo = $LASTEXITCODE
+        } finally {
+            $ErrorActionPreference = $anterior
+        }
+        if ($codigo -ne 255 -or $intento -eq $intentos) { break }
+        Write-Warn "SSH fallo (intento $intento/$intentos); reintentando en 8 s..."
+        Start-Sleep -Seconds 8
     }
 
     $texto = ($salida | ForEach-Object { $_.ToString() }) -join "`n"
@@ -273,13 +283,21 @@ function Copy-Remote {
     )
 
     $destino = '{0}@{1}:{2}' -f $User, $VmHost, $RemotePath
-    $anterior = $ErrorActionPreference
-    $ErrorActionPreference = 'Continue'
-    try {
-        $salida = & scp -q -i $KeyPath -o BatchMode=yes -o StrictHostKeyChecking=accept-new $LocalPath $destino 2>&1
-        $codigo = $LASTEXITCODE
-    } finally {
-        $ErrorActionPreference = $anterior
+    $intentos = 3
+    $codigo = 1
+    $salida = @()
+    for ($intento = 1; $intento -le $intentos; $intento++) {
+        $anterior = $ErrorActionPreference
+        $ErrorActionPreference = 'Continue'
+        try {
+            $salida = & scp -q -i $KeyPath -o BatchMode=yes -o StrictHostKeyChecking=accept-new $LocalPath $destino 2>&1
+            $codigo = $LASTEXITCODE
+        } finally {
+            $ErrorActionPreference = $anterior
+        }
+        if ($codigo -eq 0 -or $intento -eq $intentos) { break }
+        Write-Warn "scp fallo (intento $intento/$intentos); reintentando en 8 s..."
+        Start-Sleep -Seconds 8
     }
     if ($codigo -ne 0) {
         $texto = ($salida | ForEach-Object { $_.ToString() }) -join "`n"
@@ -302,13 +320,21 @@ function Copy-FromRemote {
         New-Item -ItemType Directory -Force -Path $directorio | Out-Null
     }
 
-    $anterior = $ErrorActionPreference
-    $ErrorActionPreference = 'Continue'
-    try {
-        $salida = & scp -q -i $KeyPath -o BatchMode=yes -o StrictHostKeyChecking=accept-new $origen $LocalPath 2>&1
-        $codigo = $LASTEXITCODE
-    } finally {
-        $ErrorActionPreference = $anterior
+    $intentos = 3
+    $codigo = 1
+    $salida = @()
+    for ($intento = 1; $intento -le $intentos; $intento++) {
+        $anterior = $ErrorActionPreference
+        $ErrorActionPreference = 'Continue'
+        try {
+            $salida = & scp -q -i $KeyPath -o BatchMode=yes -o StrictHostKeyChecking=accept-new $origen $LocalPath 2>&1
+            $codigo = $LASTEXITCODE
+        } finally {
+            $ErrorActionPreference = $anterior
+        }
+        if ($codigo -eq 0 -or $intento -eq $intentos) { break }
+        Write-Warn "scp fallo (intento $intento/$intentos); reintentando en 8 s..."
+        Start-Sleep -Seconds 8
     }
     if ($codigo -ne 0) {
         $texto = ($salida | ForEach-Object { $_.ToString() }) -join "`n"
