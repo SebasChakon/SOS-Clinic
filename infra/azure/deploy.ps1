@@ -526,11 +526,12 @@ sudo env SOS_COMPOSE_FILE=/opt/sos-clinic/infra/azure/docker-compose.azure.yml \
 set -e
 cd /opt/sos-clinic
 # .env es 600 root; leer la clave con sudo en vez de hacer source como azureuser.
-ANALITICA_DB_PASSWORD="$(sudo grep '^ANALITICA_DB_PASSWORD=' /opt/sos-clinic/.env | head -n1 | cut -d= -f2- | tr -d "'" | tr -d '\r')"
+# Sin comillas dobles: PowerShell 5.1 las elimina al pasar el comando a ssh.
+ANALITICA_DB_PASSWORD=$(sudo grep '^ANALITICA_DB_PASSWORD=' /opt/sos-clinic/.env | head -n1 | cut -d= -f2- | tr -d \' | tr -d '\r')
 test -n "$ANALITICA_DB_PASSWORD"
-sudo docker exec -e MYSQL_PWD="$ANALITICA_DB_PASSWORD" sos-mysql \
+sudo docker exec -e MYSQL_PWD=$ANALITICA_DB_PASSWORD sos-mysql \
   mysql -uroot -e 'DROP DATABASE IF EXISTS urgencias_hospital;'
-sudo docker exec -i -e MYSQL_PWD="$ANALITICA_DB_PASSWORD" sos-mysql \
+sudo docker exec -i -e MYSQL_PWD=$ANALITICA_DB_PASSWORD sos-mysql \
   mysql -uroot < bd_local.sql
 '@ | Out-Null
         Invoke-Remote -KeyPath $KeyPath -User $User -VmHost $VmHost -Command "$compose --profile seed run --rm analitica-seed" | Out-Null
