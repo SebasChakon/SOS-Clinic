@@ -4,5 +4,15 @@
 *.cmd text eol=crlf
 *.ps1 text eol=crlf
 
+# Archivos que se ejecutan o montan en la VM Linux: siempre LF.
+*.sh text eol=lf
+*.yaml text eol=lf
+*.yml text eol=lf
+*.bicep text eol=lf
+Caddyfile text eol=lf
+Dockerfile* text eol=lf
+.dockerignore text eol=lf
+.env.example text eol=lf
+
 *.png binary
 *.pdf binary

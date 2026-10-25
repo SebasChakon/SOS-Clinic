@@ -18,9 +18,13 @@ if not usuario_bd or not clave_bd:
         'en el entorno o en el archivo .env antes de ejecutar este script.'
     )
 
+host_bd = os.environ.get('ANALITICA_DB_HOST', 'localhost')
+puerto_bd = os.environ.get('ANALITICA_DB_PORT', '3306')
+nombre_bd = os.environ.get('ANALITICA_DB_NAME', 'urgencias_hospital')
+
 url_bd = (
     f'mysql+pymysql://{quote_plus(usuario_bd)}:{quote_plus(clave_bd)}'
-    '@localhost:3306/urgencias_hospital'
+    f'@{host_bd}:{puerto_bd}/{nombre_bd}'
 )
 engine = create_engine(url_bd)
 

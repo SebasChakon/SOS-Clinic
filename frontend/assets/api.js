@@ -4,7 +4,15 @@
    Ninguna vista deberia usar fetch() directamente: todas pasan por aqui.
    ===================================================================== */
 
-const BASE_URL = 'http://localhost:8080';
+/* En local se conserva el gateway en 8080. En Azure el frontend y la API
+   comparten origen: Caddy proxya /ms-* hacia 127.0.0.1:8080. */
+const BASE_URL = (
+  window.location.protocol === 'file:' ||
+  window.location.hostname === 'localhost' ||
+  window.location.hostname === '127.0.0.1'
+)
+  ? 'http://localhost:8080'
+  : '';
 
 /* ---------------------------------------------------------------------
    Sesion (token JWT guardado en el navegador)

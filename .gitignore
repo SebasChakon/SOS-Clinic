@@ -24,3 +24,11 @@ __pycache__/
 infra/seed/credenciales.local.env
 infra/seed/credenciales.local.md
 infra/backups/
+
+# Credenciales de la raiz y del despliegue Azure
+/credenciales.local.md
+/credenciales.local.env
+infra/azure/.env.azure
+infra/azure/.deployment.json
+infra/azure/.deploy-tmp/
+infra/azure/.credenciales.azure.md

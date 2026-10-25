@@ -1,0 +1,39 @@
+# Contexto de build de las imagenes de Azure.
+# Solo se copian el pom.xml y src/ del modulo indicado, pero el contexto se
+# envia completo al daemon: excluimos todo lo pesado o sensible.
+
+.git
+.gitignore
+.gitlab-ci.yml
+.gitleaks.toml
+.github
+
+**/target
+**/target/**
+**/node_modules
+**/node_modules/**
+**/.idea
+**/.vscode
+**/*.iml
+
+.env
+.env.*
+credenciales.local.*
+credenciales.local.env
+credenciales.local.md
+infra/seed/credenciales.local.*
+infra/azure/.env.azure
+infra/azure/.deployment.json
+infra/azure/.deploy-tmp
+infra/azure/.credenciales.azure.md
+
+infra/backups
+infra/backups/**
+logs
+logs/**
+seguridad/utilidades
+seguridad/utilidades/**
+
+*.dump
+*.log
+*.pid

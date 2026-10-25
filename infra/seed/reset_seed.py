@@ -31,7 +31,9 @@ ENV_FILE = ROOT / ".env"
 CRED_ENV = SEED_DIR / "credenciales.local.env"
 CRED_MD = SEED_DIR / "credenciales.local.md"
 BACKUP_DIR = ROOT / "infra" / "backups"
-COMPOSE_FILE = ROOT / "infra" / "docker-compose.yml"
+COMPOSE_FILE = Path(
+    os.environ.get("SOS_COMPOSE_FILE", str(ROOT / "infra" / "docker-compose.yml"))
+)
 
 ALFABETO = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!?#$%.*@_+-"
 SIMBOLOS = set("!?#$%.*@_+-")

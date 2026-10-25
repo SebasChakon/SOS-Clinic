@@ -1,0 +1,58 @@
+# syntax=docker/dockerfile:1.7
+# Imagen generica para los 7 modulos Spring Boot de SOS Clinic.
+#
+# Uso:
+#   docker buildx build \
+#     --build-arg MODULE=ms-gateway \
+#     -f infra/azure/Dockerfile.service \
+#     -t <acr>/sos-clinic/ms-gateway:<tag> .
+#
+# El contexto debe ser la raiz del repositorio. El modulo se compila dentro de
+# la imagen para no depender de Maven ni de un JDK en el equipo que despliega.
+
+ARG MAVEN_IMAGE=maven:3.9-eclipse-temurin-17
+ARG RUNTIME_IMAGE=eclipse-temurin:17-jre-jammy
+
+FROM ${MAVEN_IMAGE} AS build
+ARG MODULE
+WORKDIR /workspace
+
+# Primero el POM: si no cambian las dependencias, BuildKit conserva la capa.
+COPY ${MODULE}/pom.xml ${MODULE}/pom.xml
+COPY ${MODULE}/src ${MODULE}/src
+
+RUN --mount=type=cache,target=/root/.m2 \
+    mvn -B -q -f ${MODULE}/pom.xml package -DskipTests \
+    && test -n "$(find ${MODULE}/target -maxdepth 1 -name '*.jar' -print -quit)"
+
+FROM ${RUNTIME_IMAGE}
+
+ARG MODULE
+ARG APP_UID=10001
+
+# fontconfig y DejaVu son necesarios para los PDF de ms-pacientes.
+# tzdata mantiene America/Bogota disponible dentro del contenedor.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        ca-certificates \
+        curl \
+        fontconfig \
+        fonts-dejavu-core \
+        tzdata \
+    && rm -rf /var/lib/apt/lists/* \
+    && groupadd --gid ${APP_UID} sos \
+    && useradd --uid ${APP_UID} --gid sos --create-home --shell /usr/sbin/nologin sos \
+    && mkdir -p /app \
+    && chown -R sos:sos /app
+
+ENV TZ=America/Bogota \
+    LANG=C.UTF-8 \
+    LC_ALL=C.UTF-8 \
+    JAVA_TOOL_OPTIONS="-Duser.timezone=America/Bogota -Dfile.encoding=UTF-8"
+
+COPY --from=build --chown=sos:sos /workspace/${MODULE}/target/*.jar /app/app.jar
+
+WORKDIR /app
+USER sos
+
+ENTRYPOINT ["sh", "-c", "exec java $JAVA_OPTS -jar /app/app.jar"]

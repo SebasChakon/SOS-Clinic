@@ -1,0 +1,63 @@
+# Caddy del despliegue Azure de SOS Clinic.
+#
+# - TLS automatico con Let's Encrypt para el DNS <label>.<region>.cloudapp.azure.com
+# - Frontend estatico en / y proxy same-origin para /ms-*
+# - Cabeceras equivalentes a frontend/servidor.py, adaptadas a HTTPS
+#
+# Variables inyectadas por docker-compose.azure.yml:
+#   SOS_DOMAIN, ACME_EMAIL
+
+{
+	email {$ACME_EMAIL}
+	admin off
+}
+
+{$SOS_DOMAIN} {
+	encode zstd gzip
+
+	# La landing antigua redirige al indice actual, igual que servidor.py.
+	@landing path /landing.html
+	redir @landing /index.html 301
+
+	# El gateway mantiene las rutas /ms-* y hace StripPrefix hacia cada servicio.
+	@api path /ms-seguridad/* /ms-pacientes/* /ms-triage/* /ms-analitica/* /ms-ia-agente/*
+	handle @api {
+		reverse_proxy 127.0.0.1:8080 {
+			header_up X-Real-IP {remote_host}
+			header_up X-Forwarded-Proto {scheme}
+			transport http {
+				read_timeout 300s
+				write_timeout 300s
+			}
+		}
+	}
+
+	handle {
+		root * /srv/frontend
+		try_files {path} {path}.html {path}/ /index.html
+		file_server
+	}
+
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "no-referrer"
+		Permissions-Policy "camera=(), microphone=(self), geolocation=(self)"
+		Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' https://www.youtube.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: https:; font-src 'self' data: https://fonts.gstatic.com; connect-src 'self'; frame-src https://www.youtube.com; media-src 'self' blob:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'"
+		Cross-Origin-Opener-Policy "same-origin"
+		Cross-Origin-Resource-Policy "same-site"
+		-Server
+	}
+
+	@static path *.css *.js *.ico *.png *.jpg *.jpeg *.svg *.woff2 *.mp4
+	header @static Cache-Control "public, max-age=3600"
+
+	@html path *.html /
+	header @html Cache-Control "no-store"
+
+	log {
+		output stdout
+		format console
+	}
+}

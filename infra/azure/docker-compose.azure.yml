@@ -1,0 +1,283 @@
+# SOS Clinic - stack completo para una VM Linux de Azure.
+#
+# Decisiones de red:
+#   * Aplicaciones y Caddy usan network_mode: host para conservar los bindings
+#     127.0.0.1 de application.properties y el descubrimiento de Eureka.
+#   * PostgreSQL y MySQL quedan en bridge y publican solo en loopback.
+#   * Caddy es el unico proceso que escucha en 0.0.0.0 (80/443).
+#
+# El archivo .env se genera con infra/azure/deploy.ps1 y nunca se versiona.
+
+name: sos-clinic-azure
+
+x-app-environment: &app-environment
+  TZ: America/Bogota
+  JAVA_TOOL_OPTIONS: >-
+    -XX:InitialRAMPercentage=25.0
+    -XX:MaxRAMPercentage=70.0
+    -Duser.timezone=America/Bogota
+    -Dfile.encoding=UTF-8
+    -Djava.net.preferIPv4Stack=true
+  CORS_ALLOWED_ORIGINS: https://${SOS_DOMAIN:?SOS_DOMAIN es obligatorio}
+  FRONTEND_URL: https://${SOS_DOMAIN}
+
+x-app: &app
+  restart: unless-stopped
+  network_mode: host
+  env_file:
+    - ${SOS_ENV_FILE:-../../.env}
+  environment:
+    <<: *app-environment
+  logging:
+    driver: json-file
+    options:
+      max-size: "20m"
+      max-file: "3"
+
+services:
+  postgres:
+    image: postgres:16
+    container_name: sos-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: sosclinic
+      POSTGRES_USER: ${DB_USERNAME:-sos_admin}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD es obligatorio}
+      TZ: America/Bogota
+      PGTZ: America/Bogota
+    ports:
+      - "127.0.0.1:5433:5432"
+    shm_size: 256mb
+    volumes:
+      - sos_pgdata:/var/lib/postgresql/data
+      - ../schema-postgres.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d sosclinic"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+    stop_grace_period: 60s
+    logging:
+      driver: json-file
+      options:
+        max-size: "20m"
+        max-file: "3"
+
+  mysql:
+    image: mysql:8.0
+    container_name: sos-mysql
+    restart: unless-stopped
+    command:
+      - --default-time-zone=-05:00
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_0900_ai_ci
+      - --innodb-buffer-pool-size=256M
+      - --skip-name-resolve
+    environment:
+      MYSQL_ROOT_PASSWORD: ${ANALITICA_DB_PASSWORD:?ANALITICA_DB_PASSWORD es obligatorio}
+      MYSQL_ROOT_HOST: "%"
+      MYSQL_DATABASE: urgencias_hospital
+      TZ: America/Bogota
+    ports:
+      - "127.0.0.1:3306:3306"
+    volumes:
+      - sos_mysqldata:/var/lib/mysql
+      - ../../bd_local.sql:/docker-entrypoint-initdb.d/01-bd_local.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "MYSQL_PWD=\"$${MYSQL_ROOT_PASSWORD}\" mysqladmin ping -h 127.0.0.1 -uroot --silent"]
+      interval: 10s
+      timeout: 5s
+      retries: 18
+      start_period: 30s
+    stop_grace_period: 60s
+    logging:
+      driver: json-file
+      options:
+        max-size: "20m"
+        max-file: "3"
+
+  eureka-server:
+    <<: *app
+    image: ${ACR_LOGIN_SERVER:?ACR_LOGIN_SERVER es obligatorio}/sos-clinic/eureka-server:${IMAGE_TAG:-latest}
+    container_name: sos-eureka
+    mem_limit: 384m
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'exec 3<>/dev/tcp/127.0.0.1/8761'"]
+      interval: 10s
+      timeout: 3s
+      retries: 30
+      start_period: 45s
+
+  gateway:
+    <<: *app
+    image: ${ACR_LOGIN_SERVER}/sos-clinic/ms-gateway:${IMAGE_TAG:-latest}
+    container_name: sos-gateway
+    mem_limit: 512m
+    depends_on:
+      eureka-server:
+        condition: service_healthy
+      seguridad:
+        condition: service_started
+      pacientes:
+        condition: service_started
+      triage:
+        condition: service_started
+      analitica:
+        condition: service_started
+      ia-agente:
+        condition: service_started
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'exec 3<>/dev/tcp/127.0.0.1/8080'"]
+      interval: 10s
+      timeout: 3s
+      retries: 30
+      start_period: 60s
+
+  seguridad:
+    <<: *app
+    image: ${ACR_LOGIN_SERVER}/sos-clinic/ms-seguridad:${IMAGE_TAG:-latest}
+    container_name: sos-seguridad
+    mem_limit: 768m
+    depends_on:
+      postgres:
+        condition: service_healthy
+      eureka-server:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'exec 3<>/dev/tcp/127.0.0.1/8081'"]
+      interval: 10s
+      timeout: 3s
+      retries: 30
+      start_period: 75s
+
+  pacientes:
+    <<: *app
+    image: ${ACR_LOGIN_SERVER}/sos-clinic/ms-pacientes:${IMAGE_TAG:-latest}
+    container_name: sos-pacientes
+    mem_limit: 1024m
+    depends_on:
+      postgres:
+        condition: service_healthy
+      eureka-server:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'exec 3<>/dev/tcp/127.0.0.1/8082'"]
+      interval: 10s
+      timeout: 3s
+      retries: 30
+      start_period: 90s
+
+  triage:
+    <<: *app
+    image: ${ACR_LOGIN_SERVER}/sos-clinic/ms-triage:${IMAGE_TAG:-latest}
+    container_name: sos-triage
+    mem_limit: 768m
+    depends_on:
+      postgres:
+        condition: service_healthy
+      eureka-server:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'exec 3<>/dev/tcp/127.0.0.1/8083'"]
+      interval: 10s
+      timeout: 3s
+      retries: 30
+      start_period: 75s
+
+  analitica:
+    <<: *app
+    image: ${ACR_LOGIN_SERVER}/sos-clinic/ms-analitica:${IMAGE_TAG:-latest}
+    container_name: sos-analitica
+    mem_limit: 768m
+    depends_on:
+      mysql:
+        condition: service_healthy
+      eureka-server:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'exec 3<>/dev/tcp/127.0.0.1/8084'"]
+      interval: 10s
+      timeout: 3s
+      retries: 30
+      start_period: 90s
+
+  ia-agente:
+    <<: *app
+    image: ${ACR_LOGIN_SERVER}/sos-clinic/ms-ia-agente:${IMAGE_TAG:-latest}
+    container_name: sos-ia-agente
+    mem_limit: 512m
+    depends_on:
+      eureka-server:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'exec 3<>/dev/tcp/127.0.0.1/8088'"]
+      interval: 10s
+      timeout: 3s
+      retries: 30
+      start_period: 60s
+
+  caddy:
+    image: caddy:2.10-alpine
+    container_name: sos-caddy
+    restart: unless-stopped
+    network_mode: host
+    environment:
+      SOS_DOMAIN: ${SOS_DOMAIN:?SOS_DOMAIN es obligatorio}
+      ACME_EMAIL: ${ACME_EMAIL:?ACME_EMAIL es obligatorio}
+      TZ: America/Bogota
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - ../../frontend:/srv/frontend:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      gateway:
+        condition: service_healthy
+    stop_grace_period: 30s
+    logging:
+      driver: json-file
+      options:
+        max-size: "20m"
+        max-file: "3"
+
+  # Perfil temporal: carga las 50.000 llegadas sinteticas de MySQL.
+  # Se ejecuta una sola vez con:
+  #   docker compose ... --profile seed run --rm analitica-seed
+  analitica-seed:
+    profiles: ["seed"]
+    image: python:3.12-slim
+    network_mode: host
+    working_dir: /repo
+    env_file:
+      - ${SOS_ENV_FILE:-../../.env}
+    environment:
+      ANALITICA_DB_HOST: 127.0.0.1
+      ANALITICA_DB_PORT: "3306"
+      PYTHONUNBUFFERED: "1"
+      TZ: America/Bogota
+    volumes:
+      - ../..:/repo:ro
+      - sos_pip_cache:/root/.cache/pip
+    command:
+      - sh
+      - -c
+      - >-
+        pip install --quiet --disable-pip-version-check pandas faker sqlalchemy pymysql
+        && python llenar_hospital.py
+    depends_on:
+      mysql:
+        condition: service_healthy
+    mem_limit: 1024m
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "2"
+
+volumes:
+  sos_pgdata:
+  sos_mysqldata:
+  caddy_data:
+  caddy_config:
+  sos_pip_cache:

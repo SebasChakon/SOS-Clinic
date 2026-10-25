@@ -19,6 +19,8 @@ Sistema web de apoyo al registro y seguimiento de pacientes en el proceso de tri
 - [Pruebas y mantenimiento](#pruebas-y-mantenimiento)
 - [Estado y limitaciones conocidas](#estado-y-limitaciones-conocidas)
 - [Problemas frecuentes](#problemas-frecuentes)
+- [Credenciales y secretos](#credenciales-y-secretos)
+- [Despliegue en Azure](#despliegue-en-azure)
 
 ## Alcance actual
 
@@ -723,4 +725,33 @@ Si algo aparece fuera de `.env`, la credencial estuvo versionada: rótala. Para 
 ```bat
 gitleaks protect --staged
 ```
+
+## Despliegue en Azure
+
+La guia completa esta en [`infra/azure/README.md`](infra/azure/README.md). El flujo local de Windows (`00` a `05`, `infra/docker-compose.yml` y los `application.properties`) no cambia.
+
+Resumen:
+
+```powershell
+az login
+.\infra\azure\deploy.ps1
+```
+
+El script crea un grupo de recursos con una VM Ubuntu 24.04, PostgreSQL/MySQL en contenedores, las 7 imagenes en ACR, Caddy con HTTPS (`<label>.<region>.cloudapp.azure.com`), backups a Blob Storage y auto-shutdown. Antes de ejecutarlo:
+
+1. Rota `MAIL_PASSWORD` y `GROQ_API_KEY` como se explica arriba.
+2. Verifica que tienes acceso a `pruebasosclinic@gmail.com` para los codigos 2FA.
+3. Haz commit de los cambios: el script sube a la VM el ultimo commit, no el arbol de trabajo sucio.
+4. Ten Docker Desktop y Azure CLI instalados, y `az login` activo.
+
+Operacion diaria:
+
+```powershell
+.\infra\azure\start.ps1
+.\infra\azure\update.ps1
+.\infra\azure\stop.ps1
+.\infra\azure\smoke-test.ps1 -Domain <label>.<region>.cloudapp.azure.com
+```
+
+`stop.ps1` desaloca la VM para no consumir credito de computo; los volumenes, el disco, la IP y los backups se conservan. No uses esta infraestructura con datos clinicos reales: sigue siendo un prototipo academico de una sola VM, sin alta disponibilidad ni WAF.
 
