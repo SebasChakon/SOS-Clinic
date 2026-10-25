@@ -898,7 +898,7 @@ Write-Host 'Operacion:' -ForegroundColor Gray
 Write-Host '  .\infra\azure\start.ps1' -ForegroundColor Gray
 Write-Host '  .\infra\azure\stop.ps1' -ForegroundColor Gray
 Write-Host '  .\infra\azure\update.ps1' -ForegroundColor Gray
-Write-Host '  .\infra\azure\smoke-test.ps1 -Domain ' + $Fqdn -ForegroundColor Gray
+Write-Host "  .\infra\azure\smoke-test.ps1 -Domain $Fqdn" -ForegroundColor Gray
 Write-Host ''
 Write-Host 'Aviso: apaga la VM fuera de la demo y exporta backups antes del fin del trial.' -ForegroundColor Yellow
 

@@ -61,7 +61,7 @@ En Azure:
 
 ## Antes del primer despliegue
 
-1. **Rota los secretos comprometidos.** El README principal explica como cambiar `MAIL_PASSWORD` y `GROQ_API_KEY`. Actualiza el `.env` local; el despliegue copia esos valores la primera vez.
+1. **Revisa las credenciales SMTP/Groq.** El despliegue toma `MAIL_USERNAME`, `MAIL_PASSWORD` y `GROQ_API_KEY` del `.env` local. Si las cambias, actualiza ese archivo y ejecuta `update.ps1 -SyncLocalSecrets`; si no, se reutilizan las actuales.
 2. **Haz commit de todo.** `deploy.ps1` usa `git archive HEAD`: la VM recibe el ultimo commit, no archivos sin commitear. Si acabas de crear esta carpeta:
 
    ```powershell
