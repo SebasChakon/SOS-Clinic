@@ -128,7 +128,7 @@
 
 </div>
 
-<script src="assets/api.js?v=20261027-1"></script>
+<script src="assets/api.js?v=20261027-2"></script>
 <script>
   const formLogin = document.getElementById('formLogin');
   const formCodigo = document.getElementById('formCodigo');
@@ -150,6 +150,8 @@
   const motivo = new URLSearchParams(window.location.search).get('motivo');
   if (motivo === 'sesion-expirada') {
     mostrarMensaje('mensaje', 'Tu sesión expiró. Vuelve a iniciar sesión.', 'error');
+  } else if (motivo === 'sesion-cerrada') {
+    mostrarMensaje('mensaje', 'Tu sesión se cerró en otra pestaña. Vuelve a iniciar sesión.', 'error');
   } else if (motivo === 'sin-actividades') {
     mostrarMensaje('mensaje', 'Tu usuario no tiene ninguna pantalla asignada. Contacta al coordinador de turnos.', 'error');
   }

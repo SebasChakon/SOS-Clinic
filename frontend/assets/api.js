@@ -28,9 +28,11 @@ const CLAVE_REFRESH = 'sos_refresh_token';
 const CLAVE_TOKEN_EXPIRA = 'sos_token_expira';
 const CLAVE_SESION_EXPIRA = 'sos_sesion_expira';
 const MARGEN_REFRESCO_MS = 60000;
+const CLAVE_CANAL_SESION = 'sos-sesion';
 
 let refrescoEnCurso = null;
 let temporizadorSesion = null;
+let canalSesion = null;
 
 function guardarSesion(datosLogin) {
   const ahora = Date.now();
@@ -187,9 +189,68 @@ function urlExternaSegura(valor) {
 
 let cerrandoSesion = false;
 
-function cerrarSesion(destino = 'index.html') {
+/* Canal entre pestanas del mismo navegador. sessionStorage es independiente
+   por pestana, asi que el logout se propaga por BroadcastChannel. */
+function obtenerCanalSesion() {
+  if (canalSesion || typeof BroadcastChannel === 'undefined') return canalSesion;
+  try {
+    canalSesion = new BroadcastChannel(CLAVE_CANAL_SESION);
+    canalSesion.addEventListener('message', (evento) => {
+      const datos = evento.data;
+      if (!datos || datos.tipo !== 'logout' || !haySesion()) return;
+      // La pestana que recibe el aviso tambien revoca su propio refresh
+      // token y no reenvia el mensaje para evitar un bucle. El destino es
+      // fijo: nunca se redirige a una URL que venga por el canal.
+      cerrarSesion('login.html?motivo=sesion-cerrada', false);
+    });
+  } catch (error) {
+    canalSesion = null;
+  }
+  return canalSesion;
+}
+
+function avisarCierreSesion() {
+  const canal = obtenerCanalSesion();
+  if (!canal) return;
+  try {
+    canal.postMessage({ tipo: 'logout' });
+  } catch (error) {
+    // Si el canal falla, el logout local sigue su curso.
+  }
+}
+
+function marcarCamposClave() {
+  document.querySelectorAll('input[type="password"]').forEach((campo) => {
+    campo.dataset.campoClave = '1';
+  });
+}
+
+function esCampoClave(elemento) {
+  if (!(elemento instanceof HTMLInputElement)) return false;
+  return elemento.type === 'password' ||
+    elemento.dataset.campoClave === '1' ||
+    /password/i.test(elemento.getAttribute('autocomplete') || '');
+}
+
+/* Impide copiar o cortar el contenido de un campo de clave, incluso si la
+   vista lo muestra temporalmente como texto. Pegar sigue permitido para no
+   romper gestores de claves ni la accesibilidad. */
+function bloquearCopiaDeClaves() {
+  const bloquear = (evento) => {
+    if (!esCampoClave(evento.target)) return;
+    evento.preventDefault();
+    avisar('Por seguridad, no se puede copiar la clave.', 'error');
+  };
+  document.addEventListener('copy', bloquear);
+  document.addEventListener('cut', bloquear);
+  document.addEventListener('dragstart', bloquear);
+}
+
+function cerrarSesion(destino = 'index.html', notificar = true) {
   if (cerrandoSesion) return;
   cerrandoSesion = true;
+
+  if (notificar) avisarCierreSesion();
 
   clearTimeout(temporizadorSesion);
   temporizadorSesion = null;
@@ -970,6 +1031,13 @@ async function transcribirAudio(blob) {
 /* ---------------------------------------------------------------------
    Arranque de la sesion en cada vista
    --------------------------------------------------------------------- */
+
+// El canal se registra en todas las vistas, incluido el login: si otra
+// pestana cierra sesion, esta tambien limpia su sessionStorage y vuelve al
+// login. Los campos de clave se marcan al cargar para bloquear su copiado.
+obtenerCanalSesion();
+marcarCamposClave();
+bloquearCopiaDeClaves();
 
 if (haySesion()) {
   if (sesionVencida()) {
