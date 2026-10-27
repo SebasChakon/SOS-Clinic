@@ -243,7 +243,7 @@ Los datos de analítica son sintéticos y están separados del flujo clínico de
 - **Secretos fuera de Git:** `.env`, `.env.azure`, `.deployment.json` y credenciales del seed están ignorados.
 - **Permisos del `.env`:** `600 root:root` en la VM.
 - **Cabeceras HTTP:** HSTS, CSP con `connect-src 'self'`, `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy` y `Permissions-Policy`.
-- **JWT:** duración de 2 horas; no hay revocación centralizada (limitación conocida).
+- **Sesiones:** JWT de acceso de 15 minutos y refresh token opaco en PostgreSQL (8 h de inactividad, 12 h absolutas); sin gestión de dispositivos ni purga automática (limitación conocida).
 
 ---
 
@@ -429,7 +429,7 @@ sudo zcat /ruta/mysql-<timestamp>.sql.gz | \
 - **Sin CI/CD:** el despliegue es manual; las imágenes se construyen desde el equipo local.
 - **Dependencia de Gmail:** el 2FA usa SMTP de Gmail y el buzón `pruebasosclinic@gmail.com`.
 - **Dependencia de Groq:** el agente conversacional requiere una API key válida y cuota disponible.
-- **JWT de 2 horas sin revocación centralizada.**
+- **Sesiones sin gestión de dispositivos ni purga automática:** el JWT de acceso dura 15 minutos y las sesiones vencen por inactividad o por el tope absoluto.
 - **MySQL sintético:** las 50.000 llegadas no forman parte del flujo clínico real.
 - **Claves no rotadas:** por decisión del equipo se usaron las claves existentes de Gmail/Groq; el riesgo residual fue aceptado.
 - **Pruebas pendientes:** no se leyó el buzón para un código 2FA real ni se probó el flujo completo de cambio/recuperación de clave.

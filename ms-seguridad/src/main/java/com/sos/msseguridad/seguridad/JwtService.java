@@ -63,6 +63,11 @@ public class JwtService {
         return generarToken(usuario, idPersonal, perfil, List.of());
     }
 
+    /** Segundos que el frontend debe considerar valido el token de acceso. */
+    public long getExpiracionSegundos() {
+        return jwtExpirationMs / 1000;
+    }
+
     public boolean extraerDebeCambiarClave(String token) {
         Boolean valor = extraerClaim(token, claims -> claims.get("ccp", Boolean.class));
         return Boolean.TRUE.equals(valor);

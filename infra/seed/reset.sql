@@ -10,6 +10,7 @@ TRUNCATE TABLE
     turno,
     codigo_verificacion,
     token_recuperacion,
+    sesion,
     personal,
     perfil_actividad,
     actividades,

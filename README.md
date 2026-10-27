@@ -2,7 +2,7 @@
 
 Sistema web de apoyo al registro y seguimiento de pacientes en el proceso de triage. El repositorio combina un frontend estático, servicios Java independientes, descubrimiento con Eureka y una base PostgreSQL local.
 
-> **Estado:** prototipo academico en desarrollo. No debe tratarse como un sistema clinico de produccion. El esquema SQL inicial ya incluye turnos, codigos 2FA, aprobacion de cuentas y tokens de recuperacion; en bases existentes aplica `infra/migraciones/2026-10-19-seguridad.sql` y `infra/migraciones/2026-10-21-claves.sql`. La autenticacion y la autorizacion por rol estan implementadas en gateway, seguridad, pacientes, triage, analitica y agente. Revisa [Estado y limitaciones conocidas](#estado-y-limitaciones-conocidas) antes de levantarlo desde cero o exponerlo en una red.
+> **Estado:** prototipo academico en desarrollo. No debe tratarse como un sistema clinico de produccion. El esquema SQL inicial ya incluye turnos, codigos 2FA, aprobacion de cuentas, tokens de recuperacion y sesiones con refresh token; en bases existentes aplica las migraciones de `infra/migraciones/` en orden, incluida `2026-10-27-sesiones.sql`. La autenticacion y la autorizacion por rol estan implementadas en gateway, seguridad, pacientes, triage, analitica y agente. Revisa [Estado y limitaciones conocidas](#estado-y-limitaciones-conocidas) antes de levantarlo desde cero o exponerlo en una red.
 
 ## Contenido
 
@@ -26,7 +26,7 @@ Sistema web de apoyo al registro y seguimiento de pacientes en el proceso de tri
 
 Sujeto a que la base esté alineada con los modelos actuales, el sistema permite:
 
-- Iniciar sesión con usuario y contraseña, emitir un JWT y completar un segundo factor por correo (2FA, obligatorio para `administrador` y `seguridad`), con recuperación de clave desde el login.
+- Iniciar sesión con usuario y contraseña, emitir un JWT de acceso corto respaldado por una sesión con refresh token rotativo y completar un segundo factor por correo (2FA, obligatorio para `administrador` y `seguridad`), con recuperación de clave desde el login.
 - Administrar perfiles, actividades, asignaciones a perfiles, usuarios y turnos desde la interfaz de administración.
 - Registrar y buscar pacientes.
 - Crear episodios de triage, asignar una categoría y ubicación, consultar la lista de espera y cambiar un episodio a atención o atendido.
@@ -112,6 +112,7 @@ Cada módulo Maven organiza normalmente su código en `src/main/java` así:
 | `infra/migraciones/2026-10-21-claves.sql` | Migración para bases existentes: aprobación de cuentas, activación/recuperación/cambio de correo por token, cambio obligatorio de clave, `challenge` 2FA y actividad `aprobar_cuentas`. |
 | `infra/migraciones/2026-10-19-actividades.sql` | Limpia actividades duplicadas por enlace y crea índices únicos para nombre y enlace. |
 | `infra/migraciones/2026-10-22-seed-drift.sql` | Añade `paciente.email` y las columnas de cierre de triage, e instala `pgcrypto` si faltan. |
+| `infra/migraciones/2026-10-27-sesiones.sql` | Crea la tabla `sesion` para los refresh tokens opacos, con vencimiento por inactividad, tope absoluto y revocación. |
 | `frontend/index.html` | Landing: presentación animada del proyecto, con el video y el acceso. |
 | `frontend/login.html` | Login, enlace de recuperación y formulario de verificación 2FA con `challenge`. |
 | `frontend/recuperar-clave.html` | Solicitud de enlace de recuperación por usuario o correo. |
@@ -126,7 +127,7 @@ Cada módulo Maven organiza normalmente su código en `src/main/java` así:
 | `frontend/auditoria.html` | Consulta de acciones registradas por backend y frontend. |
 | `frontend/roles.html` | Administración de perfiles, actividades, asignaciones, usuarios y turnos. |
 | `frontend/dashboard.html` | Tablero de analítica por rango de fechas, localidad y turno; consume `ms-analitica` vía gateway. |
-| `frontend/assets/api.js` | URL base, sesión en `sessionStorage`, envío JWT, manejo de errores y funciones compartidas de API. |
+| `frontend/assets/api.js` | URL base, sesión en `sessionStorage` (JWT corto + refresh token), renovación automática, temporizador de inactividad, manejo de errores y funciones compartidas de API. |
 | `frontend/assets/clave.js` | Checklist y medidor de fuerza de la política de claves; el backend sigue siendo la autoridad. |
 | `frontend/assets/copiloto.js` | Widget flotante del agente IA (chat y voz) en las páginas con sesión activa. |
 | `frontend/assets/estilos.css` | Estilos compartidos; algunas páginas añaden estilos locales en su HTML. |
@@ -405,11 +406,11 @@ Las cuentas del seed ya están aprobadas. El flujo de aprobación sigue vigente 
 
 ### 5. Abrir el frontend
 
-El script de Windows sirve `frontend/` en `http://localhost:5500` con Python y abre la landing (`index.html`); si Python no está disponible, abre los archivos directamente (en ese caso el video de la landing muestra una miniatura con enlace a YouTube, porque el reproductor incrustado exige un referrer HTTP). La API apunta a `http://localhost:8080`, y el navegador guarda token y datos básicos de sesión en `sessionStorage`. Si el navegador bloquea las peticiones por CORS al abrir el archivo directamente, sirve `frontend/` desde un servidor estático local y permite ese origen en la configuración CORS del gateway.
+El script de Windows sirve `frontend/` en `http://localhost:5500` con Python y abre la landing (`index.html`); si Python no está disponible, abre los archivos directamente (en ese caso el video de la landing muestra una miniatura con enlace a YouTube, porque el reproductor incrustado exige un referrer HTTP). La API apunta a `http://localhost:8080`, y el navegador guarda el JWT de acceso, el refresh token y datos básicos de sesión en `sessionStorage`. Como `sessionStorage` es por pestaña, cerrar la pestaña termina la sesión local; no se usa una cookie HttpOnly para el refresh token. Si el navegador bloquea las peticiones por CORS al abrir el archivo directamente, sirve `frontend/` desde un servidor estático local y permite ese origen en la configuración CORS del gateway.
 
 ## Flujo de trabajo normal
 
-1. **Acceso del personal.** Se envían usuario y clave a `ms-seguridad`. El servicio comprueba que la cuenta esté aprobada y activa, compara BCrypt y, excepto para los perfiles `administrador` y `seguridad`, verifica que la hora esté dentro de un turno activo. Si se requiere 2FA, envía un código de seis dígitos al correo; vence en cinco minutos y el segundo paso exige un *challenge* emitido tras validar la clave. Tras autenticar, devuelve JWT y actividades del perfil. Las cuentas nuevas se crean **pendientes de aprobación** y se activan por correo; el administrador nunca define la clave. La política de claves se valida siempre en el backend.
+1. **Acceso del personal.** Se envían usuario y clave a `ms-seguridad`. El servicio comprueba que la cuenta esté aprobada y activa, compara BCrypt y, excepto para los perfiles `administrador` y `seguridad`, verifica que la hora esté dentro de un turno activo. Si se requiere 2FA, envía un código de seis dígitos al correo; vence en cinco minutos y el segundo paso exige un *challenge* emitido tras validar la clave. Tras autenticar, devuelve un JWT de acceso de 15 minutos, un refresh token de sesión y las actividades del perfil. El frontend renueva el acceso antes de que venza o una sola vez tras un `401`. Las cuentas nuevas se crean **pendientes de aprobación** y se activan por correo; el administrador nunca define la clave. La política de claves se valida siempre en el backend.
 2. **Registro del paciente.** Se guardan nombre, apellido, cédula, fecha de nacimiento y, opcionalmente, correo. La cédula debe ser única. Un paciente existente puede localizarse por cédula desde el formulario de nuevo triage.
 3. **Limite de autorizacion:** las actividades siguen controlando el menu y la navegacion del navegador, pero la autorizacion real se aplica en el backend. El gateway valida el JWT y cada servicio vuelve a validarlo. `ms-seguridad` exige `ADMINISTRADOR` para `/admin/**` (salvo auditoria, que admite `ADMINISTRADOR`, `SEGURIDAD` y `AUDITOR`, y las rutas de aprobacion, que exigen `SEGURIDAD`); `ms-pacientes` y `ms-triage` admiten roles clinicos y de recepcion/lista de espera; `ms-analitica` exige `COORDINACION` o `ADMINISTRADOR`; `ms-ia-agente` exige un usuario autenticado.
 4. **Priorización.** `GET /ms-triage/triage/prioridad` devuelve la lista priorizada. La prioridad numérica 1 es la más urgente; el tiempo de espera en minutos se calcula al consultar y no se mantiene como contador en segundo plano.
@@ -437,7 +438,7 @@ La política se aplica en el backend (`PoliticaClaves`) y el frontend solo muest
 
 **Segundo factor.** El segundo paso usa un *challenge* opaco de 32 bytes que se emite solo después de validar la clave. Se guarda su SHA-256 en `codigo_verificacion.challenge_hash`, dura 5 minutos, es de un solo uso y `verificar-2fa` deriva el usuario de él, no del cuerpo de la petición. Reenviar el código usa el mismo challenge y ya no requiere conservar la contraseña en JavaScript. El 2FA es obligatorio para `administrador` y `seguridad`; el resto de cuentas lo reciben activado y solo el dueño puede desactivarlo, con clave actual y un código nuevo. El administrador no puede cambiar el 2FA de otra persona.
 
-**Sesiones.** El JWT dura 2 horas. Al cambiar o restablecer la clave se invalidan los tokens de recuperación y los códigos 2FA pendientes, pero los JWT ya emitidos siguen siendo válidos hasta que expiran; no hay revocación centralizada. No uses el sistema con datos reales sin resolver esa limitación.
+**Sesiones.** El JWT de acceso dura 15 minutos y se valida sin consultar la base. La sesión de aplicación vive en la tabla `sesion`: vence a las 8 horas de inactividad o a las 12 horas desde su creación, lo que ocurra primero. El refresh token es opaco, tiene 256 bits de entropía, se guarda solo como SHA-256 y rota en cada renovación. El frontend lo mantiene en `sessionStorage` (por pestaña), lo envía en el cuerpo de `POST /ms-seguridad/auth/refrescar`, renueva cuando faltan menos de 60 segundos y reintenta una vez tras un `401`; un temporizador local usa el vencimiento informado por el servidor. Logout, cambio de clave, restablecimiento de clave, desactivación y rechazo de cuenta revocan las sesiones correspondientes. El JWT ya emitido sigue siendo válido hasta 15 minutos después de una revocación, y un refresh token robado puede usarse hasta que la sesión venza o se revoque; no hay gestión de dispositivos ni limpieza automática de filas vencidas. No uses el sistema con datos reales sin completar esos controles.
 
 ## Sistema de correos
 
@@ -502,6 +503,7 @@ El esquema de referencia está en `infra/schema-postgres.sql`. El SQL inicial cr
 | `personal` | Cuenta y datos del profesional; referencia a `perfil`. Incluye estado de aprobación, cambio obligatorio de clave y 2FA. `clave` debe contener hash, nunca texto claro. |
 | `codigo_verificacion` | Códigos 2FA hasheados, su `challenge` de pre-autenticación, propósito y expiración. |
 | `token_recuperacion` | Tokens de activación, recuperación y cambio de correo: SHA-256, tipo, expiración, un solo uso e IP/User-Agent de la solicitud. |
+| `sesion` | Sesiones de aplicación: SHA-256 del refresh token, último uso, vencimiento por inactividad, tope absoluto, revocación, motivo e IP/User-Agent de creación. |
 | `actividades` | Nombre interno y enlace de pantalla. |
 | `perfil_actividad` | Asignación única de actividad a perfil. |
 | `paciente` | Datos demográficos, cédula única, email y estado. |
@@ -511,7 +513,7 @@ El esquema de referencia está en `infra/schema-postgres.sql`. El SQL inicial cr
 | `estado_paciente` | Cada toma de signos vitales, asociada a episodio y al ID del personal que la registró. |
 | `registro_auditoria` | Actor, paciente opcional, acción, detalle y fecha/hora. |
 
-El esquema ya incluye `turno`, `codigo_verificacion`, `token_recuperacion`, las columnas de aprobación/cambio obligatorio/2FA, `paciente.email` y las columnas de cierre de triage. En bases existentes aplica las migraciones de `infra/migraciones/`; para bases nuevas, ejecuta el seed después de crear el volumen.
+El esquema ya incluye `turno`, `codigo_verificacion`, `token_recuperacion`, `sesion`, las columnas de aprobación/cambio obligatorio/2FA, `paciente.email` y las columnas de cierre de triage. En bases existentes aplica las migraciones de `infra/migraciones/`; para bases nuevas, ejecuta el seed después de crear el volumen.
 
 ### Reglas de datos
 
@@ -530,15 +532,17 @@ Todas las rutas se exponen en `http://localhost:8080`. El gateway elimina el pre
 
 | Método | Ruta | Descripción |
 |---|---|---|
-| `POST` | `/ms-seguridad/auth/login` | Valida usuario/clave, aprobación y turno; puede devolver un `challenge` para 2FA o el token y las actividades. |
-| `POST` | `/ms-seguridad/auth/verificar-2fa` | Valida `challenge` + código y devuelve el token si es correcto. |
+| `POST` | `/ms-seguridad/auth/login` | Valida usuario/clave, aprobación y turno; puede devolver un `challenge` para 2FA o el JWT de acceso, el refresh token y las actividades. |
+| `POST` | `/ms-seguridad/auth/verificar-2fa` | Valida `challenge` + código y devuelve el JWT de acceso, el refresh token y las actividades. |
 | `POST` | `/ms-seguridad/auth/reenviar-2fa` | Reenvía el código usando el `challenge`, sin pedir la clave. |
+| `POST` | `/ms-seguridad/auth/refrescar` | Rota el refresh token y devuelve un JWT de acceso nuevo con las expiraciones de token y sesión. Es público. |
+| `POST` | `/ms-seguridad/auth/logout` | Revoca la sesión asociada al refresh token. Es público y no falla si el token ya no existe. |
 | `GET` | `/ms-seguridad/auth/politica-clave` | Publica las reglas de clave que usa el checklist del frontend. |
 | `POST` | `/ms-seguridad/auth/recuperar-clave` | Envía un enlace de recuperación (respuesta genérica, 30 min). |
 | `POST` | `/ms-seguridad/auth/validar-token-recuperacion` | Valida un enlace e informa su tipo (`RECUPERACION`, `ACTIVACION` o `CAMBIO_EMAIL`). |
 | `POST` | `/ms-seguridad/auth/restablecer-clave` | Define la clave nueva desde un enlace de recuperación o activación. |
 | `POST` | `/ms-seguridad/auth/confirmar-email` | Confirma un cambio de correo desde el enlace enviado a la dirección nueva. |
-| `POST` | `/ms-seguridad/auth/cambiar-clave` | Cambio de clave autenticado (clave actual + nueva); devuelve un token nuevo. |
+| `POST` | `/ms-seguridad/auth/cambiar-clave` | Cambio de clave autenticado (clave actual + nueva); revoca las sesiones y devuelve un JWT y un refresh token nuevos. |
 | `GET` | `/ms-seguridad/auth/mi-cuenta` | Datos de la cuenta autenticada, sin hash ni secretos. |
 | `POST` | `/ms-seguridad/auth/2fa/activar` | Activa la verificación en dos pasos. |
 | `POST` | `/ms-seguridad/auth/2fa/desactivar/solicitar` | Verifica la clave actual y envía un código para desactivar 2FA. |
@@ -554,19 +558,19 @@ Todas las rutas se exponen en `http://localhost:8080`. El gateway elimina el pre
 | `DELETE` | `/ms-seguridad/admin/perfil-actividad/{id}` | Quita una asignación. |
 | `GET`, `POST` | `/ms-seguridad/admin/personal` | Lista o crea personal. Al crear solo exige datos y turno: la cuenta queda pendiente de aprobación. |
 | `PUT` | `/ms-seguridad/admin/personal/{id}` | Edita datos, perfil y turno. No cambia clave ni 2FA; el correo de una cuenta activada solo lo cambia el usuario. |
-| `PUT` | `/ms-seguridad/admin/personal/{id}/estado?idEstado=0\|1` | Activa o desactiva un usuario ya aprobado. |
+| `PUT` | `/ms-seguridad/admin/personal/{id}/estado?idEstado=0\|1` | Activa o desactiva un usuario ya aprobado; al desactivar revoca sus sesiones. |
 | `GET` | `/ms-seguridad/admin/personal/pendientes` | Lista cuentas pendientes de aprobación (`SEGURIDAD`). |
 | `POST` | `/ms-seguridad/admin/personal/{id}/aprobar` | Aprueba la cuenta y envía el enlace de activación (`SEGURIDAD`). |
-| `POST` | `/ms-seguridad/admin/personal/{id}/rechazar` | Rechaza la solicitud (`SEGURIDAD`). |
+| `POST` | `/ms-seguridad/admin/personal/{id}/rechazar` | Rechaza la solicitud y revoca sus sesiones (`SEGURIDAD`). |
 | `POST` | `/ms-seguridad/admin/personal/{id}/activacion` | Reenvía el enlace de activación (`ADMINISTRADOR`). |
-| `POST` | `/ms-seguridad/admin/personal/{id}/restablecer` | Envía un enlace de recuperación a una cuenta activada (`ADMINISTRADOR`). |
+| `POST` | `/ms-seguridad/admin/personal/{id}/restablecer` | Envía un enlace de recuperación a una cuenta activada; al usarlo se revocan sus sesiones (`ADMINISTRADOR`). |
 | `POST` | `/ms-seguridad/admin/personal/{id}/clave-temporal` | Genera una clave temporal antes de la primera activación; se muestra una vez (`ADMINISTRADOR`). |
 | `GET`, `POST` | `/ms-seguridad/admin/turnos` | Lista o crea turnos. |
 | `PUT` | `/ms-seguridad/admin/turnos/{id}` | Edita las horas. |
 | `PUT` | `/ms-seguridad/admin/turnos/{id}/estado?idEstado=0\|1` | Activa o desactiva turno. |
 | `GET` | `/ms-seguridad/admin/auditoria` | Lista registros de auditoría. |
 
-`/admin/**` exige `ADMINISTRADOR`; `/admin/auditoria/**` admite `ADMINISTRADOR`, `SEGURIDAD` y `AUDITOR`; las rutas de aprobación exigen `SEGURIDAD` y se evalúan antes del matcher general. El gateway valida el JWT y bloquea cualquier token emitido con cambio de clave pendiente (`ccp=true`) salvo el endpoint de cambio de clave. Las rutas públicas nuevas están en `SecurityConfig` y en el `shouldNotFilter` del gateway; si agregas otra, debes declararla en ambos sitios.
+`/admin/**` exige `ADMINISTRADOR`; `/admin/auditoria/**` admite `ADMINISTRADOR`, `SEGURIDAD` y `AUDITOR`; las rutas de aprobación exigen `SEGURIDAD` y se evalúan antes del matcher general. El gateway valida el JWT y bloquea cualquier token emitido con cambio de clave pendiente (`ccp=true`) salvo el endpoint de cambio de clave. Las rutas públicas (incluidas `auth/refrescar` y `auth/logout`) están en `SecurityConfig` y en el `shouldNotFilter` del gateway; si agregas otra, debes declararla en ambos sitios.
 
 ### Pacientes
 
@@ -610,7 +614,7 @@ El dashboard está en `frontend/dashboard.html`. Chart.js se distribuye como arc
 
 El esquema MySQL observado es compatible con el seeder: `contexto_zona` contiene `localidad VARCHAR(100)` (clave), `poblacion INT`, `porcentaje_mayores_60 DECIMAL(5,2)` y `densidad_poblacional DECIMAL(10,2)`; `contexto_diario` contiene `fecha DATE` (clave), `es_festivo TINYINT(1)`, `lluvia_mm DECIMAL(6,2)`, `temperatura DECIMAL(5,2)`, `pm25 DECIMAL(6,2)` y `evento_masivo TINYINT(1)`; `capacidad_turno` contiene `(fecha DATE, turno VARCHAR(20))` como clave compuesta, más `personal_disponible`, `puestos_triage` y `camas_disponibles INT`; `llegadas` contiene `id_llegada INT AUTO_INCREMENT`, `fecha_hora DATETIME`, `fecha DATE`, `turno VARCHAR(20)`, `localidad VARCHAR(100)`, `prioridad VARCHAR(20)`, `estado VARCHAR(50)` y tiempos `INT`. Hay índices/FK para localidad y `(fecha, turno)`. Al verificarlo: 5 zonas, 365 días, 1.095 turnos y 50.000 llegadas.
 
-`frontend/assets/api.js` incluye el token en las peticiones cuando hay sesión, pero eso no significa que todos los servicios verifiquen el token.
+`frontend/assets/api.js` incluye el JWT en las peticiones cuando hay sesión, renueva el acceso antes de que venza y reintenta una vez tras un `401`. Eso no significa que todos los servicios verifiquen el token.
 
 ## Pruebas y mantenimiento
 
@@ -620,7 +624,7 @@ Cada módulo tiene su propio ciclo Maven. Desde una terminal ubicada en la carpe
 .\mvnw.cmd test
 ```
 
-También se puede usar `mvn test`. Las pruebas de seguridad (`PoliticaClavesTest`, `JwtServiceTest`, `LoginAttemptServiceTest`, `PlantillasCorreoTest`) corren sin base de datos. `MsSeguridadApplicationTests` y `EnvResolucionTest` cargan el contexto completo y necesitan `.env` y PostgreSQL. Para empaquetar un módulo sin pruebas:
+También se puede usar `mvn test`. Las pruebas de seguridad (`PoliticaClavesTest`, `JwtServiceTest`, `LoginAttemptServiceTest`, `AuthServiceTest`, `SesionServiceTest`, `PlantillasCorreoTest`) corren sin base de datos. `MsSeguridadApplicationTests` y `EnvResolucionTest` cargan el contexto completo y necesitan `.env` y PostgreSQL. Para empaquetar un módulo sin pruebas:
 
 ```powershell
 .\mvnw.cmd package -DskipTests
@@ -637,7 +641,7 @@ Añadir `-v` borra el volumen, por lo que debe hacerse solo de forma intencional
 
 ## Estado y limitaciones conocidas
 
-1. **Esquema y migraciones.** `schema-postgres.sql` incluye el esquema completo, `pgcrypto`, `paciente.email` y las columnas de cierre de triage. En una base existente aplica, en este orden, `infra/migraciones/2026-10-19-seguridad.sql`, `2026-10-19-actividades.sql`, `2026-10-21-claves.sql` y `2026-10-22-seed-drift.sql`. `reset_seed.py` lo hace automáticamente antes del seed. `ddl-auto=validate` no crea ni migra nada.
+1. **Esquema y migraciones.** `schema-postgres.sql` incluye el esquema completo, `pgcrypto`, `paciente.email`, las columnas de cierre de triage y la tabla `sesion`. En una base existente aplica, en este orden, `infra/migraciones/2026-10-19-seguridad.sql`, `2026-10-19-actividades.sql`, `2026-10-21-claves.sql`, `2026-10-22-seed-drift.sql` y `2026-10-27-sesiones.sql`. `reset_seed.py` lo hace automáticamente antes del seed. `ddl-auto=validate` no crea ni migra nada.
 2. **Seed y credenciales locales.** El seed reemplaza los datos de aplicación; las contraseñas únicas de las 9 cuentas viven en `infra/seed/credenciales.local.env`/`.md`, ignorados por Git. No se versionan ni se comparten. Las cuentas tienen 2FA activo y los códigos llegan a `pruebasosclinic@gmail.com`. Las 9 cuentas tienen turno de 24 h para pruebas funcionales; `admin.test` sigue siendo la cuenta maestra.
 3. **Historia clínica y teleconsulta por correo.** El alta se hace en una sola llamada desde el backend, que persiste diagnóstico y tratamiento en `registro_triage` **antes** de notificar y devuelve el estado de cada correo por separado. Los envíos siguen siendo de mejor esfuerzo dependientes de SMTP: revisa el estado devuelto y usa el botón de reintento en lugar de asumir que la historia clínica llegó porque el alta concluyó. Si el PDF o el mapa de farmacias fallan, el correo se envía igual sin ese elemento.
 4. **Autorizacion por rol.** El gateway valida el JWT y cada servicio vuelve a validarlo; `/admin/**` exige `ADMINISTRADOR`, salvo `/admin/auditoria/**` (`ADMINISTRADOR`, `SEGURIDAD`, `AUDITOR`) y las rutas de aprobación de cuentas (`pendientes`, `aprobar`, `rechazar`), que exigen `SEGURIDAD`; pacientes y triage admiten roles clinicos y de recepcion/lista de espera segun el endpoint. Queda pendiente la autorizacion por propietario de cada episodio y el doble control para cambios de perfil.
@@ -646,7 +650,7 @@ Añadir `-v` borra el volumen, por lo que debe hacerse solo de forma intencional
 7. **Auditoría de mejor esfuerzo.** Las operaciones de seguridad (alta, aprobación, activación, reset, cambio de clave, 2FA, login fallido) se registran desde el backend, pero la bitácora no es inmutable y parte de los eventos del frontend se siguen enviando desde JavaScript. No registra automáticamente todos los accesos a datos clínicos.
 8. **Analítica y agente IA en modo prototipo.** `ms-analitica` consulta una base MySQL sintética y `ms-ia-agente` usa la API de Groq para chat y voz; siguen sin existir módulos de Big Data, ISO 27005/STRIDE/DREAD o recomendaciones clínicas automáticas.
 9. **No sustituye criterio clínico.** El personal ingresa la categoría. La aplicación no diagnostica, no detecta deterioro automáticamente y no debe ser el único mecanismo de priorización asistencial.
-10. **Sesiones y dependencia de correo.** El JWT dura 2 horas y no hay revocación centralizada: un token robado sigue siendo válido hasta que expira, incluso después de cambiar la clave. La activación, la recuperación y el 2FA dependen de SMTP; si el correo falla, la cuenta queda inutilizable hasta reenviar el enlace. El *challenge* 2FA evita que el código por sí solo sea una credencial, pero el correo sigue siendo el único segundo factor.
+10. **Sesiones y dependencia de correo.** El JWT de acceso dura 15 minutos y la sesión se respalda en `sesion` con un refresh token opaco y rotativo (8 h de inactividad, 12 h absolutas). Logout, cambio/restablecimiento de clave y desactivación/rechazo revocan sesiones, pero un JWT ya emitido sigue siendo válido hasta 15 minutos y no hay gestión de dispositivos ni purga automática de sesiones vencidas. El refresh token vive en `sessionStorage`, así que cerrar la pestaña termina la sesión local y no se comparte entre pestañas. La activación, la recuperación y el 2FA dependen de SMTP; si el correo falla, la cuenta queda inutilizable hasta reenviar el enlace. El *challenge* 2FA evita que el código por sí solo sea una credencial, pero el correo sigue siendo el único segundo factor.
 
 ## Problemas frecuentes
 
@@ -696,7 +700,7 @@ $prep = "C:\ruta\a\SOS-Clinic-Preparacion"
 Copy-Item "$prep\.env" .env
 ```
 
-El `.env` ya incluye `APP_JWT_SECRET`, `DB_PASSWORD`/`POSTGRES_PASSWORD`/`PGADMIN_DEFAULT_PASSWORD`, `MAIL_USERNAME`, `MAIL_PASSWORD` (contrasena de aplicacion de Gmail, no la clave normal), `ANALITICA_DB_*` y `GROQ_API_KEY`. `FRONTEND_URL` debe apuntar al servidor estatico del frontend (`http://127.0.0.1:5500` en local) para que los enlaces de activacion y recuperacion funcionen. `04. levantar-sistema.bat` carga `.env` automaticamente antes de abrir las consolas de cada servicio; si lo corres a mano, exporta las variables antes de arrancar.
+El `.env` ya incluye `APP_JWT_SECRET`, `DB_PASSWORD`/`POSTGRES_PASSWORD`/`PGADMIN_DEFAULT_PASSWORD`, `MAIL_USERNAME`, `MAIL_PASSWORD` (contrasena de aplicacion de Gmail, no la clave normal), `ANALITICA_DB_*` y `GROQ_API_KEY`. `FRONTEND_URL` debe apuntar al servidor estatico del frontend (`http://127.0.0.1:5500` en local) para que los enlaces de activacion y recuperacion funcionen. Opcionalmente puedes ajustar `JWT_EXPIRATION_MS` (15 min por defecto), `SESSION_IDLE_MS` (8 h) y `SESSION_MAX_MS` (12 h); `SESSION_IDLE_MS` no puede superar `SESSION_MAX_MS`. `04. levantar-sistema.bat` carga `.env` automaticamente antes de abrir las consolas de cada servicio; si lo corres a mano, exporta las variables antes de arrancar.
 
 Las contraseñas del seed **no** van en `.env`: se generan una vez en `infra/seed/credenciales.local.env` y `credenciales.local.md`, que están en `.gitignore`. El `.md` es la lista que debes usar para iniciar sesión. Las 9 cuentas tienen 2FA activo y los códigos llegan a `pruebasosclinic@gmail.com`.
 
@@ -712,7 +716,7 @@ Las credenciales antiguas de este proyecto **ya están en el historial de git** 
 
 - **Gmail:** en [Cuenta de Google → Seguridad → Contraseñas de aplicaciones](https://myaccount.google.com/apppasswords), revoca la contraseña `TU_CONTRASENA_DE_APLICACION` y genera una nueva. Actualiza `MAIL_PASSWORD` en tu `.env`.
 - **Groq:** en [console.groq.com/keys](https://console.groq.com/keys), elimina la key `gsk_...` y crea otra; actualiza `GROQ_API_KEY` en tu `.env`. La clave vieja sigue siendo válida hasta que la revokes: borrarla del README no la desactiva.
-- **Clave JWT:** genera un valor aleatorio de al menos 32 bytes, guardalo como `APP_JWT_SECRET` en `.env` y reinicia todos los servicios. Al rotarlo se invalidan todas las sesiones activas.
+- **Clave JWT:** genera un valor aleatorio de al menos 32 bytes, guardalo como `APP_JWT_SECRET` en `.env` y reinicia todos los servicios. Al rotarlo se invalidan los JWT de acceso ya emitidos, pero las sesiones con refresh token siguen vigentes y pueden emitir tokens nuevos: revócalas también (por ejemplo, `UPDATE sesion SET revocada = TRUE;`) o fuerza un cambio de clave.
 
 ### Comprobación y prevención
 

@@ -4,7 +4,7 @@ Esta carpeta contiene el despliegue de demo para Azure. **No reemplaza el flujo 
 
 Para el detalle completo de lo que se construyó, las decisiones, las validaciones y los problemas corregidos, consulta [`README-IMPLEMENTACION.md`](README-IMPLEMENTACION.md). Este archivo es el runbook para operar y reproducir el despliegue.
 
-> Prototipo academico. Una sola VM, sin alta disponibilidad, sin WAF, sin revocacion centralizada de JWT y dependiente de Gmail/Groq. No lo uses con datos clinicos reales.
+> Prototipo academico. Una sola VM, sin alta disponibilidad, sin WAF, sin gestion de dispositivos ni purga automatica de sesiones, y dependiente de Gmail/Groq. No lo uses con datos clinicos reales.
 
 ## Arquitectura
 
@@ -135,6 +135,15 @@ Get-Content .\infra\azure\.deployment.json
 ```
 
 `-SkipInfra` exige que exista `infra/azure/.deployment.json`. Si quieres crear otro despliegue, mueve o elimina ese archivo y el `.env.azure`.
+
+Al actualizar un despliegue existente a una version con tablas o columnas nuevas, aplica la migracion correspondiente antes de reiniciar los servicios: `update.ps1` usa `-SkipSeed` y no toca la base. Para esta version:
+
+```bash
+sudo docker exec -i sos-postgres psql -U sos_admin -d sosclinic \
+  < /opt/sos-clinic/infra/migraciones/2026-10-27-sesiones.sql
+```
+
+Usa el `DB_USERNAME` de `.env.azure` si cambiaste el valor por defecto. Si prefieres reconstruir los datos, `update.ps1 -Reseed` aplica todas las migraciones y vuelve a sembrar.
 
 ## Variables y secretos
 
@@ -276,7 +285,7 @@ El trial de 30 dias incluye credito y limite de gasto. La alerta de presupuesto 
 ## Limites conocidos
 
 - Una sola VM y un solo nodo de cada base: no hay alta disponibilidad.
-- El JWT dura 2 horas y no hay revocacion centralizada.
+- El JWT de acceso dura 15 minutos y las sesiones se guardan en PostgreSQL (8 h de inactividad, 12 h absolutas); no hay gestion de dispositivos ni purga automatica de sesiones vencidas.
 - El seed usa correos plus-addressed a un Gmail; el 2FA depende de ese buzon.
 - MySQL de analitica es sintetico y no forma parte del flujo clinico.
 - No hay CI/CD en esta version: el despliegue es manual y reproducible con los scripts.

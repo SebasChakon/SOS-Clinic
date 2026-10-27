@@ -13,6 +13,7 @@ import com.sos.msseguridad.dto.LoginResponse;
 import com.sos.msseguridad.dto.PoliticaClaveResponse;
 import com.sos.msseguridad.dto.ProgramarTeleconsultaRequest;
 import com.sos.msseguridad.dto.RecuperarClaveRequest;
+import com.sos.msseguridad.dto.RefreshTokenRequest;
 import com.sos.msseguridad.dto.Reenviar2faRequest;
 import com.sos.msseguridad.dto.RestablecerClaveRequest;
 import com.sos.msseguridad.dto.SolicitarDesactivar2faRequest;
@@ -41,9 +42,9 @@ public class AuthController {
     }
 
     @PostMapping("/login")
-    public ResponseEntity<?> login(@Valid @RequestBody LoginRequest request) {
+    public ResponseEntity<?> login(@Valid @RequestBody LoginRequest request, HttpServletRequest http) {
         try {
-            LoginResponse response = authService.login(request);
+            LoginResponse response = authService.login(request, ip(http), userAgent(http));
             return ResponseEntity.ok(response);
         } catch (RateLimitExceededException e) {
             return ResponseEntity.status(429)
@@ -55,9 +56,10 @@ public class AuthController {
     }
 
     @PostMapping("/verificar-2fa")
-    public ResponseEntity<?> verificarCodigo(@Valid @RequestBody VerificarCodigoRequest request) {
+    public ResponseEntity<?> verificarCodigo(@Valid @RequestBody VerificarCodigoRequest request,
+                                             HttpServletRequest http) {
         try {
-            return ResponseEntity.ok(authService.verificarCodigo(request));
+            return ResponseEntity.ok(authService.verificarCodigo(request, ip(http), userAgent(http)));
         } catch (RateLimitExceededException e) {
             return ResponseEntity.status(429)
                     .header("Retry-After", String.valueOf(e.getRetryAfterSeconds()))
@@ -116,8 +118,21 @@ public class AuthController {
 
     @PostMapping("/cambiar-clave")
     public ResponseEntity<?> cambiarClave(@Valid @RequestBody CambiarClaveRequest request,
-                                          Principal principal) {
-        return ResponseEntity.ok(authService.cambiarClave(principal.getName(), request));
+                                          Principal principal, HttpServletRequest http) {
+        return ResponseEntity.ok(authService.cambiarClave(
+                principal.getName(), request, ip(http), userAgent(http)));
+    }
+
+    @PostMapping("/refrescar")
+    public ResponseEntity<?> refrescar(@RequestBody(required = false) RefreshTokenRequest request) {
+        String refreshToken = request == null ? null : request.getRefreshToken();
+        return ResponseEntity.ok(authService.refrescar(refreshToken));
+    }
+
+    @PostMapping("/logout")
+    public ResponseEntity<?> logout(@RequestBody(required = false) RefreshTokenRequest request) {
+        authService.logout(request == null ? null : request.getRefreshToken());
+        return ResponseEntity.noContent().build();
     }
 
     @GetMapping("/mi-cuenta")

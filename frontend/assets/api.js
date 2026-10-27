@@ -20,19 +20,51 @@ const TIMEOUT_ALTA_MS = 120000;
 const MENSAJE_TIMEOUT_ALTA = 'La operación está tardando más de lo esperado. Pudo haberse completado; actualiza la página de seguimiento antes de volver a intentarlo.';
 
 /* ---------------------------------------------------------------------
-   Sesion (token JWT guardado en el navegador)
+   Sesion (JWT corto + refresh token opaco en sessionStorage)
    --------------------------------------------------------------------- */
 
+const CLAVE_TOKEN = 'sos_token';
+const CLAVE_REFRESH = 'sos_refresh_token';
+const CLAVE_TOKEN_EXPIRA = 'sos_token_expira';
+const CLAVE_SESION_EXPIRA = 'sos_sesion_expira';
+const MARGEN_REFRESCO_MS = 60000;
+
+let refrescoEnCurso = null;
+let temporizadorSesion = null;
+
 function guardarSesion(datosLogin) {
-  sessionStorage.setItem('sos_token', datosLogin.token);
+  const ahora = Date.now();
+  sessionStorage.setItem(CLAVE_TOKEN, datosLogin.token);
+  if (datosLogin.refreshToken) {
+    sessionStorage.setItem(CLAVE_REFRESH, datosLogin.refreshToken);
+  } else {
+    sessionStorage.removeItem(CLAVE_REFRESH);
+  }
+  if (datosLogin.tokenExpiraEn != null) {
+    sessionStorage.setItem(CLAVE_TOKEN_EXPIRA,
+      String(ahora + Number(datosLogin.tokenExpiraEn) * 1000));
+  } else {
+    sessionStorage.removeItem(CLAVE_TOKEN_EXPIRA);
+  }
+  if (datosLogin.sesionExpiraEn != null) {
+    sessionStorage.setItem(CLAVE_SESION_EXPIRA,
+      String(ahora + Number(datosLogin.sesionExpiraEn) * 1000));
+  } else {
+    sessionStorage.removeItem(CLAVE_SESION_EXPIRA);
+  }
   sessionStorage.setItem('sos_usuario', datosLogin.usuario);
   sessionStorage.setItem('sos_perfil', datosLogin.perfil);
   sessionStorage.setItem('sos_id_personal', datosLogin.idPersonal);
   sessionStorage.setItem('sos_actividades', JSON.stringify(datosLogin.actividades || []));
+  programarExpiracionSesion();
 }
 
 function obtenerToken() {
-  return sessionStorage.getItem('sos_token');
+  return sessionStorage.getItem(CLAVE_TOKEN);
+}
+
+function obtenerRefreshToken() {
+  return sessionStorage.getItem(CLAVE_REFRESH);
 }
 
 function obtenerSesion() {
@@ -49,6 +81,77 @@ function obtenerSesion() {
 
 function haySesion() {
   return obtenerToken() !== null;
+}
+
+function tokenPorVencer() {
+  const expira = Number(sessionStorage.getItem(CLAVE_TOKEN_EXPIRA));
+  return Number.isFinite(expira) && expira > 0 && Date.now() >= expira - MARGEN_REFRESCO_MS;
+}
+
+function sesionVencida() {
+  const expira = Number(sessionStorage.getItem(CLAVE_SESION_EXPIRA));
+  return Number.isFinite(expira) && expira > 0 && Date.now() >= expira;
+}
+
+function programarExpiracionSesion() {
+  clearTimeout(temporizadorSesion);
+  const expira = Number(sessionStorage.getItem(CLAVE_SESION_EXPIRA));
+  if (!Number.isFinite(expira) || expira <= 0) return;
+
+  const restante = expira - Date.now();
+  if (restante <= 0) {
+    cerrarSesion('login.html?motivo=sesion-expirada');
+    return;
+  }
+  temporizadorSesion = setTimeout(() => {
+    if (sesionVencida()) {
+      cerrarSesion('login.html?motivo=sesion-expirada');
+    } else {
+      programarExpiracionSesion();
+    }
+  }, Math.min(restante + 1000, 2147483647));
+}
+
+async function renovarSesion() {
+  if (refrescoEnCurso) return refrescoEnCurso;
+
+  const refreshToken = obtenerRefreshToken();
+  if (!refreshToken) {
+    const error = new Error('Sesión expirada. Vuelve a iniciar sesión.');
+    error.sesionExpirada = true;
+    throw error;
+  }
+
+  refrescoEnCurso = (async () => {
+    let respuesta;
+    try {
+      respuesta = await fetch(`${BASE_URL}/ms-seguridad/auth/refrescar`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ refreshToken })
+      });
+    } catch (error) {
+      throw new Error('No se pudo contactar al servidor para renovar la sesión.');
+    }
+
+    if (!respuesta.ok) {
+      const error = new Error(respuesta.status === 401 || respuesta.status === 403
+        ? 'Sesión expirada. Vuelve a iniciar sesión.'
+        : 'No se pudo renovar la sesión. Inténtalo de nuevo.');
+      error.sesionExpirada = respuesta.status === 401 || respuesta.status === 403;
+      throw error;
+    }
+
+    const datos = await respuesta.json();
+    guardarSesion(datos);
+    return datos;
+  })();
+
+  try {
+    return await refrescoEnCurso;
+  } finally {
+    refrescoEnCurso = null;
+  }
 }
 
 /**
@@ -82,7 +185,31 @@ function urlExternaSegura(valor) {
   }
 }
 
+let cerrandoSesion = false;
+
 function cerrarSesion(destino = 'index.html') {
+  if (cerrandoSesion) return;
+  cerrandoSesion = true;
+
+  clearTimeout(temporizadorSesion);
+  temporizadorSesion = null;
+
+  // Revoca la sesion en el servidor sin bloquear la navegacion. keepalive
+  // permite que la peticion termine aunque la pagina se este cerrando.
+  const refreshToken = sessionStorage.getItem(CLAVE_REFRESH);
+  if (refreshToken) {
+    try {
+      fetch(`${BASE_URL}/ms-seguridad/auth/logout`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ refreshToken }),
+        keepalive: true
+      }).catch(() => {});
+    } catch (error) {
+      // Sin red no hay nada mas que hacer: la sesion local se borra igual.
+    }
+  }
+
   sessionStorage.clear();
   window.location.href = destino;
 }
@@ -112,6 +239,15 @@ function exigirSesion() {
     window.location.href = 'login.html';
     return;
   }
+
+  if (sesionVencida()) {
+    cerrarSesion('login.html?motivo=sesion-expirada');
+    return;
+  }
+
+  // Cada vista retoma el temporizador con el vencimiento que informo el
+  // servidor; si la pestana estuvo oculta, el aviso de visibilidad lo revisa.
+  programarExpiracionSesion();
 
   if (sesion.perfil === 'administrador') return;
 
@@ -160,9 +296,36 @@ function mensajeDeError(datos, respuesta) {
   return mensajes[respuesta.status] || bruto || 'No se pudo completar la solicitud.';
 }
 
-async function llamarApi(ruta, opciones = {}) {
-  const token = obtenerToken();
+/** Renueva el token si esta por vencer o si la sesion ya expiro. */
+async function asegurarTokenVigente() {
+  if (!haySesion()) return;
 
+  if (sesionVencida()) {
+    cerrarSesion('login.html?motivo=sesion-expirada');
+    throw new Error('Sesión expirada. Vuelve a iniciar sesión.');
+  }
+
+  if (!tokenPorVencer()) return;
+
+  try {
+    await renovarSesion();
+  } catch (error) {
+    if (error.sesionExpirada) cerrarSesion('login.html?motivo=sesion-expirada');
+    throw error;
+  }
+}
+
+/** Renueva una sola vez tras un 401 y cierra la sesion si ya no es valida. */
+async function renovarTrasNoAutorizado() {
+  try {
+    await renovarSesion();
+  } catch (error) {
+    if (error.sesionExpirada) cerrarSesion('login.html?motivo=sesion-expirada');
+    throw error;
+  }
+}
+
+async function ejecutarSolicitud(ruta, opciones, token) {
   const headers = {
     'Content-Type': 'application/json',
     ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
@@ -178,9 +341,8 @@ async function llamarApi(ruta, opciones = {}) {
   }
   const temporizador = setTimeout(() => controlador.abort(), opciones.timeout || 20000);
 
-  let respuesta;
   try {
-    respuesta = await fetch(`${BASE_URL}${ruta}`, {
+    return await fetch(`${BASE_URL}${ruta}`, {
       ...opciones,
       headers,
       signal: controlador.signal
@@ -195,16 +357,29 @@ async function llamarApi(ruta, opciones = {}) {
     clearTimeout(temporizador);
     if (senalExterna) senalExterna.removeEventListener('abort', alCancelar);
   }
+}
 
-  if (respuesta.status === 401) {
-    if (token) {
-      // Ya teníamos una sesión activa y el token dejó de ser válido.
-      cerrarSesion('login.html?motivo=sesion-expirada');
-      throw new Error('Sesión expirada. Vuelve a iniciar sesión.');
-    }
-    // Sin token (por ejemplo, login fallido): mostramos el mensaje del backend.
+async function llamarApi(ruta, opciones = {}) {
+  const { _reintento = false, ...opcionesFetch } = opciones;
+
+  if (!_reintento) await asegurarTokenVigente();
+
+  const token = obtenerToken();
+  const respuesta = await ejecutarSolicitud(ruta, opcionesFetch, token);
+
+  if (respuesta.status === 401 && haySesion() && !_reintento) {
+    // El token pudo vencer entre la comprobacion y el gateway: se renueva
+    // una sola vez y se repite la solicitud con el token nuevo.
+    await renovarTrasNoAutorizado();
+    return llamarApi(ruta, { ...opcionesFetch, _reintento: true });
   }
 
+  if (respuesta.status === 401 && haySesion()) {
+    cerrarSesion('login.html?motivo=sesion-expirada');
+    throw new Error('Sesión expirada. Vuelve a iniciar sesión.');
+  }
+
+  // Sin sesion (por ejemplo, login fallido): mostramos el mensaje del backend.
   const textoRespuesta = await respuesta.text();
   let datos = null;
   try { datos = textoRespuesta ? JSON.parse(textoRespuesta) : null; } catch (e) { datos = textoRespuesta; }
@@ -393,16 +568,30 @@ async function reenviarCorreosAtencion(idRegistro, datos) {
   });
 }
 
-/* Descarga el PDF oficial de la historia clinica (lo genera ms-pacientes). */
-async function descargarHistoriaPdf(idRegistro) {
+async function solicitarPdf(idRegistro) {
   const token = obtenerToken();
-  let respuesta;
   try {
-    respuesta = await fetch(`${BASE_URL}/ms-pacientes/pacientes/historias/${idRegistro}/pdf`, {
+    return await fetch(`${BASE_URL}/ms-pacientes/pacientes/historias/${idRegistro}/pdf`, {
       headers: token ? { 'Authorization': `Bearer ${token}` } : {}
     });
   } catch (error) {
     throw new Error('No se pudo contactar al servidor para generar el PDF.');
+  }
+}
+
+/* Descarga el PDF oficial de la historia clinica (lo genera ms-pacientes). */
+async function descargarHistoriaPdf(idRegistro) {
+  await asegurarTokenVigente();
+
+  let respuesta = await solicitarPdf(idRegistro);
+
+  if (respuesta.status === 401 && haySesion()) {
+    await renovarTrasNoAutorizado();
+    respuesta = await solicitarPdf(idRegistro);
+    if (respuesta.status === 401) {
+      cerrarSesion('login.html?motivo=sesion-expirada');
+      throw new Error('Sesión expirada. Vuelve a iniciar sesión.');
+    }
   }
 
   // El cuerpo de una respuesta solo puede leerse UNA vez.
@@ -777,3 +966,26 @@ async function transcribirAudio(blob) {
     body: blob
   });
 }
+
+/* ---------------------------------------------------------------------
+   Arranque de la sesion en cada vista
+   --------------------------------------------------------------------- */
+
+if (haySesion()) {
+  if (sesionVencida()) {
+    cerrarSesion('login.html?motivo=sesion-expirada');
+  } else {
+    programarExpiracionSesion();
+  }
+}
+
+// Si la pestana estuvo oculta, el temporizador puede haberse retrasado.
+// Al volver a ella se comprueba el vencimiento informado por el servidor.
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState !== 'visible' || !haySesion()) return;
+  if (sesionVencida()) {
+    cerrarSesion('login.html?motivo=sesion-expirada');
+  } else {
+    programarExpiracionSesion();
+  }
+});

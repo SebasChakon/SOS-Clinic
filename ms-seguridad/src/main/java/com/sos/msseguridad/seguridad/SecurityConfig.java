@@ -53,7 +53,7 @@ public class SecurityConfig {
                 .requestMatchers("/auth/login", "/auth/verificar-2fa", "/auth/reenviar-2fa",
                         "/auth/recuperar-clave", "/auth/validar-token-recuperacion",
                         "/auth/restablecer-clave", "/auth/confirmar-email",
-                        "/auth/politica-clave").permitAll()
+                        "/auth/politica-clave", "/auth/refrescar", "/auth/logout").permitAll()
                 .requestMatchers("/admin/auditoria/**").hasAnyRole("ADMINISTRADOR", "SEGURIDAD", "AUDITOR")
                 .requestMatchers("/admin/personal/pendientes", "/admin/personal/*/aprobar",
                         "/admin/personal/*/rechazar").hasRole("SEGURIDAD")

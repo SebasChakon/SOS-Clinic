@@ -49,6 +49,8 @@ public class JwtValidationFilter extends OncePerRequestFilter {
                 || "/ms-seguridad/auth/restablecer-clave".equals(ruta)
                 || "/ms-seguridad/auth/confirmar-email".equals(ruta)
                 || "/ms-seguridad/auth/politica-clave".equals(ruta)
+                || "/ms-seguridad/auth/refrescar".equals(ruta)
+                || "/ms-seguridad/auth/logout".equals(ruta)
                 || "/ms-seguridad/error".equals(ruta)
                 || "/error".equals(ruta);
     }

@@ -16,6 +16,7 @@ import com.sos.msseguridad.repositorio.PersonalRepository;
 import com.sos.msseguridad.repositorio.TurnoRepository;
 import com.sos.msseguridad.seguridad.PoliticaClaves;
 import com.sos.msseguridad.seguridad.RecuperacionClaveService;
+import com.sos.msseguridad.seguridad.SesionService;
 import com.sos.msseguridad.servicio.AuditoriaService;
 import com.sos.msseguridad.servicio.EmailService;
 import jakarta.validation.Valid;
@@ -50,6 +51,7 @@ public class PersonalAdminController {
     private final PasswordEncoder passwordEncoder;
     private final AuditoriaService auditoriaService;
     private final RecuperacionClaveService recuperacionClaveService;
+    private final SesionService sesionService;
     private final PoliticaClaves politicaClaves;
     private final EmailService emailService;
     private final SecureRandom random = new SecureRandom();
@@ -60,6 +62,7 @@ public class PersonalAdminController {
                                    PasswordEncoder passwordEncoder,
                                    AuditoriaService auditoriaService,
                                    RecuperacionClaveService recuperacionClaveService,
+                                   SesionService sesionService,
                                    PoliticaClaves politicaClaves,
                                    EmailService emailService) {
         this.personalRepository = personalRepository;
@@ -68,6 +71,7 @@ public class PersonalAdminController {
         this.passwordEncoder = passwordEncoder;
         this.auditoriaService = auditoriaService;
         this.recuperacionClaveService = recuperacionClaveService;
+        this.sesionService = sesionService;
         this.politicaClaves = politicaClaves;
         this.emailService = emailService;
     }
@@ -228,6 +232,9 @@ public class PersonalAdminController {
             }
             p.setIdEstado(idEstado);
             Personal guardado = personalRepository.save(p);
+            if (idEstado == 0) {
+                sesionService.revocarTodas(guardado, "CUENTA_DESACTIVADA");
+            }
             auditoriaService.registrarAccionActual(idEstado == 1 ? "ACTIVAR" : "DESACTIVAR",
                     "Usuario: " + guardado.getUsuario());
             return ResponseEntity.ok(PersonalResponse.de(guardado));
@@ -273,6 +280,7 @@ public class PersonalAdminController {
         p.setEstadoAprobacion("RECHAZADA");
         p.setIdEstado(0);
         personalRepository.save(p);
+        sesionService.revocarTodas(p, "CUENTA_RECHAZADA");
 
         String motivo = request == null ? null : recortar(request.getMotivo(), 100);
         auditoriaService.registrarAccionActual("RECHAZAR",

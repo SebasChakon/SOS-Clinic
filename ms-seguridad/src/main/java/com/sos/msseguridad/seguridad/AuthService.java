@@ -33,6 +33,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.security.SecureRandom;
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.Base64;
@@ -58,6 +59,7 @@ public class AuthService {
     private final PersonalRepository personalRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
+    private final SesionService sesionService;
     private final TurnoRepository turnoRepository;
     private final PerfilActividadRepository perfilActividadRepository;
     private final CodigoVerificacionRepository codigoVerificacionRepository;
@@ -72,7 +74,7 @@ public class AuthService {
     private final String dummyHash;
 
     public AuthService(PersonalRepository personalRepository, PasswordEncoder passwordEncoder,
-                       JwtService jwtService, TurnoRepository turnoRepository,
+                       JwtService jwtService, SesionService sesionService, TurnoRepository turnoRepository,
                        PerfilActividadRepository perfilActividadRepository,
                        CodigoVerificacionRepository codigoVerificacionRepository,
                        RecuperacionClaveService recuperacionClaveService,
@@ -82,6 +84,7 @@ public class AuthService {
         this.personalRepository = personalRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtService = jwtService;
+        this.sesionService = sesionService;
         this.turnoRepository = turnoRepository;
         this.perfilActividadRepository = perfilActividadRepository;
         this.codigoVerificacionRepository = codigoVerificacionRepository;
@@ -98,7 +101,7 @@ public class AuthService {
     /* Inicio de sesion y segundo factor                                   */
     /* ------------------------------------------------------------------ */
 
-    public LoginResponse login(LoginRequest request) {
+    public LoginResponse login(LoginRequest request, String ip, String userAgent) {
         String usuario = normalizar(request.getUsuario());
         String claveIntentos = normalizarUsuario(usuario);
 
@@ -129,10 +132,10 @@ public class AuthService {
                     enviado.challenge(), Boolean.TRUE.equals(personal.getDebeCambiarClave()));
         }
 
-        return construirRespuestaConToken(personal);
+        return construirRespuestaConToken(personal, ip, userAgent);
     }
 
-    public LoginResponse verificarCodigo(VerificarCodigoRequest request) {
+    public LoginResponse verificarCodigo(VerificarCodigoRequest request, String ip, String userAgent) {
         String challenge = request.getChallenge() == null ? "" : request.getChallenge().trim();
         String challengeHash = RecuperacionClaveService.hash(challenge);
         String claveIntentos = "2fa:" + challengeHash;
@@ -174,7 +177,23 @@ public class AuthService {
         codigoVerificacionRepository.save(codigo);
         loginAttemptService.registrarExito(claveIntentos);
 
-        return construirRespuestaConToken(personal);
+        return construirRespuestaConToken(personal, ip, userAgent);
+    }
+
+    public LoginResponse refrescar(String refreshToken) {
+        SesionService.SesionRenovada renovada = sesionService.renovar(refreshToken);
+        Personal personal = renovada.personal();
+
+        if (!cuentaOperativa(personal)) {
+            sesionService.revocarTodas(personal, "CUENTA_INACTIVA");
+            throw new BadCredentialsException("Sesion expirada. Vuelve a iniciar sesion.");
+        }
+
+        return construirRespuestaConToken(personal, renovada.token(), renovada.fechaExpira());
+    }
+
+    public void logout(String refreshToken) {
+        sesionService.revocar(refreshToken, "LOGOUT");
     }
 
     public LoginResponse reenviarCodigo(Reenviar2faRequest request) {
@@ -308,7 +327,8 @@ public class AuthService {
     /* Cambio y recuperacion de clave                                      */
     /* ------------------------------------------------------------------ */
 
-    public LoginResponse cambiarClave(String usuario, CambiarClaveRequest request) {
+    public LoginResponse cambiarClave(String usuario, CambiarClaveRequest request,
+                                      String ip, String userAgent) {
         Personal personal = buscarOperativo(usuario);
         String claveIntentos = "cambio:" + normalizarUsuario(usuario);
 
@@ -334,11 +354,12 @@ public class AuthService {
         personalRepository.save(personal);
 
         invalidarCredencialesPendientes(personal);
+        sesionService.revocarTodas(personal, "CAMBIO_CLAVE");
         auditoriaService.registrar(personal.getUsuario(), "CAMBIO_CLAVE", "Cambio de clave propio");
         enviarAviso(personal, "clave-actualizada", "Tu clave fue actualizada - SOS Clinic",
                 "Tu clave de acceso a SOS Clinic fue actualizada correctamente.");
 
-        return construirRespuestaConToken(personal);
+        return construirRespuestaConToken(personal, ip, userAgent);
     }
 
     public void recuperarClave(RecuperarClaveRequest request, String ip, String userAgent) {
@@ -422,6 +443,7 @@ public class AuthService {
 
         recuperacionClaveService.marcarUsado(registro);
         invalidarCredencialesPendientes(personal);
+        sesionService.revocarTodas(personal, "RESET_CLAVE");
 
         String accion = RecuperacionClaveService.TIPO_ACTIVACION.equals(registro.getTipo())
                 ? "ACTIVACION" : "RESET";
@@ -683,7 +705,13 @@ public class AuthService {
         }
     }
 
-    private LoginResponse construirRespuestaConToken(Personal personal) {
+    private LoginResponse construirRespuestaConToken(Personal personal, String ip, String userAgent) {
+        SesionService.SesionCreada sesion = sesionService.crear(personal, ip, userAgent);
+        return construirRespuestaConToken(personal, sesion.token(), sesion.fechaExpira());
+    }
+
+    private LoginResponse construirRespuestaConToken(Personal personal, String refreshToken,
+                                                      LocalDateTime sesionExpira) {
         List<ActividadDTO> actividades = perfilActividadRepository
                 .findByPerfil_IdPerfilAndIdEstado(personal.getPerfil().getIdPerfil(), 1)
                 .stream()
@@ -697,9 +725,12 @@ public class AuthService {
         boolean debeCambiarClave = Boolean.TRUE.equals(personal.getDebeCambiarClave());
         String token = jwtService.generarToken(personal.getUsuario(), personal.getIdPersonal(),
                 personal.getPerfil().getPerfil(), enlaces, debeCambiarClave);
+        long sesionExpiraEn = Math.max(0,
+                Duration.between(LocalDateTime.now(), sesionExpira).toSeconds());
 
         return new LoginResponse(token, personal.getUsuario(), personal.getPerfil().getPerfil(),
-                personal.getIdPersonal(), actividades, false, null, debeCambiarClave);
+                personal.getIdPersonal(), actividades, false, null, debeCambiarClave,
+                refreshToken, jwtService.getExpiracionSegundos(), sesionExpiraEn);
     }
 
     private boolean dentroDeTurno(Integer idPersonal) {

@@ -9,10 +9,21 @@ public class LoginResponse {
     private Boolean requiere2fa;
     private String challenge;
     private Boolean debeCambiarClave;
+    private String refreshToken;
+    private Long tokenExpiraEn;
+    private Long sesionExpiraEn;
 
     public LoginResponse(String token, String usuario, String perfil, Integer idPersonal,
                           java.util.List<ActividadDTO> actividades, Boolean requiere2fa,
                           String challenge, Boolean debeCambiarClave) {
+        this(token, usuario, perfil, idPersonal, actividades, requiere2fa, challenge,
+                debeCambiarClave, null, null, null);
+    }
+
+    public LoginResponse(String token, String usuario, String perfil, Integer idPersonal,
+                          java.util.List<ActividadDTO> actividades, Boolean requiere2fa,
+                          String challenge, Boolean debeCambiarClave,
+                          String refreshToken, Long tokenExpiraEn, Long sesionExpiraEn) {
         this.token = token;
         this.usuario = usuario;
         this.perfil = perfil;
@@ -21,6 +32,9 @@ public class LoginResponse {
         this.requiere2fa = requiere2fa;
         this.challenge = challenge;
         this.debeCambiarClave = debeCambiarClave;
+        this.refreshToken = refreshToken;
+        this.tokenExpiraEn = tokenExpiraEn;
+        this.sesionExpiraEn = sesionExpiraEn;
     }
 
     public String getToken() { return token; }
@@ -31,4 +45,7 @@ public class LoginResponse {
     public Boolean getRequiere2fa() { return requiere2fa; }
     public String getChallenge() { return challenge; }
     public Boolean getDebeCambiarClave() { return debeCambiarClave; }
+    public String getRefreshToken() { return refreshToken; }
+    public Long getTokenExpiraEn() { return tokenExpiraEn; }
+    public Long getSesionExpiraEn() { return sesionExpiraEn; }
 }

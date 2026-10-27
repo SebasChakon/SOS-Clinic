@@ -74,6 +74,26 @@ CREATE UNIQUE INDEX ux_token_recuperacion_hash ON token_recuperacion (token_hash
 CREATE INDEX ix_token_recuperacion_personal
     ON token_recuperacion (id_personal, tipo) WHERE usado = FALSE;
 
+-- Sesion de aplicacion: el refresh token se guarda solo como SHA-256.
+-- fecha_expira es el corte por inactividad y fecha_maxima el tope absoluto.
+CREATE TABLE sesion (
+    id_sesion         INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    id_personal       INT NOT NULL REFERENCES personal(id_personal) ON DELETE CASCADE,
+    token_hash        VARCHAR(64) NOT NULL,
+    fecha_creacion    TIMESTAMP NOT NULL DEFAULT now(),
+    ultimo_uso        TIMESTAMP NOT NULL DEFAULT now(),
+    fecha_expira      TIMESTAMP NOT NULL,
+    fecha_maxima      TIMESTAMP NOT NULL,
+    revocada          BOOLEAN NOT NULL DEFAULT FALSE,
+    motivo_revocacion VARCHAR(40),
+    ip_creacion       VARCHAR(45),
+    user_agent        VARCHAR(200)
+);
+
+CREATE UNIQUE INDEX ux_sesion_token_hash ON sesion (token_hash);
+CREATE INDEX ix_sesion_personal_activa
+    ON sesion (id_personal) WHERE revocada = FALSE;
+
 CREATE TABLE actividades (
     id_actividad      INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     nombre_actividad  VARCHAR(45) NOT NULL,

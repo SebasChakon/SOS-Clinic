@@ -51,6 +51,7 @@ class AuthServiceTest {
     private PersonalRepository personalRepository;
     private PasswordEncoder passwordEncoder;
     private JwtService jwtService;
+    private SesionService sesionService;
     private TurnoRepository turnoRepository;
     private PerfilActividadRepository perfilActividadRepository;
     private CodigoVerificacionRepository codigoVerificacionRepository;
@@ -66,6 +67,7 @@ class AuthServiceTest {
         personalRepository = mock(PersonalRepository.class);
         passwordEncoder = mock(PasswordEncoder.class);
         jwtService = mock(JwtService.class);
+        sesionService = mock(SesionService.class);
         turnoRepository = mock(TurnoRepository.class);
         perfilActividadRepository = mock(PerfilActividadRepository.class);
         codigoVerificacionRepository = mock(CodigoVerificacionRepository.class);
@@ -79,10 +81,14 @@ class AuthServiceTest {
         when(emailService.renderizar(anyString(), anyMap())).thenReturn("<html></html>");
         when(jwtService.generarToken(anyString(), anyInt(), anyString(), anyList(), anyBoolean()))
                 .thenReturn("token");
+        when(jwtService.getExpiracionSegundos()).thenReturn(900L);
+        when(sesionService.crear(any(Personal.class), anyString(), anyString()))
+                .thenReturn(new SesionService.SesionCreada("refresh",
+                        LocalDateTime.now().plusHours(8), LocalDateTime.now().plusHours(12)));
         when(perfilActividadRepository.findByPerfil_IdPerfilAndIdEstado(anyInt(), anyInt()))
                 .thenReturn(List.of());
 
-        authService = new AuthService(personalRepository, passwordEncoder, jwtService,
+        authService = new AuthService(personalRepository, passwordEncoder, jwtService, sesionService,
                 turnoRepository, perfilActividadRepository, codigoVerificacionRepository,
                 recuperacionClaveService, new PoliticaClaves(), emailService,
                 teleconsultaService, loginAttemptService, auditoriaService);
@@ -133,7 +139,7 @@ class AuthServiceTest {
         when(loginAttemptService.estaBloqueado("ana")).thenReturn(false);
         when(loginAttemptService.puedeReenviar("ana")).thenReturn(true);
 
-        LoginResponse respuesta = authService.login(login("Cobre#7391"));
+        LoginResponse respuesta = authService.login(login("Cobre#7391"), "127.0.0.1", "JUnit");
 
         assertTrue(respuesta.getRequiere2fa());
         assertNotNull(respuesta.getChallenge());
@@ -162,9 +168,10 @@ class AuthServiceTest {
         request.setChallenge("challenge");
         request.setCodigo("123456");
 
-        LoginResponse respuesta = authService.verificarCodigo(request);
+        LoginResponse respuesta = authService.verificarCodigo(request, "127.0.0.1", "JUnit");
 
         assertEquals("token", respuesta.getToken());
+        assertEquals("refresh", respuesta.getRefreshToken());
         assertTrue(codigo.getUsado());
         verify(codigoVerificacionRepository).save(codigo);
     }
@@ -179,7 +186,8 @@ class AuthServiceTest {
         request.setChallenge("no-existe");
         request.setCodigo("123456");
 
-        assertThrows(BadCredentialsException.class, () -> authService.verificarCodigo(request));
+        assertThrows(BadCredentialsException.class,
+                () -> authService.verificarCodigo(request, "127.0.0.1", "JUnit"));
         verify(loginAttemptService, never()).registrarFallo(anyString());
     }
 
@@ -194,7 +202,7 @@ class AuthServiceTest {
         when(loginAttemptService.estaBloqueado("ana")).thenReturn(false);
 
         ResponseStatusException excepcion = assertThrows(ResponseStatusException.class,
-                () -> authService.login(login("Cobre#7391")));
+                () -> authService.login(login("Cobre#7391"), "127.0.0.1", "JUnit"));
         assertEquals(HttpStatus.UNAUTHORIZED, excepcion.getStatusCode());
     }
 
@@ -208,7 +216,8 @@ class AuthServiceTest {
         when(passwordEncoder.matches(anyString(), anyString())).thenReturn(false);
         when(loginAttemptService.estaBloqueado("ana")).thenReturn(false);
 
-        assertThrows(BadCredentialsException.class, () -> authService.login(login("Cobre#7391")));
+        assertThrows(BadCredentialsException.class,
+                () -> authService.login(login("Cobre#7391"), "127.0.0.1", "JUnit"));
         verify(loginAttemptService).registrarFallo("ana");
     }
 
@@ -224,9 +233,11 @@ class AuthServiceTest {
         request.setClaveActual("Cobre#7391");
         request.setClaveNueva("Nube#4821");
 
-        LoginResponse respuesta = authService.cambiarClave("ana", request);
+        LoginResponse respuesta = authService.cambiarClave("ana", request, "127.0.0.1", "JUnit");
 
         assertEquals("token", respuesta.getToken());
+        assertEquals("refresh", respuesta.getRefreshToken());
+        verify(sesionService).revocarTodas(personal, "CAMBIO_CLAVE");
         assertFalse(personal.getDebeCambiarClave());
         assertNull(personal.getClaveExpira());
         assertNotNull(personal.getFechaCambioClave());
@@ -244,9 +255,42 @@ class AuthServiceTest {
         request.setClaveActual("Cobre#7391");
         request.setClaveNueva("Password1!");
 
-        assertThrows(PoliticaClaveException.class, () -> authService.cambiarClave("ana", request));
+        assertThrows(PoliticaClaveException.class,
+                () -> authService.cambiarClave("ana", request, "127.0.0.1", "JUnit"));
         assertTrue(personal.getDebeCambiarClave());
         assertNotNull(personal.getClaveExpira());
+    }
+
+    @Test
+    void refrescarConSesionValidaDevuelveTokenNuevo() {
+        when(sesionService.renovar("refresh"))
+                .thenReturn(new SesionService.SesionRenovada(personal, "refresh2",
+                        LocalDateTime.now().plusHours(8), LocalDateTime.now().plusHours(12)));
+
+        LoginResponse respuesta = authService.refrescar("refresh");
+
+        assertEquals("token", respuesta.getToken());
+        assertEquals("refresh2", respuesta.getRefreshToken());
+        assertEquals(900L, respuesta.getTokenExpiraEn());
+    }
+
+    @Test
+    void refrescarConCuentaInactivaRevocaTodasLasSesiones() {
+        personal.setIdEstado(0);
+        when(sesionService.renovar("refresh"))
+                .thenReturn(new SesionService.SesionRenovada(personal, "refresh2",
+                        LocalDateTime.now().plusHours(8), LocalDateTime.now().plusHours(12)));
+
+        assertThrows(BadCredentialsException.class,
+                () -> authService.refrescar("refresh"));
+        verify(sesionService).revocarTodas(personal, "CUENTA_INACTIVA");
+    }
+
+    @Test
+    void logoutRevocaElRefreshToken() {
+        authService.logout("refresh");
+
+        verify(sesionService).revocar("refresh", "LOGOUT");
     }
 
     @Test

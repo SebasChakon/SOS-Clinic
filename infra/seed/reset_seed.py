@@ -278,6 +278,7 @@ def main() -> int:
         "2026-10-19-actividades.sql",
         "2026-10-21-claves.sql",
         "2026-10-22-seed-drift.sql",
+        "2026-10-27-sesiones.sql",
     ):
         ruta = ROOT / "infra" / "migraciones" / migracion
         if not ruta.exists():
