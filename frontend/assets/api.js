@@ -14,6 +14,11 @@ const BASE_URL = (
   ? 'http://localhost:8080'
   : '';
 
+/* El alta guarda el episodio y luego envia la cita, la historia en PDF y
+   consulta farmacias. Es una operacion larga: no debe cortarse a los 20 s. */
+const TIMEOUT_ALTA_MS = 120000;
+const MENSAJE_TIMEOUT_ALTA = 'La operación está tardando más de lo esperado. Pudo haberse completado; actualiza la página de seguimiento antes de volver a intentarlo.';
+
 /* ---------------------------------------------------------------------
    Sesion (token JWT guardado en el navegador)
    --------------------------------------------------------------------- */
@@ -183,7 +188,7 @@ async function llamarApi(ruta, opciones = {}) {
   } catch (error) {
     if (error.name === 'AbortError') {
       if (senalExterna && senalExterna.aborted) throw new Error('Solicitud cancelada.');
-      throw new Error('El servidor tardó demasiado en responder. Inténtalo de nuevo.');
+      throw new Error(opciones.mensajeTimeout || 'El servidor tardó demasiado en responder. Inténtalo de nuevo.');
     }
     throw new Error('No se pudo contactar al servidor. Verifica que eureka-server, ms-gateway y los microservicios estén corriendo.');
   } finally {
@@ -370,7 +375,10 @@ async function enviarCitaTeleconsulta(idPaciente, cita) {
 
 async function finalizarAtencion(idRegistro, datos) {
   const resultado = await llamarApi(`/ms-pacientes/pacientes/atenciones/${idRegistro}/finalizar`, {
-    method: 'POST', body: JSON.stringify(datos)
+    method: 'POST',
+    body: JSON.stringify(datos),
+    timeout: TIMEOUT_ALTA_MS,
+    mensajeTimeout: MENSAJE_TIMEOUT_ALTA
   });
   registrarAuditoria('ACTUALIZAR', `Triage #${idRegistro} dado de alta (alta + notificaciones en backend)`);
   return resultado;
@@ -378,7 +386,10 @@ async function finalizarAtencion(idRegistro, datos) {
 
 async function reenviarCorreosAtencion(idRegistro, datos) {
   return llamarApi(`/ms-pacientes/pacientes/atenciones/${idRegistro}/reenviar-correos`, {
-    method: 'POST', body: JSON.stringify(datos || {})
+    method: 'POST',
+    body: JSON.stringify(datos || {}),
+    timeout: TIMEOUT_ALTA_MS,
+    mensajeTimeout: MENSAJE_TIMEOUT_ALTA
   });
 }
 
